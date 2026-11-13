@@ -1,0 +1,6 @@
+{
+  "name": "TTG Portal · Educare, Research & Retreats",
+  "description": "TTG platform featuring Educare Pro study guides, Research Corner AI superagent, TTG Retreats bookings, and Stripe billing & subscriptions.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

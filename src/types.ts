@@ -173,18 +173,43 @@ export interface ResearchPaper {
   }[];
 }
 
+export interface QuizAttemptEntry {
+  id: string;
+  quizId: string;
+  quizTitle: string;
+  score: number;
+  minScoreToPass: number;
+  passed: boolean;
+  correctCount: number;
+  totalQuestions: number;
+  attemptedAt: string;
+}
+
+export interface ReadingProgressUpdateOptions {
+  chapterNote?: {
+    chapterIdx: number;
+    notes: string;
+  };
+  quizAttempt?: Omit<QuizAttemptEntry, 'id' | 'attemptedAt'>;
+  touchAccessOnly?: boolean;
+}
+
 export interface ReadingProgress {
   guideId: string;
   completedChapters: number[];
   progressPercent: number;
   lastReadDate: string;
+  lastAccessedAt?: string;
   isCompleted: boolean;
   notes?: string;
+  chapterNotes?: Record<number, string>;
   quizScores?: Record<string, number>;
+  quizHistory?: QuizAttemptEntry[];
   unlockedBadges?: string[];
   completionLog?: {
     chapterIdx: number;
     completedAt: string;
+    notes?: string;
   }[];
 }
 
@@ -571,6 +596,21 @@ export interface PeerReviewEntry {
   createdAt: string;
 }
 
+export interface CourseModuleFeedback {
+  id: string;
+  studentName: string;
+  studentEmail: string;
+  courseId: string;
+  courseTitle: string;
+  moduleIndex: number;
+  moduleTitle: string;
+  difficultyRating: number; // 1 (Too Easy) - 5 (Very Challenging)
+  clarityRating: number; // 1 (Unclear) - 5 (Crystal Clear)
+  focusArea: 'Difficulty' | 'Clarity' | 'Both';
+  comment: string;
+  createdAt: string;
+}
+
 export interface EnrolledStudentRecord {
   id: string;
   studentName: string;
@@ -588,6 +628,7 @@ export interface EnrolledStudentRecord {
   instructorFeedback?: string;
   subjectScores?: Record<string, number>;
   peerReviews?: PeerReviewEntry[];
+  courseFeedback?: CourseModuleFeedback[];
 }
 
 export interface OfflineAssignmentSubmission {
@@ -616,8 +657,116 @@ export interface SyncQueueItem {
   retryCount: number;
   progressPayload?: ReadingProgress;
   assignmentPayload?: OfflineAssignmentSubmission;
+  unsyncedNoteChapterIndices?: number[];
 }
 
 export type BackgroundSyncStatus = 'idle' | 'queued_offline' | 'syncing' | 'synced' | 'error';
+
+export interface SavedAcademicProgram {
+  qualificationId: string;
+  qualificationType: string;
+  level: 'Undergraduate' | 'Postgraduate' | 'Doctoral';
+  categoryKey: 'Engineering' | 'Business' | 'Health' | 'Science' | 'Humanities' | 'Education';
+  facultyId: string;
+  facultyName: string;
+  typicalDuration: string;
+  nqfCredits: string;
+  entryRequirement: string;
+  academicFocus: string;
+  assessmentFormat: string;
+  progressionPath: string;
+  coreModules: string[];
+  savedAt: string;
+}
+
+export type QctoModuleType = 'Knowledge Module' | 'Practical Skill Module' | 'Work Experience Module';
+
+export interface QctoModuleBreakdown {
+  code: string;
+  type: QctoModuleType;
+  shortType: 'KM' | 'PM' | 'WM';
+  title: string;
+  nqfLevel: number;
+  credits: number;
+  notionalHours: number;
+  purpose: string;
+  topics: string[];
+  assessmentEvidence: string[];
+  learningOutcomeAlignment?: string;
+}
+
+export interface QctoSkillsProgrammeBlueprint {
+  courseId: string;
+  courseTitle: string;
+  programmeTitle: string;
+  qualificationType: 'Occupational Skills Programme (QCTO Aligned Blueprint)';
+  suggestedOfoCode: string;
+  nqfLevel: number;
+  saqaCredits: number;
+  totalNotionalHours: number;
+  durationLabel: string;
+  studyModeSummary: string;
+  entryRequirements: string[];
+  purposeStatement: string;
+  accreditationStatusDisclosure: string;
+  componentSummary: {
+    knowledgeCredits: number;
+    knowledgeHours: number;
+    practicalCredits: number;
+    practicalHours: number;
+    workplaceCredits: number;
+    workplaceHours: number;
+  };
+  modules: QctoModuleBreakdown[];
+  eisaReadinessChecklist: string[];
+  recommendedSdpPath: string[];
+}
+
+export interface FocusAiRecommendationItem {
+  guideId: string;
+  courseTitle: string;
+  recommendationType: 'chapter' | 'quiz' | 'review';
+  priority: 'High' | 'Medium' | 'Foundational';
+  targetLabel: string;
+  rationale: string;
+  estimatedMinutes: number;
+  expectedImpact: string;
+}
+
+export interface FocusAiAnalysisResult {
+  generatedAt: string;
+  modelUsed: string;
+  coachHeadline: string;
+  performanceTrendSummary: string;
+  studyCadenceTip: string;
+  recommendations: FocusAiRecommendationItem[];
+}
+
+export interface TutorExplainResponse {
+  mode: 'explain' | 'breakdown' | 'custom';
+  summary: string;
+  explanation: string;
+  keyConcepts: string[];
+  studyCheckQuestion: string;
+  modelUsed: string;
+  generatedAt: string;
+}
+
+export interface TutorChatMessage {
+  id: string;
+  role: 'user' | 'tutor';
+  highlightedText?: string;
+  userPrompt: string;
+  mode?: 'explain' | 'breakdown' | 'custom';
+  courseContext?: string;
+  summary?: string;
+  explanation: string;
+  keyConcepts?: string[];
+  studyCheckQuestion?: string;
+  timestamp: string;
+  isError?: boolean;
+}
+
+
 
 

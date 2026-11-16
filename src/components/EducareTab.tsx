@@ -1,19 +1,21 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Lock, BookOpen, Clock, Sparkles, Send, CheckCircle2, ChevronRight, X, ArrowUpRight, Search, Bell, CheckSquare, Square, RotateCcw, FileEdit, Award, Plus, Cpu, BarChart, Trophy, Star, ShieldCheck, Download, MessageSquare, ListOrdered, Library, FileText, Type, Save, WifiOff, Check, CheckCheck, Wand2, AlertCircle, AlertTriangle, Info, FileDown, Heading1, Heading2, Quote, Eraser, GraduationCap, Video } from 'lucide-react';
+import { Lock, BookOpen, Clock, Sparkles, Send, CheckCircle2, ChevronRight, X, ArrowUpRight, Search, Bell, CheckSquare, Square, RotateCcw, FileEdit, Award, Plus, Cpu, BarChart, Trophy, Star, ShieldCheck, Download, MessageSquare, MessageSquarePlus, ListOrdered, Library, FileText, Type, Save, WifiOff, Check, CheckCheck, Wand2, AlertCircle, AlertTriangle, Info, FileDown, Heading1, Heading2, Quote, Eraser, GraduationCap, Video, Trash2, Layers } from 'lucide-react';
 import { SearchBar } from './SearchBar';
 import { CourseLeaderboardWidget } from './CourseLeaderboardWidget';
 import { AcademicDirectorySection } from './AcademicDirectorySection';
-import { AcademicCategoryKey } from '../data/academicCatalog';
+import { AcademicCategoryKey, AcademicFaculty, AcademicQualificationLevel } from '../data/academicCatalog';
 import { CATALOG_STATS, STUDENT_BADGES, GLOBAL_LEADERBOARD, LIBRARY_RESOURCES, STUDY_ACTIVITY, INITIAL_DOCUMENTS } from '../data/mockData';
-import { StudyGuide, UserProfile, ReadingProgress, Quiz, StudentBadge, MediaItem, AuthorDocument, StudyActivity, OfflineAssignmentSubmission, EnrolledStudentRecord, ApplicationPrefillData } from '../types';
+import { StudyGuide, UserProfile, ReadingProgress, ReadingProgressUpdateOptions, Quiz, StudentBadge, MediaItem, AuthorDocument, StudyActivity, OfflineAssignmentSubmission, EnrolledStudentRecord, ApplicationPrefillData } from '../types';
+import { QuizHistoryTimeline } from './QuizHistoryTimeline';
 import { analyzeDocumentText, applySuggestion, fixAllSafeSuggestions, calculateReadability, TextSuggestion } from '../utils/textQualityEngine';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { CourseCertificateModal } from './CourseCertificateModal';
 import { CourseCertificatesGalleryModal } from './CourseCertificatesGalleryModal';
+import { QctoBlueprintModal } from './QctoBlueprintModal';
 import { EDUCATION_COURSES } from '../data/artMediaData';
 import { formatCertificateSerial, getCertificateForStudyGuide, resolveCertificateByCategory } from '../data/certificatesData';
-import { loadLogoDataUrl } from '../utils/pdfBranding';
+import { loadLogoDataUrl, getFittedLogoSize } from '../utils/pdfBranding';
 import { 
   BarChart as ReBarChart, 
   Bar, 
@@ -31,10 +33,11 @@ interface EducareTabProps {
   user: UserProfile;
   studyGuides: StudyGuide[];
   readingProgress: Record<string, ReadingProgress>;
-  onUpdateProgress: (guideId: string, chapterIdx: number, totalChapters: number, notes?: string, quizScore?: number, badgeId?: string) => void;
+  onUpdateProgress: (guideId: string, chapterIdx: number, totalChapters: number, notes?: string, quizScore?: number, badgeId?: string, options?: ReadingProgressUpdateOptions) => void;
   onOpenReminders: (targetTitle?: string) => void;
   onTriggerPaywall: (featureName?: string, plan?: 'educare_pro' | 'research_pass') => void;
   onAddStudyGuide?: (guide: StudyGuide) => void;
+  onRemoveStudyGuide?: (guideId: string) => void;
   targetGuideId?: string;
   onClearTargetGuide?: () => void;
   onOpenExportReport?: () => void;
@@ -52,6 +55,15 @@ interface EducareTabProps {
   onEnrollInCourse?: (guide: StudyGuide) => void;
   selectedAcademicCategory?: 'all' | AcademicCategoryKey;
   onSelectAcademicCategory?: (category: 'all' | AcademicCategoryKey) => void;
+  savedProgramIds?: string[];
+  onToggleSaveProgram?: (qual: AcademicQualificationLevel, faculty?: AcademicFaculty) => void;
+  comparedProgramIds?: string[];
+  onToggleCompareProgram?: (qualId: string) => void;
+  onClearComparedPrograms?: () => void;
+  onOpenCompareModal?: () => void;
+  onOpenSavedProgramsProfile?: () => void;
+  onOpenStudentFeedback?: (courseId?: string, moduleIndex?: number) => void;
+  onActiveStudyContextChange?: (context: { courseTitle?: string; chapterTitle?: string } | null) => void;
 }
 
 export const EducareTab: React.FC<EducareTabProps> = ({
@@ -62,6 +74,7 @@ export const EducareTab: React.FC<EducareTabProps> = ({
   onOpenReminders,
   onTriggerPaywall,
   onAddStudyGuide,
+  onRemoveStudyGuide,
   targetGuideId,
   onClearTargetGuide,
   onOpenExportReport,
@@ -79,13 +92,37 @@ export const EducareTab: React.FC<EducareTabProps> = ({
   onEnrollInCourse,
   selectedAcademicCategory,
   onSelectAcademicCategory,
+  savedProgramIds = [],
+  onToggleSaveProgram,
+  comparedProgramIds = [],
+  onToggleCompareProgram,
+  onClearComparedPrograms,
+  onOpenCompareModal,
+  onOpenSavedProgramsProfile,
+  onOpenStudentFeedback,
+  onActiveStudyContextChange,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeGuide, setActiveGuide] = useState<StudyGuide | null>(null);
+
+  useEffect(() => {
+    if (!onActiveStudyContextChange) return;
+    if (activeGuide) {
+      onActiveStudyContextChange({
+        courseTitle: activeGuide.title,
+        chapterTitle: activeGuide.chapters?.[0]?.title,
+      });
+    } else {
+      onActiveStudyContextChange(null);
+    }
+  }, [activeGuide, onActiveStudyContextChange]);
   const [expandedLeaderboardGuideId, setExpandedLeaderboardGuideId] = useState<string | null>(null);
   const [guideNote, setGuideNote] = useState<string>('');
   const [isNoteSaved, setIsNoteSaved] = useState<boolean>(false);
+  const [expandedChapterNoteIdx, setExpandedChapterNoteIdx] = useState<number | null>(null);
+  const [chapterNoteDrafts, setChapterNoteDrafts] = useState<Record<number, string>>({});
+  const [savedChapterNoteIdx, setSavedChapterNoteIdx] = useState<number | null>(null);
   const [isAiCourseModalOpen, setIsAiCourseModalOpen] = useState(false);
   const [aiCourseTopic, setAiCourseTopic] = useState('');
   const [isGeneratingAiCourse, setIsGeneratingAiCourse] = useState(false);
@@ -95,6 +132,7 @@ export const EducareTab: React.FC<EducareTabProps> = ({
   const [assignmentSubmittedNotice, setAssignmentSubmittedNotice] = useState<string | null>(null);
   const [certificateGuide, setCertificateGuide] = useState<StudyGuide | null>(null);
   const [isCertificatesGalleryOpen, setIsCertificatesGalleryOpen] = useState(false);
+  const [blueprintGuide, setBlueprintGuide] = useState<StudyGuide | null>(null);
 
   // PDF Report Generation
   const handleDownloadReport = async () => {
@@ -102,17 +140,18 @@ export const EducareTab: React.FC<EducareTabProps> = ({
     const logoDataUrl = await loadLogoDataUrl();
     const doc = new jsPDF();
     
-    // Header with Tai-one Logo
+    // Header with Tsoaela Logo
+    const fitted = getFittedLogoSize(32, 18);
     if (logoDataUrl) {
-      doc.addImage(logoDataUrl, 'JPEG', 14, 12, 18, 18);
+      doc.addImage(logoDataUrl, 'JPEG', 14, 12, fitted.width, fitted.height);
     }
-    const headerX = logoDataUrl ? 36 : 14;
+    const headerX = logoDataUrl ? 14 + fitted.width + 6 : 14;
     doc.setFontSize(18);
     doc.text('TTG Educare Student Progress Report', headerX, 20);
     doc.setFontSize(10);
     doc.setTextColor(100);
     doc.text(`Student: ${user.name} (${user.email})`, headerX, 27);
-    doc.text(`Date Generated: ${new Date().toLocaleDateString()} · Tai-one Digital Developer`, 14, 36);
+    doc.text(`Date Generated: ${new Date().toLocaleDateString()} · TTG - Tsoaela Training Ground Platform`, 14, 36);
     doc.text(`Tier: ${user.subscription_tier.replace('_', ' ').toUpperCase()}`, 14, 41);
 
     // Summary Section
@@ -168,7 +207,7 @@ export const EducareTab: React.FC<EducareTabProps> = ({
       doc.setPage(i);
       doc.setFontSize(10);
       doc.setTextColor(150);
-      doc.text('TAI-ONE Studio · Tsoaela Training Ground Platform', 14, doc.internal.pageSize.getHeight() - 10);
+      doc.text('TTG - Tsoaela Training Ground Platform', 14, doc.internal.pageSize.getHeight() - 10);
       doc.text(`Page ${i} of ${pageCount}`, doc.internal.pageSize.getWidth() - 30, doc.internal.pageSize.getHeight() - 10);
     }
 
@@ -353,14 +392,15 @@ export const EducareTab: React.FC<EducareTabProps> = ({
       setTimeout(() => setExportFeedback(null), 5000);
     } catch (err: any) {
       console.warn('Headless PDF export fallback triggered:', err);
-      // Client-side fallback using jsPDF with Tai-one Logo
+      // Client-side fallback using jsPDF with Tsoaela Logo
       try {
         const logoDataUrl = await loadLogoDataUrl();
         const fallbackPdf = new jsPDF();
+        const fitted = getFittedLogoSize(30, 16);
         if (logoDataUrl) {
-          fallbackPdf.addImage(logoDataUrl, 'JPEG', 14, 12, 16, 16);
+          fallbackPdf.addImage(logoDataUrl, 'JPEG', 14, 12, fitted.width, fitted.height);
         }
-        const titleX = logoDataUrl ? 34 : 14;
+        const titleX = logoDataUrl ? 14 + fitted.width + 6 : 14;
         fallbackPdf.setFont('helvetica', 'bold');
         fallbackPdf.setFontSize(18);
         fallbackPdf.text(activeDocument.title || 'Untitled Document', titleX, 21);
@@ -368,7 +408,7 @@ export const EducareTab: React.FC<EducareTabProps> = ({
         fallbackPdf.setFont('helvetica', 'normal');
         fallbackPdf.setFontSize(9);
         fallbackPdf.setTextColor(100, 100, 100);
-        fallbackPdf.text(`Tai-one Digital Developer · Author: ${user.name} | Date: ${activeDocument.last_modified} | Words: ${textQualityAnalysis.stats.wordCount}`, 14, 32);
+        fallbackPdf.text(`TTG - Tsoaela Training Ground Platform · Author: ${user.name} | Date: ${activeDocument.last_modified} | Words: ${textQualityAnalysis.stats.wordCount}`, 14, 32);
         
         fallbackPdf.setDrawColor(200, 200, 200);
         fallbackPdf.line(14, 36, 196, 36);
@@ -408,10 +448,9 @@ export const EducareTab: React.FC<EducareTabProps> = ({
   // Available category options for filtering
   const educareCategories = useMemo(() => [
     { id: 'all', label: 'All Modules' },
-    { id: 'accredited', label: 'Accredited Courses' },
+    { id: 'accredited', label: 'Quality-Verified Courses' },
     { id: 'short_term', label: 'Short-term (3-6m)' },
     { id: 'long_term', label: 'Long-term (6-7y)' },
-    { id: 'ai_courses', label: 'AI Courses (AI Generated)' },
     { id: 'free', label: 'Open Access ($0)' },
     { id: 'premium', label: 'Educare Pro ($5-$10)' },
   ], []);
@@ -434,7 +473,6 @@ export const EducareTab: React.FC<EducareTabProps> = ({
       // Category filter
       if (selectedCategory === 'free' && guide.is_premium) return false;
       if (selectedCategory === 'premium' && !guide.is_premium) return false;
-      if (selectedCategory === 'ai_courses' && !guide.category.includes('AI Courses') && !guide.is_ai_generated) return false;
       if (selectedCategory === 'accredited' && !guide.is_accredited) return false;
       if (selectedCategory === 'short_term' && guide.duration_type !== 'short_term') return false;
       if (selectedCategory === 'long_term' && guide.duration_type !== 'long_term') return false;
@@ -443,7 +481,6 @@ export const EducareTab: React.FC<EducareTabProps> = ({
         selectedCategory !== 'all' && 
         selectedCategory !== 'free' && 
         selectedCategory !== 'premium' && 
-        selectedCategory !== 'ai_courses' &&
         selectedCategory !== 'accredited' &&
         selectedCategory !== 'short_term' &&
         selectedCategory !== 'long_term'
@@ -497,7 +534,7 @@ export const EducareTab: React.FC<EducareTabProps> = ({
       guides.filter(g => readingProgress[g.id]?.isCompleted).length;
 
     return [
-      { name: 'Accredited', value: getCompletedCount(accredited), total: accredited.length, fill: '#f59e0b' },
+      { name: 'Quality-Verified', value: getCompletedCount(accredited), total: accredited.length, fill: '#f59e0b' },
       { name: 'Standard', value: getCompletedCount(nonAccredited), total: nonAccredited.length, fill: '#78716c' },
     ];
   }, [studyGuides, readingProgress]);
@@ -511,17 +548,16 @@ export const EducareTab: React.FC<EducareTabProps> = ({
       const newGuide: StudyGuide = {
         id: `sg_ai_custom_${Date.now()}`,
         title: generatedTitle,
-        category: 'AI Courses (AI Generated)',
-        field: 'Synthetic Reasoning & AI Systems',
+        category: 'Frontier AI & Systems',
+        field: 'Custom AI Curriculum',
         reading_time: '45 min read',
         difficulty: 'Advanced',
         is_premium: false,
-        is_ai_generated: true,
         is_accredited: true,
-        accreditor_name: 'TTG AI Synthetics Board',
+        accreditor_name: 'TTG - Tsoaela Training Ground Platform',
         duration_type: 'short_term',
         duration_label: '3 Months',
-        abstract: `Autonomous generative curriculum synthesizing frontier principles, formal invariants, and operational workflows for ${generatedTitle}.`,
+        abstract: `Autonomous curriculum synthesizing frontier principles, formal invariants, and operational workflows for ${generatedTitle}.`,
         learning_outcomes: [
           `Deconstruct core theoretical foundations of ${generatedTitle}`,
           'Map error-compounding thresholds and mitigation circuit breakers',
@@ -544,9 +580,9 @@ export const EducareTab: React.FC<EducareTabProps> = ({
         certificate: resolveCertificateByCategory({
           id: `sg_ai_custom_${Date.now()}`,
           title: generatedTitle,
-          category: 'AI Courses (AI Generated)',
-          field: 'Synthetic Reasoning & AI Systems',
-          accreditor: 'TTG AI Synthetics Board',
+          category: 'Frontier AI & Systems',
+          field: 'Custom AI Curriculum',
+          accreditor: 'TTG - Tsoaela Training Ground Platform',
         }),
       };
 
@@ -556,7 +592,7 @@ export const EducareTab: React.FC<EducareTabProps> = ({
       setIsGeneratingAiCourse(false);
       setIsAiCourseModalOpen(false);
       setAiCourseTopic('');
-      setSelectedCategory('ai_courses');
+      setSelectedCategory('all');
     }, 1000);
   };
 
@@ -580,17 +616,50 @@ export const EducareTab: React.FC<EducareTabProps> = ({
       const existing = readingProgress[guide.id];
       setGuideNote(existing?.notes || '');
       setIsNoteSaved(false);
+      setChapterNoteDrafts(existing?.chapterNotes ? { ...existing.chapterNotes } : {});
+      setExpandedChapterNoteIdx(null);
+      setSavedChapterNoteIdx(null);
+      onUpdateProgress(
+        guide.id,
+        -1,
+        guide.chapters.length,
+        undefined,
+        undefined,
+        undefined,
+        { touchAccessOnly: true }
+      );
     }
   };
 
   const handleSaveGuideNote = () => {
     if (!activeGuide) return;
-    const progress = readingProgress[activeGuide.id];
-    const completedChapters = progress?.completedChapters || [];
     // Call progress update to save notes
     onUpdateProgress(activeGuide.id, -1, activeGuide.chapters.length, guideNote);
     setIsNoteSaved(true);
     setTimeout(() => setIsNoteSaved(false), 2500);
+  };
+
+  const handleSaveChapterNote = (chapterIdx: number) => {
+    if (!activeGuide) return;
+    const noteText = chapterNoteDrafts[chapterIdx] ?? '';
+    onUpdateProgress(
+      activeGuide.id,
+      -1,
+      activeGuide.chapters.length,
+      undefined,
+      undefined,
+      undefined,
+      {
+        chapterNote: {
+          chapterIdx,
+          notes: noteText,
+        },
+      }
+    );
+    setSavedChapterNoteIdx(chapterIdx);
+    setTimeout(() => {
+      setSavedChapterNoteIdx((prev) => (prev === chapterIdx ? null : prev));
+    }, 2500);
   };
 
   const handleAskSuperagent = (e: React.FormEvent) => {
@@ -650,16 +719,25 @@ export const EducareTab: React.FC<EducareTabProps> = ({
     
     setQuizResult({ score, passed });
 
-    if (passed) {
-      onUpdateProgress(
-        activeGuide.id, 
-        -1, 
-        activeGuide.chapters.length, 
-        undefined, 
-        score, 
-        activeQuiz.badgeId
-      );
-    }
+    onUpdateProgress(
+      activeGuide.id,
+      -1,
+      activeGuide.chapters.length,
+      undefined,
+      score,
+      passed ? activeQuiz.badgeId : undefined,
+      {
+        quizAttempt: {
+          quizId: activeQuiz.id,
+          quizTitle: activeQuiz.title,
+          score,
+          minScoreToPass: activeQuiz.minScoreToPass,
+          passed,
+          correctCount,
+          totalQuestions: activeQuiz.questions.length,
+        },
+      }
+    );
   };
 
   const handleCloseQuiz = () => {
@@ -690,7 +768,7 @@ export const EducareTab: React.FC<EducareTabProps> = ({
             </p>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
             <button
               type="button"
               onClick={onOpenExportReport || handleDownloadReport}
@@ -722,10 +800,10 @@ export const EducareTab: React.FC<EducareTabProps> = ({
                 type="button"
                 onClick={onOpenAccreditation}
                 className="px-3.5 py-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-center gap-1.5 transition-colors shadow-xs"
-                title="Free Institutional Accreditation & Productivity Registry"
+                title="Internal Quality Assurance & Curriculum Self-Audit"
               >
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                <span>Accreditation ($0)</span>
+                <span>Internal QA ($0)</span>
               </button>
             )}
 
@@ -868,10 +946,10 @@ export const EducareTab: React.FC<EducareTabProps> = ({
         <div className="p-6 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl flex flex-col">
           <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2 mb-1">
             <ShieldCheck className="w-4 h-4 text-amber-500" />
-            Accreditation Status
+            Curriculum QA Status
           </h3>
           <p className="text-[11px] text-stone-500 dark:text-stone-400 mb-6">
-            Professional level verification.
+            Internal quality-check completion.
           </p>
 
           <div className="flex-1 flex items-center justify-center relative">
@@ -911,7 +989,7 @@ export const EducareTab: React.FC<EducareTabProps> = ({
               <span className="text-xl font-bold text-stone-900 dark:text-stone-100 font-mono">
                 {accreditationStats[0].value}
               </span>
-              <span className="text-[10px] text-stone-500 uppercase font-bold tracking-tighter">Verified</span>
+              <span className="text-[10px] text-stone-500 uppercase font-bold tracking-tighter">QA Checked</span>
             </div>
           </div>
 
@@ -1247,15 +1325,6 @@ export const EducareTab: React.FC<EducareTabProps> = ({
                       )}
                       <span aria-hidden="true">·</span>
                       <span>{guide.reading_time}</span>
-                      {guide.is_ai_generated && (
-                        <>
-                          <span aria-hidden="true">·</span>
-                          <span className="text-purple-700 dark:text-purple-400 font-semibold font-mono flex items-center gap-1">
-                            <Sparkles className="w-3 h-3" />
-                            <span>AI GENERATED</span>
-                          </span>
-                        </>
-                      )}
                     </div>
 
                     <div className="flex items-center gap-1.5">
@@ -1303,7 +1372,7 @@ export const EducareTab: React.FC<EducareTabProps> = ({
                     <div className="mt-3 flex items-center gap-2">
                       <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800 flex items-center gap-1.5 uppercase tracking-wider">
                         <ShieldCheck className="w-3 h-3" />
-                        <span>Accredited · {guide.accreditor_name}</span>
+                        <span>Quality-Checked · {guide.accreditor_name}</span>
                       </span>
                     </div>
                   )}
@@ -1369,9 +1438,50 @@ export const EducareTab: React.FC<EducareTabProps> = ({
                     >
                       <Bell className="w-3.5 h-3.5" />
                     </button>
+                    {onOpenStudentFeedback && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const completedCountForGuide = readingProgress[guide.id]?.completedChapters?.length || 0;
+                          const targetIdx =
+                            completedCountForGuide > 0
+                              ? Math.min(guide.chapters.length - 1, completedCountForGuide - 1)
+                              : 0;
+                          onOpenStudentFeedback(guide.id, targetIdx);
+                        }}
+                        className="text-stone-400 hover:text-indigo-600 dark:hover:text-indigo-400 p-1 rounded transition-colors cursor-pointer"
+                        title="Submit module difficulty or clarity feedback for faculty"
+                        aria-label={`Submit module feedback for ${guide.title}`}
+                      >
+                        <MessageSquarePlus className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {onRemoveStudyGuide && guide.id.startsWith('sg_ai_custom_') && (
+                      <button
+                        type="button"
+                        onClick={() => onRemoveStudyGuide(guide.id)}
+                        className="text-stone-400 hover:text-rose-600 dark:hover:text-rose-400 p-1 rounded transition-colors cursor-pointer"
+                        title="Remove custom course"
+                        aria-label={`Remove ${guide.title}`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-2 flex-wrap justify-end">
+                    {(guide.category === 'Frontier AI & Systems' || guide.is_ai_generated) && (
+                      <button
+                        type="button"
+                        onClick={() => setBlueprintGuide(guide)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 transition-colors cursor-pointer whitespace-nowrap"
+                        title="View QCTO Occupational Skills Programme Blueprint (NQF level, notional hours, and KM/PM/WM modules)"
+                      >
+                        <Layers className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                        <span>QCTO Blueprint</span>
+                      </button>
+                    )}
+
                     <button
                       type="button"
                       onClick={() => setCertificateGuide(guide)}
@@ -1465,6 +1575,13 @@ export const EducareTab: React.FC<EducareTabProps> = ({
           setIsAiCourseModalOpen(true);
         }}
         onFilterCatalogByProgram={(term) => setSearchQuery(term)}
+        savedProgramIds={savedProgramIds}
+        onToggleSaveProgram={onToggleSaveProgram}
+        comparedProgramIds={comparedProgramIds}
+        onToggleCompareProgram={onToggleCompareProgram}
+        onClearComparedPrograms={onClearComparedPrograms}
+        onOpenCompareModal={onOpenCompareModal}
+        onOpenSavedProgramsProfile={onOpenSavedProgramsProfile}
       />
 
       {/* Educare AI Superagent Section */}
@@ -1627,6 +1744,18 @@ export const EducareTab: React.FC<EducareTabProps> = ({
                   </div>
                   
                   <div className="flex items-center gap-2">
+                    {(activeGuide.category === 'Frontier AI & Systems' || activeGuide.is_ai_generated) && (
+                      <button
+                        type="button"
+                        onClick={() => setBlueprintGuide(activeGuide)}
+                        className="px-3 py-1.5 text-xs font-semibold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 dark:hover:bg-amber-900/60 border border-amber-300 dark:border-amber-800 rounded-lg flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer whitespace-nowrap"
+                        title="View QCTO Occupational Skills Programme Blueprint"
+                      >
+                        <Layers className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                        <span className="hidden sm:inline">QCTO Blueprint</span>
+                      </button>
+                    )}
+
                     <button
                       type="button"
                       onClick={() => setCertificateGuide(activeGuide)}
@@ -1646,6 +1775,25 @@ export const EducareTab: React.FC<EducareTabProps> = ({
                       >
                         <Video className="w-3.5 h-3.5 text-purple-200" />
                         <span>Study Group Room</span>
+                      </button>
+                    )}
+
+                    {onOpenStudentFeedback && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onOpenStudentFeedback(
+                            activeGuide.id,
+                            completedChapters.length > 0
+                              ? Math.min(activeGuide.chapters.length - 1, completedChapters.length - 1)
+                              : 0
+                          )
+                        }
+                        className="px-2.5 py-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 border border-indigo-200 dark:border-indigo-800 rounded-lg flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
+                        title="Share module difficulty or clarity feedback with faculty"
+                      >
+                        <MessageSquarePlus className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                        <span className="hidden sm:inline">Module Feedback</span>
                       </button>
                     )}
 
@@ -1721,17 +1869,20 @@ export const EducareTab: React.FC<EducareTabProps> = ({
 
                   {activeGuide.chapters.map((chapter, idx) => {
                     const isChapterDone = completedChapters.includes(idx);
+                    const savedChapterNote = progress?.chapterNotes?.[idx] || '';
+                    const isChapterNoteExpanded = expandedChapterNoteIdx === idx;
+                    const draftNote = chapterNoteDrafts[idx] ?? savedChapterNote;
 
                     return (
                       <div 
                         key={idx} 
-                        className={`p-4 rounded-xl border transition-all ${
+                        className={`p-4 rounded-xl border transition-all space-y-3 ${
                           isChapterDone
                             ? 'border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/30 dark:bg-emerald-950/20'
                             : 'border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900'
                         }`}
                       >
-                        <div className="flex items-start justify-between gap-3 mb-2">
+                        <div className="flex items-start justify-between gap-3">
                           <div className="flex items-start gap-2.5">
                             <button
                               type="button"
@@ -1749,27 +1900,107 @@ export const EducareTab: React.FC<EducareTabProps> = ({
                                 <Square className="w-4 h-4" />
                               )}
                             </button>
-                            <h4 className={`text-base font-bold tracking-tight ${
-                              isChapterDone 
-                                ? 'text-stone-900 dark:text-stone-100' 
-                                : 'text-stone-900 dark:text-stone-100'
-                            }`}>
+                            <h4 className="text-base font-bold tracking-tight text-stone-900 dark:text-stone-100">
                               Chapter {idx + 1}: {chapter.title}
                             </h4>
                           </div>
 
-                          <span className={`text-[10px] font-mono px-2 py-0.5 rounded uppercase tracking-wider font-semibold shrink-0 ${
-                            isChapterDone
-                              ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300'
-                              : 'bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400'
-                          }`}>
-                            {isChapterDone ? 'Completed' : 'Pending'}
-                          </span>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setChapterNoteDrafts((prev) => ({
+                                  ...prev,
+                                  [idx]: prev[idx] ?? savedChapterNote,
+                                }));
+                                setExpandedChapterNoteIdx((prev) => (prev === idx ? null : idx));
+                              }}
+                              className={`px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1 border transition-colors cursor-pointer ${
+                                savedChapterNote.trim()
+                                  ? 'bg-amber-50 dark:bg-amber-950/50 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300'
+                                  : 'bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700'
+                              }`}
+                            >
+                              <FileEdit className="w-3 h-3" />
+                              <span>
+                                {isChapterNoteExpanded
+                                  ? 'Close Notes'
+                                  : savedChapterNote.trim()
+                                  ? 'Edit Summary'
+                                  : 'Add Summary'}
+                              </span>
+                            </button>
+
+                            <span className={`text-[10px] font-mono px-2 py-0.5 rounded uppercase tracking-wider font-semibold shrink-0 ${
+                              isChapterDone
+                                ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300'
+                                : 'bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400'
+                            }`}>
+                              {isChapterDone ? 'Completed' : 'Pending'}
+                            </span>
+                          </div>
                         </div>
 
                         <p className="text-stone-700 dark:text-stone-300 text-xs sm:text-sm leading-relaxed pl-7">
                           {chapter.content}
                         </p>
+
+                        {/* Saved Chapter Summary Preview */}
+                        {!isChapterNoteExpanded && savedChapterNote.trim() && (
+                          <div className="ml-7 p-2.5 rounded-lg bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200/70 dark:border-amber-800/60 text-xs text-stone-700 dark:text-stone-300 flex items-start justify-between gap-2">
+                            <div className="space-y-0.5">
+                              <span className="text-[10px] font-mono uppercase tracking-wider font-bold text-amber-800 dark:text-amber-300 block">
+                                Chapter {idx + 1} Personal Study Summary
+                              </span>
+                              <p className="leading-relaxed italic">&ldquo;{savedChapterNote}&rdquo;</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Inline Chapter Summary Editor */}
+                        {isChapterNoteExpanded && (
+                          <div className="ml-7 p-3 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-950 space-y-2">
+                            <div className="flex items-center justify-between text-[11px]">
+                              <span className="font-bold text-stone-800 dark:text-stone-200 flex items-center gap-1.5">
+                                <FileEdit className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                                <span>Chapter {idx + 1} Study Summary</span>
+                              </span>
+                              {savedChapterNoteIdx === idx && (
+                                <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                  <CheckCircle2 className="w-3 h-3" /> Saved to ReadingProgress
+                                </span>
+                              )}
+                            </div>
+                            <textarea
+                              rows={2}
+                              value={draftNote}
+                              onChange={(e) =>
+                                setChapterNoteDrafts((prev) => ({
+                                  ...prev,
+                                  [idx]: e.target.value,
+                                }))
+                              }
+                              placeholder={`Write your personal study summary for Chapter ${idx + 1}: ${chapter.title}...`}
+                              className="w-full p-2 text-xs border border-stone-300 dark:border-stone-700 rounded-lg bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-amber-600"
+                            />
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setExpandedChapterNoteIdx(null)}
+                                className="px-2.5 py-1 text-[11px] font-medium text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 cursor-pointer"
+                              >
+                                Close
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleSaveChapterNote(idx)}
+                                className="px-3 py-1 text-[11px] font-semibold rounded-lg bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 hover:bg-stone-800 dark:hover:bg-stone-200 transition-colors cursor-pointer"
+                              >
+                                Save Chapter Summary
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -1805,6 +2036,13 @@ export const EducareTab: React.FC<EducareTabProps> = ({
                     </button>
                   </div>
                 </div>
+
+                {/* Course Quiz History Timeline */}
+                <QuizHistoryTimeline
+                  guide={activeGuide}
+                  progress={progress}
+                  onStartQuiz={handleStartQuiz}
+                />
 
                 {/* Course Assignment Submission (Offline-Ready & Auto-Synced) */}
                 {onSubmitAssignment && (
@@ -2656,6 +2894,17 @@ export const EducareTab: React.FC<EducareTabProps> = ({
           />
         );
       })()}
+
+      {/* QCTO Occupational Skills Programme Blueprint Modal */}
+      <QctoBlueprintModal
+        isOpen={Boolean(blueprintGuide)}
+        guide={blueprintGuide}
+        allAiGuides={studyGuides.filter(
+          (g) => g.category === 'Frontier AI & Systems' || g.is_ai_generated
+        )}
+        onSelectGuide={(nextGuide) => setBlueprintGuide(nextGuide)}
+        onClose={() => setBlueprintGuide(null)}
+      />
     </div>
   );
 };

@@ -118,20 +118,22 @@ export const CourseCertificateCard: React.FC<CourseCertificateCardProps> = ({
         {/* Top Crest Row: Tai-one Official Logo + Issuing Institution + Category */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#84cc16]/30 pb-4">
           <div className="flex items-center gap-3.5">
-            <div className="p-0.5 rounded-full bg-gradient-to-br from-[#bef264] via-[#a3b828] to-[#064e3b] shadow-lg shrink-0">
+            <div className="p-1 rounded-xl bg-white ring-2 ring-[#bef264]/80 shadow-lg shrink-0">
               <img
                 src={TAI_ONE_LOGO_URL}
-                alt="Tai-one Digital Developer Official Crest"
+                alt="TTG - Tsoaela Training Ground Platform Crest"
                 referrerPolicy="no-referrer"
-                className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover border border-[#022c22]"
+                className="h-12 sm:h-14 w-auto object-contain rounded-lg"
               />
             </div>
             <div>
               <div className="text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-[#bef264]">
-                Tai-one Digital Developer · TTG Academy
+                TTG - Tsoaela Training Ground Platform
               </div>
               <div className="text-xs sm:text-sm font-bold text-[#fefce8] tracking-wide">
-                {certificate.accreditor}
+                {/tai-one\s+ai\s+standard\s+board/i.test(certificate.accreditor)
+                  ? 'TTG - Tsoaela Training Ground Platform'
+                  : certificate.accreditor}
               </div>
               <div className="text-[11px] text-[#a3e635]/90 font-mono">
                 Category: {certificate.categoryKey}
@@ -144,12 +146,12 @@ export const CourseCertificateCard: React.FC<CourseCertificateCardProps> = ({
               {isEarned ? (
                 <>
                   <CheckCircle2 className="w-3.5 h-3.5 text-[#a3e635]" />
-                  <span>Earned & Verified</span>
+                  <span>Completed (Internal Record)</span>
                 </>
               ) : (
                 <>
                   <ShieldCheck className="w-3.5 h-3.5 text-[#eab308]" />
-                  <span>Attached Credential · {progressPercent}% Complete</span>
+                  <span>Completion Track · {progressPercent}% Complete</span>
                 </>
               )}
             </span>
@@ -168,7 +170,7 @@ export const CourseCertificateCard: React.FC<CourseCertificateCardProps> = ({
             {certificate.credentialTitle}
           </h3>
           <p className="text-xs text-[#d9f99d]/85 max-w-2xl mx-auto">
-            This official academic credential is proudly attached and conferred upon
+            This internal platform completion certificate records self-paced study by
           </p>
 
           <div className="pt-1 pb-1">
@@ -179,7 +181,7 @@ export const CourseCertificateCard: React.FC<CourseCertificateCardProps> = ({
           </div>
 
           <p className="text-xs sm:text-sm text-[#ecfccb] font-semibold max-w-2xl mx-auto pt-1">
-            for mastery and structured inquiry in <span className="text-[#bef264] font-bold">{courseTitle}</span>
+            for completing study modules in <span className="text-[#bef264] font-bold">{courseTitle}</span>
           </p>
         </div>
 
@@ -204,8 +206,8 @@ export const CourseCertificateCard: React.FC<CourseCertificateCardProps> = ({
             </div>
             <div className="text-[#d9f99d]/80">
               {quizScore !== undefined
-                ? `Assessment Score Verified: ${quizScore}% · Texture: ${certificate.accentTone}`
-                : `Texture Profile: ${certificate.accentTone}`}
+                ? `Self-Assessment Score: ${quizScore}% · Non-Accredited Platform Record`
+                : `Internal Completion Record · Non-Accredited`}
             </div>
           </div>
 
@@ -214,7 +216,7 @@ export const CourseCertificateCard: React.FC<CourseCertificateCardProps> = ({
             <div className="text-right">
               <div className="text-xs font-bold text-[#fef08a]">{certificate.sealTitle}</div>
               <div className="text-[10px] font-mono text-[#bef264]/80">
-                Tai-one Digital Developer Certified
+                Internal Completion Record · Non-Accredited
               </div>
             </div>
             <div

@@ -1,11 +1,38 @@
-export const TAI_ONE_LOGO_URL = '/assets/aistudio/InShot_20260522_150628190_3d2729ca.jpg';
+export const TTG_LOGO_URL =
+  '/assets/aistudio/Gemini_Generated_Image_3a0ub83a0ub83a0u_8153a2b2.jpeg';
+
+// Backwards-compatible alias for existing certificate and export imports
+export const TAI_ONE_LOGO_URL = TTG_LOGO_URL;
+
+// Natural image aspect ratio (1376 x 768)
+export const TTG_LOGO_ASPECT_RATIO = 1376 / 768;
 
 let cachedLogoDataUrl: string | null = null;
 let logoLoadPromise: Promise<string | null> | null = null;
 
 /**
- * Loads the Tai-one official brand logo as a Base64 Data URL for client-side jsPDF
- * documents and certificates, with in-memory memoization.
+ * Computes aspect-preserving width/height inside a bounding box so the
+ * Tsoaela Training Ground Platform logo never stretches or crops.
+ */
+export function getFittedLogoSize(
+  maxWidth: number,
+  maxHeight: number
+): { width: number; height: number } {
+  if (maxWidth / maxHeight > TTG_LOGO_ASPECT_RATIO) {
+    return {
+      width: maxHeight * TTG_LOGO_ASPECT_RATIO,
+      height: maxHeight,
+    };
+  }
+  return {
+    width: maxWidth,
+    height: maxWidth / TTG_LOGO_ASPECT_RATIO,
+  };
+}
+
+/**
+ * Loads the official Tsoaela Training Ground Platform logo as a Base64 Data URL
+ * for client-side jsPDF documents and certificates, with in-memory memoization.
  */
 export async function loadLogoDataUrl(): Promise<string | null> {
   if (cachedLogoDataUrl) return cachedLogoDataUrl;
@@ -13,7 +40,7 @@ export async function loadLogoDataUrl(): Promise<string | null> {
 
   logoLoadPromise = (async () => {
     try {
-      const response = await fetch(TAI_ONE_LOGO_URL);
+      const response = await fetch(TTG_LOGO_URL);
       if (response.ok) {
         const blob = await response.blob();
         const dataUrl = await new Promise<string | null>((resolve) => {
@@ -40,8 +67,8 @@ export async function loadLogoDataUrl(): Promise<string | null> {
         img.onload = () => {
           try {
             const canvas = document.createElement('canvas');
-            canvas.width = img.naturalWidth || 256;
-            canvas.height = img.naturalHeight || 256;
+            canvas.width = img.naturalWidth || 1376;
+            canvas.height = img.naturalHeight || 768;
             const ctx = canvas.getContext('2d');
             if (!ctx) return resolve(null);
             ctx.drawImage(img, 0, 0);
@@ -51,7 +78,7 @@ export async function loadLogoDataUrl(): Promise<string | null> {
           }
         };
         img.onerror = () => resolve(null);
-        img.src = TAI_ONE_LOGO_URL;
+        img.src = TTG_LOGO_URL;
       });
       if (dataUrl) {
         cachedLogoDataUrl = dataUrl;

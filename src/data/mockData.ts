@@ -115,14 +115,14 @@ export const STUDY_GUIDES: StudyGuide[] = [
   {
     id: 'sg_ai_test_time_search',
     title: 'Large Reasoning Models (LRMs) & Test-Time Search Compute',
-    category: 'AI Courses (AI Generated)',
+    category: 'Frontier AI & Systems',
     field: 'Frontier AI & Search Theory',
     reading_time: '45 min read',
     difficulty: 'Advanced',
     is_premium: true,
     is_ai_generated: true,
     is_accredited: true,
-    accreditor_name: 'TAI-ONE AI Standards Board',
+    accreditor_name: 'TTG AI Curriculum Division (Internal QA)',
     duration_type: 'short_term',
     duration_label: '4 Months',
     professional_level: 'professional',
@@ -161,9 +161,9 @@ export const STUDY_GUIDES: StudyGuide[] = [
     certificate: resolveCertificateByCategory({
       id: 'sg_ai_test_time_search',
       title: 'Large Reasoning Models (LRMs) & Test-Time Search Compute',
-      category: 'AI Courses (AI Generated)',
+      category: 'Frontier AI & Systems',
       field: 'Frontier AI & Search Theory',
-      accreditor: 'TAI-ONE AI Standards Board',
+      accreditor: 'TTG AI Curriculum Division (Internal QA)',
       outcomes: [
         'Scale inference-time compute dynamically as a function of problem hardness',
         'Deploy process-supervised reward models (PRMs) to prune faulty reasoning branches',
@@ -174,14 +174,14 @@ export const STUDY_GUIDES: StudyGuide[] = [
   {
     id: 'sg_ai_swarm_consensus',
     title: 'Multi-Agent Swarm Orchestration & Consensus Protocols',
-    category: 'AI Courses (AI Generated)',
+    category: 'Frontier AI & Systems',
     field: 'Distributed AI Systems',
     reading_time: '55 min read',
     difficulty: 'Advanced',
     is_premium: true,
     is_ai_generated: true,
     is_accredited: true,
-    accreditor_name: 'Global Distributed Systems Institute',
+    accreditor_name: 'TTG Distributed Systems Division (Internal QA)',
     duration_type: 'short_term',
     duration_label: '6 Months',
     professional_level: 'professional',
@@ -209,9 +209,9 @@ export const STUDY_GUIDES: StudyGuide[] = [
     certificate: resolveCertificateByCategory({
       id: 'sg_ai_swarm_consensus',
       title: 'Multi-Agent Swarm Orchestration & Consensus Protocols',
-      category: 'AI Courses (AI Generated)',
+      category: 'Frontier AI & Systems',
       field: 'Distributed AI Systems',
-      accreditor: 'Global Distributed Systems Institute',
+      accreditor: 'TTG Distributed Systems Division (Internal QA)',
       outcomes: [
         'Implement deterministic voting protocols across heterogeneous LLM agents',
         'Enforce zero-trust tool execution contracts with cryptographic audit trails',
@@ -228,7 +228,7 @@ export const STUDY_GUIDES: StudyGuide[] = [
     difficulty: 'Foundational',
     is_premium: false,
     is_accredited: true,
-    accreditor_name: 'TTG Institutional Board',
+    accreditor_name: 'TTG Systems Curriculum Division (Internal QA)',
     duration_type: 'short_term',
     duration_label: '3 Months',
     professional_level: 'foundational',
@@ -258,7 +258,7 @@ export const STUDY_GUIDES: StudyGuide[] = [
       title: 'Foundations of First-Principles Systems Thinking',
       category: 'Cognitive Models',
       field: 'Systems Engineering',
-      accreditor: 'TTG Institutional Board',
+      accreditor: 'TTG Systems Curriculum Division (Internal QA)',
       outcomes: [
         'Identify hidden semantic traps in legacy business models',
         'Map feedback loops, delays, and non-linear leverage points',
@@ -275,7 +275,7 @@ export const STUDY_GUIDES: StudyGuide[] = [
     difficulty: 'Executive',
     is_premium: true,
     is_accredited: true,
-    accreditor_name: 'Sovereign Governance Council',
+    accreditor_name: 'TTG Leadership Curriculum Division (Internal QA)',
     duration_type: 'long_term',
     duration_label: '7 Years',
     professional_level: 'professional',
@@ -301,7 +301,7 @@ export const STUDY_GUIDES: StudyGuide[] = [
       title: 'Global Institutional Leadership & Sovereign Strategy',
       category: 'Executive Leadership',
       field: 'Institutional Governance',
-      accreditor: 'Sovereign Governance Council',
+      accreditor: 'TTG Leadership Curriculum Division (Internal QA)',
       outcomes: [
         'Orchestrate 50-year planning horizons across volatile geopolitical shifts',
         'Engineer anti-fragile organizational cultures that survive leadership transitions',
@@ -384,7 +384,7 @@ export const RESEARCH_PAPERS: ResearchPaper[] = [
     is_premium: false,
     is_ai_generated: true,
     is_accredited: true,
-    accreditor_name: 'AI Evaluation Board',
+    accreditor_name: 'TTG Research Evaluation Lab (Internal QA)',
     author: 'Dr. Evelyn Brand & TTG AI Evaluation Lab',
     abstract: 'Rigorous empirical evaluation comparing test-time Monte Carlo tree search against parameter scaling across 500,000 multi-step mathematics, logic, and software verification benchmarks.',
     methodology: 'Distributed benchmarking across 2,048 H100 GPUs comparing inference rollout budgets from 100 to 16,000 tokens per query.',
@@ -463,18 +463,122 @@ export const INITIAL_INVOICES: InvoiceReceipt[] = [
 ];
 
 export const INITIAL_READING_PROGRESS: Record<string, ReadingProgress> = {
+  sg_ai_test_time_search: {
+    guideId: 'sg_ai_test_time_search',
+    completedChapters: [0],
+    progressPercent: 33,
+    lastReadDate: '2026-11-14',
+    lastAccessedAt: '2026-11-14T18:20:00',
+    isCompleted: false,
+    notes: 'Focus on inference-time budget allocation curves before moving to PRM pruning heuristics.',
+    chapterNotes: {
+      0: 'Key insight: inference-time search trades predictable compute tokens for monotonic accuracy gains beyond fixed pretraining bounds.',
+    },
+    quizScores: { q_lrm_1: 75 },
+    quizHistory: [
+      {
+        id: 'qa_lrm_seed_1',
+        quizId: 'q_lrm_1',
+        quizTitle: 'MCTS & Compute Allocation Quiz',
+        score: 50,
+        minScoreToPass: 80,
+        passed: false,
+        correctCount: 1,
+        totalQuestions: 2,
+        attemptedAt: '2026-11-12T10:15:00',
+      },
+      {
+        id: 'qa_lrm_seed_2',
+        quizId: 'q_lrm_1',
+        quizTitle: 'MCTS & Compute Allocation Quiz',
+        score: 75,
+        minScoreToPass: 80,
+        passed: false,
+        correctCount: 1,
+        totalQuestions: 2,
+        attemptedAt: '2026-11-14T16:40:00',
+      },
+    ],
+    unlockedBadges: [],
+    completionLog: [
+      {
+        chapterIdx: 0,
+        completedAt: '2026-11-14T16:10:00',
+        notes: 'Key insight: inference-time search trades predictable compute tokens for monotonic accuracy gains beyond fixed pretraining bounds.',
+      },
+    ],
+  },
   sg_foundations_systems: {
     guideId: 'sg_foundations_systems',
     completedChapters: [0, 1],
     progressPercent: 67,
-    lastReadDate: '2026-11-12',
+    lastReadDate: '2026-11-13',
+    lastAccessedAt: '2026-11-13T09:30:00',
     isCompleted: false,
     notes: 'Key focus on identifying feedback loop latency in Q1 sprints.',
-    quizScores: { q_default: 100 },
+    chapterNotes: {
+      0: 'Stripped legacy sprint estimates back to pure throughput and queue-delay axioms.',
+      1: 'System boundaries often break between product discovery and deployment QA due to delayed telemetry loops.',
+    },
+    quizScores: { q_default: 65 },
+    quizHistory: [
+      {
+        id: 'qa_sys_seed_1',
+        quizId: 'q_default',
+        quizTitle: 'Foundational Knowledge Assessment',
+        score: 50,
+        minScoreToPass: 70,
+        passed: false,
+        correctCount: 1,
+        totalQuestions: 2,
+        attemptedAt: '2026-11-11T09:10:00',
+      },
+      {
+        id: 'qa_sys_seed_2',
+        quizId: 'q_default',
+        quizTitle: 'Foundational Knowledge Assessment',
+        score: 65,
+        minScoreToPass: 70,
+        passed: false,
+        correctCount: 1,
+        totalQuestions: 2,
+        attemptedAt: '2026-11-13T09:25:00',
+      },
+    ],
     unlockedBadges: ['badge_systems_thinker'],
     completionLog: [
-      { chapterIdx: 0, completedAt: '2026-11-10T08:45:00' },
-      { chapterIdx: 1, completedAt: '2026-11-12T09:15:00' },
+      {
+        chapterIdx: 0,
+        completedAt: '2026-11-11T08:45:00',
+        notes: 'Stripped legacy sprint estimates back to pure throughput and queue-delay axioms.',
+      },
+      {
+        chapterIdx: 1,
+        completedAt: '2026-11-13T09:15:00',
+        notes: 'System boundaries often break between product discovery and deployment QA due to delayed telemetry loops.',
+      },
+    ],
+  },
+  sg_ai_swarm_consensus: {
+    guideId: 'sg_ai_swarm_consensus',
+    completedChapters: [0],
+    progressPercent: 33,
+    lastReadDate: '2026-11-11',
+    lastAccessedAt: '2026-11-11T14:50:00',
+    isCompleted: false,
+    notes: 'Comparing quorum verification thresholds across heterogeneous tool-calling agents.',
+    chapterNotes: {
+      0: 'Separate proposer, verifier, and committer roles so stochastic error does not cascade.',
+    },
+    quizScores: {},
+    quizHistory: [],
+    unlockedBadges: [],
+    completionLog: [
+      {
+        chapterIdx: 0,
+        completedAt: '2026-11-11T14:40:00',
+        notes: 'Separate proposer, verifier, and committer roles so stochastic error does not cascade.',
+      },
     ],
   },
 };
@@ -485,7 +589,7 @@ export const INITIAL_REMINDERS: Reminder[] = [
     title: 'Morning Cognitive Architecture Focus Block',
     targetTitle: 'Foundations of First-Principles Systems Thinking',
     type: 'study_guide',
-    date: '2026-11-10',
+    date: '2026-11-13',
     time: '08:30 AM',
     frequency: 'Daily',
     isEnabled: true,
@@ -493,31 +597,149 @@ export const INITIAL_REMINDERS: Reminder[] = [
   },
 ];
 
+export type FAQCategory =
+  | 'Accreditation & Legitimacy'
+  | 'Account'
+  | 'Stripe Payments'
+  | 'Academic Credits'
+  | 'Courses & Retreats';
+
 export interface FAQItem {
   id: string;
-  category: 'Membership & Pricing' | 'Educare & Reading' | 'Research Corner' | 'TTG Retreats' | 'Careers & Accreditation' | 'Digital World & Art Media';
+  category: FAQCategory;
   question: string;
   answer: string;
+  targetTab?: 'educare' | 'research' | 'digital_world' | 'retreats' | 'billing' | 'faq';
 }
 
 export const FAQ_ITEMS: FAQItem[] = [
+  // Accreditation & Legitimacy
   {
-    id: 'faq_1',
-    category: 'Membership & Pricing',
-    question: 'How much are the paid services?',
-    answer: 'Professional tiers range from $5 to $10 per month. This low-cost pricing ensures elite educational infrastructure remains accessible while funding high-performance compute for AI generated curricula. A robust free tier remains active for institutional grant recipients who cannot afford paid access.',
+    id: 'faq_acc_1',
+    category: 'Accreditation & Legitimacy',
+    question: 'Are TTG courses externally accredited by universities or statutory regulators?',
+    answer:
+      'No. TTG courses, study guides, and qualification tracks are self-paced platform learning modules and structured curriculum roadmaps rather than externally accredited university degrees or statutory qualifications. Every card and modal discloses that formal degree credit requires enrollment with a statutorily recognized institution.',
+    targetTab: 'educare',
   },
   {
-    id: 'faq_2',
-    category: 'Careers & Accreditation',
-    question: 'Are TTG courses accredited?',
-    answer: 'Yes. Courses marked with the "Accredited" badge are verified by global boards like the TAI-ONE AI Standards Board and the Sovereign Governance Council. Completed professional level courses under skills development grant industry-recognized certificates of competency.',
+    id: 'faq_acc_2',
+    category: 'Accreditation & Legitimacy',
+    question: 'What is TTG’s relationship with academic institutions and regulatory bodies?',
+    answer:
+      'TTG aligns its faculty taxonomy, syllabus outlines, and notional study-hour tiers with public international benchmarks (such as ABET/ECSA for Engineering, AACSB for Business, WFME for Health, CHE/QAA for Science & Humanities, and CAEP for Education) for transparency. TTG is not a chartered degree-granting university and does not claim formal affiliation unless an explicit institutional articulation agreement is published.',
+    targetTab: 'educare',
   },
   {
-    id: 'faq_3',
-    category: 'Careers & Accreditation',
-    question: 'How do career exhibitions work?',
-    answer: 'TTG hosts student career exhibitions twice per quarter. These events connect high-performing Educare Pro students with recruiting firms in fields like Distributed AI Systems and Sovereign Infrastructure. Students can showcase their unlocked badges and project notes directly to hiring partners.',
+    id: 'faq_acc_3',
+    category: 'Accreditation & Legitimacy',
+    question: 'How does TTG vet and verify course providers and study materials?',
+    answer:
+      'Modules undergo an internal curriculum completeness review covering learning outcomes, primary-source citations, assessment rubrics, and reading depth before being marked internally "Quality-Verified". However, external regulatory site-audits and third-party proctoring are not yet active.',
+    targetTab: 'educare',
+  },
+  {
+    id: 'faq_acc_4',
+    category: 'Accreditation & Legitimacy',
+    question: 'How legitimate is the current certificate verification system?',
+    answer:
+      'Currently, TTG certificate serial numbers (e.g., TTG-2026-...) are deterministic client-side identifiers embedded into downloadable PDF/PNG completion records stored in your browser. There is not yet a cryptographic public verification endpoint or third-party Open Badges 3.0 / W3C Verifiable Credentials ledger for independent employer lookup.',
+    targetTab: 'educare',
+  },
+
+  // Account
+  {
+    id: 'faq_acct_1',
+    category: 'Account',
+    question: 'How do I save academic programs and resume my progress later?',
+    answer:
+      'Click the bookmark icon on any academic qualification card in Educare Systems to add it to your "My Saved Programs" list inside your User Profile. You can also export your active reading progress, study notes, and completed assignments directly from the Progress Export tool.',
+    targetTab: 'educare',
+  },
+  {
+    id: 'faq_acct_2',
+    category: 'Account',
+    question: 'How do I update my student profile details and study reminders?',
+    answer:
+      'Open your User Profile from the top navigation bar to edit your display name, bio, institutional affiliation, and saved programs. Study reminders and Pomodoro focus logs synchronize automatically while you browse Educare, Research Corner, or Digital World.',
+  },
+  {
+    id: 'faq_acct_3',
+    category: 'Account',
+    question: 'What is included in the $0 Educare Pro institutional grant tier?',
+    answer:
+      'The complimentary $0 institutional grant unlocks full reading access to published study guides, chapter notes, offline assignment submissions, and career roadmap planning so learners are never blocked by subscription fees.',
+    targetTab: 'educare',
+  },
+
+  // Stripe Payments
+  {
+    id: 'faq_pay_1',
+    category: 'Stripe Payments',
+    question: 'Which services use Stripe Checkout versus the $0 free Educare grant?',
+    answer:
+      'Core Educare reading modules carry a $0 subscription fee under the institutional grant policy. Optional paid bookings—such as residential TTG Retreats tickets or premium Digital World / Art Media purchases—process through Stripe Checkout and generate itemized receipts.',
+    targetTab: 'billing',
+  },
+  {
+    id: 'faq_pay_2',
+    category: 'Stripe Payments',
+    question: 'Where can I download invoices and tax receipts for Stripe transactions?',
+    answer:
+      'Every completed Stripe Checkout booking or media store purchase immediately creates a downloadable invoice record inside the Invoices & Billing tab, including transaction timestamps, line items, and reference IDs.',
+    targetTab: 'billing',
+  },
+  {
+    id: 'faq_pay_3',
+    category: 'Stripe Payments',
+    question: 'How do refunds or booking cancellations work for TTG Retreats?',
+    answer:
+      'Retreat bookings processed via Stripe are refundable up to 14 days prior to the sanctuary start date. Visit the Invoices & Billing tab to review your booking reference or contact retreat support with your receipt ID.',
+    targetTab: 'retreats',
+  },
+
+  // Academic Credits
+  {
+    id: 'faq_cred_1',
+    category: 'Academic Credits',
+    question: 'Do NQF credits shown on qualification cards grant transferable university credit?',
+    answer:
+      'No. Credit values (such as 120–480 NQF Credits) displayed on qualification cards indicate equivalent academic workload depth and curriculum scope for comparison. Transferring credits toward an accredited degree always requires formal Prior Learning Assessment (RPL) or articulation approval from your enrolling university.',
+    targetTab: 'educare',
+  },
+  {
+    id: 'faq_cred_2',
+    category: 'Academic Credits',
+    question: 'How does the Compare Programs tool evaluate academic depth?',
+    answer:
+      'You can select up to 3 qualification cards to compare side-by-side across level tier (Undergraduate, Postgraduate, Doctoral), core syllabus modules, entry prerequisites, typical duration, and credit scope.',
+    targetTab: 'educare',
+  },
+  {
+    id: 'faq_cred_3',
+    category: 'Academic Credits',
+    question: 'Do career exhibitions recognize TTG study portfolios without formal credits?',
+    answer:
+      'Yes. Quarterly career exhibitions focus on applied proof-of-work—such as unlocked project milestones, study guide reflections, and Research Corner annotations—which hiring partners evaluate independently of university transcript credits.',
+    targetTab: 'educare',
+  },
+
+  // Courses & Retreats
+  {
+    id: 'faq_cr_1',
+    category: 'Courses & Retreats',
+    question: 'How do Digital World & Art Media releases connect to Educare courses?',
+    answer:
+      'Digital World hosts curated audio/visual DSP briefings, executive biometrics sheets, and architectural templates that complement Educare study guides without extra subscription barriers.',
+    targetTab: 'digital_world',
+  },
+  {
+    id: 'faq_cr_2',
+    category: 'Courses & Retreats',
+    question: 'What happens during in-person TTG Retreats?',
+    answer:
+      'TTG Retreats are small-cohort field sanctuaries focused on deep reading sprints, systems workshops, and peer dialogue. Seat reservations are managed directly through the Retreats tab.',
+    targetTab: 'retreats',
   },
 ];
 
@@ -537,13 +759,13 @@ export const LIBRARY_RESOURCES: MediaItem[] = [
 ];
 
 export const STUDY_ACTIVITY: StudyActivity[] = [
-  { day: 'Mon', intensity: 8, date: '2026-11-02' },
-  { day: 'Tue', intensity: 4, date: '2026-11-03' },
-  { day: 'Wed', intensity: 10, date: '2026-11-04' },
-  { day: 'Thu', intensity: 7, date: '2026-11-05' },
-  { day: 'Fri', intensity: 9, date: '2026-11-06' },
-  { day: 'Sat', intensity: 2, date: '2026-11-07' },
-  { day: 'Sun', intensity: 5, date: '2026-11-08' },
+  { day: 'Sat', intensity: 4, date: '2026-11-07' },
+  { day: 'Sun', intensity: 6, date: '2026-11-08' },
+  { day: 'Mon', intensity: 8, date: '2026-11-09' },
+  { day: 'Tue', intensity: 5, date: '2026-11-10' },
+  { day: 'Wed', intensity: 10, date: '2026-11-11' },
+  { day: 'Thu', intensity: 7, date: '2026-11-12' },
+  { day: 'Fri', intensity: 9, date: '2026-11-13' },
 ];
 
 export const INITIAL_DOCUMENTS: AuthorDocument[] = [

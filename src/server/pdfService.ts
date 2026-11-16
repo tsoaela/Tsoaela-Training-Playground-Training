@@ -18,8 +18,8 @@ export interface DocumentPdfPayload {
 }
 
 const LOGO_CANDIDATE_PATHS = [
-  path.resolve(process.cwd(), 'public/assets/aistudio/InShot_20260522_150628190_3d2729ca.jpg'),
-  path.resolve(__dirname, '../../public/assets/aistudio/InShot_20260522_150628190_3d2729ca.jpg'),
+  path.resolve(process.cwd(), 'public/assets/aistudio/Gemini_Generated_Image_3a0ub83a0ub83a0u_8153a2b2.jpeg'),
+  path.resolve(__dirname, '../../public/assets/aistudio/Gemini_Generated_Image_3a0ub83a0ub83a0u_8153a2b2.jpeg'),
 ];
 
 function resolveLogoFilePath(): string | null {
@@ -70,22 +70,22 @@ export function generateDocumentPdfBuffer(payload: DocumentPdfPayload): Promise<
       const readingLevel = payload.fleschReadingLevel || 'Standard Executive Level';
       const logoPath = resolveLogoFilePath();
 
-      // 1. Header Banner / Brand Lockup with Tai-one Logo
+      // 1. Header Banner / Brand Lockup with TTG Logo
       doc
         .rect(54, 40, doc.page.width - 108, 3)
         .fill('#65a30d');
 
       if (logoPath) {
-        doc.image(logoPath, 54, 48, { width: 34, height: 34 });
+        doc.image(logoPath, 54, 47, { fit: [64, 36] });
       }
 
-      const textStartX = logoPath ? 98 : 54;
+      const textStartX = logoPath ? 126 : 54;
 
       doc
         .fontSize(8)
         .font('Helvetica-Bold')
         .fillColor('#365314')
-        .text('TAI-ONE DIGITAL DEVELOPER · TTG DIGITAL WORLD OF EDUCATION', textStartX, 50, {
+        .text('TTG - TSOAELA TRAINING GROUND PLATFORM · DIGITAL WORLD OF EDUCATION', textStartX, 50, {
           characterSpacing: 1.2,
         });
 

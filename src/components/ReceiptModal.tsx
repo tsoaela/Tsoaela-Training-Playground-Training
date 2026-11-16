@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Printer, CheckCircle2, Shield } from 'lucide-react';
 import { InvoiceReceipt } from '../types';
+import { TTG_LOGO_URL } from '../utils/pdfBranding';
 
 interface ReceiptModalProps {
   receipt: InvoiceReceipt | null;
@@ -47,14 +48,14 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ receipt, onClose }) 
           <div className="flex items-start justify-between border-b border-stone-200 dark:border-stone-800 pb-5">
             <div className="flex items-center gap-3">
               <img
-                src="/assets/aistudio/InShot_20260522_150628190_3d2729ca.jpg"
-                alt="Tai-one Digital Developer Logo"
+                src={TTG_LOGO_URL}
+                alt="Tsoaela Training Ground Platform Logo"
                 referrerPolicy="no-referrer"
-                className="w-11 h-11 rounded-full object-cover ring-1 ring-emerald-500/40 shrink-0"
+                className="h-12 w-auto rounded-xl object-contain bg-white p-1 ring-1 ring-stone-200 dark:ring-stone-700 shrink-0"
               />
               <div>
                 <h3 className="text-xl font-bold tracking-tight text-stone-900 dark:text-stone-100">TTG Institutional</h3>
-                <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">Tai-one Digital Developer · Tsoaela Training Ground</p>
+                <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">TTG - Tsoaela Training Ground Platform</p>
                 <p className="text-[11px] text-stone-400 dark:text-stone-500">Tax ID: US-EIN-94819024</p>
               </div>
             </div>

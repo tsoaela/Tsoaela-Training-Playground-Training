@@ -3,7 +3,7 @@ import { Award, Download, Printer, X, CheckCircle2, Layers, ZoomIn, ZoomOut, Ima
 import jsPDF from 'jspdf';
 import { CourseCertificateSpec } from '../types';
 import { CourseCertificateCard } from './CourseCertificateCard';
-import { loadLogoDataUrl } from '../utils/pdfBranding';
+import { loadLogoDataUrl, getFittedLogoSize } from '../utils/pdfBranding';
 import { TAI_ONE_LOGO_URL } from '../data/certificatesData';
 
 interface CourseCertificateModalProps {
@@ -111,7 +111,7 @@ export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
         ctx.stroke();
       });
 
-      // 4. Load & Draw Tai-one Emblem
+      // 4. Load & Draw Tsoaela Official Emblem (aspect-preserving inside crisp white badge)
       const logoImg = await new Promise<HTMLImageElement | null>((resolve) => {
         const img = new Image();
         img.crossOrigin = 'anonymous';
@@ -120,31 +120,41 @@ export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
         img.src = TAI_ONE_LOGO_URL;
       });
 
+      let headerOffsetX = 164;
       if (logoImg) {
+        const boxW = 248;
+        const boxH = 144;
+        const boxX = 164;
+        const boxY = 166;
         ctx.save();
+        ctx.fillStyle = '#ffffff';
         ctx.beginPath();
-        ctx.arc(240, 238, 76, 0, Math.PI * 2);
-        ctx.closePath();
-        ctx.clip();
-        ctx.drawImage(logoImg, 164, 162, 152, 152);
-        ctx.restore();
-
-        ctx.beginPath();
-        ctx.arc(240, 238, 78, 0, Math.PI * 2);
+        ctx.roundRect(boxX, boxY, boxW, boxH, 18);
+        ctx.fill();
         ctx.strokeStyle = '#bef264';
-        ctx.lineWidth = 5;
+        ctx.lineWidth = 4;
         ctx.stroke();
+
+        const fitted = getFittedLogoSize(boxW - 18, boxH - 18);
+        const drawX = boxX + (boxW - fitted.width) / 2;
+        const drawY = boxY + (boxH - fitted.height) / 2;
+        ctx.drawImage(logoImg, drawX, drawY, fitted.width, fitted.height);
+        ctx.restore();
+        headerOffsetX = boxX + boxW + 32;
       }
 
       // 5. Header Lockup
-      const hx = logoImg ? 352 : 164;
+      const safeAccreditor = /tai-one\s+ai\s+standard\s+board/i.test(certificate.accreditor)
+        ? 'TTG - Tsoaela Training Ground Platform'
+        : certificate.accreditor;
+      const hx = headerOffsetX;
       ctx.fillStyle = '#bef264';
       ctx.font = 'bold 24px ui-monospace, SFMono-Regular, Menlo, monospace';
-      ctx.fillText('TAI-ONE DIGITAL DEVELOPER · TTG ACADEMY', hx, 204);
+      ctx.fillText('TTG - TSOAELA TRAINING GROUND PLATFORM', hx, 204);
 
       ctx.fillStyle = '#fefce8';
       ctx.font = 'bold 34px system-ui, -apple-system, sans-serif';
-      ctx.fillText(certificate.accreditor, hx, 250);
+      ctx.fillText(safeAccreditor, hx, 250);
 
       ctx.fillStyle = '#a3e635';
       ctx.font = '600 24px ui-monospace, SFMono-Regular, Menlo, monospace';
@@ -153,7 +163,7 @@ export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
       ctx.textAlign = 'right';
       ctx.fillStyle = '#bef264';
       ctx.font = 'bold 24px ui-monospace, SFMono-Regular, Menlo, monospace';
-      ctx.fillText(isEarned ? 'EARNED & VERIFIED' : `COMPLETION: ${progressPercent}%`, W - 168, 224);
+      ctx.fillText(isEarned ? 'COMPLETED (INTERNAL)' : `COMPLETION: ${progressPercent}%`, W - 168, 224);
       ctx.fillStyle = '#d9f99d';
       ctx.font = '500 22px ui-monospace, SFMono-Regular, Menlo, monospace';
       ctx.fillText(`SERIAL: ${serialNumber}`, W - 168, 266);
@@ -182,7 +192,7 @@ export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
 
       ctx.fillStyle = '#d9f99d';
       ctx.font = '400 28px system-ui, -apple-system, sans-serif';
-      ctx.fillText('This official academic credential is proudly conferred upon', W / 2, 608);
+      ctx.fillText('This internal platform completion certificate records study by', W / 2, 608);
 
       ctx.fillStyle = '#ffffff';
       ctx.font = '900 92px system-ui, -apple-system, sans-serif';
@@ -197,7 +207,7 @@ export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
 
       ctx.fillStyle = '#ecfccb';
       ctx.font = '700 36px system-ui, -apple-system, sans-serif';
-      ctx.fillText(`For mastery and verified study in ${courseTitle}`, W / 2, 835, W - 360);
+      ctx.fillText(`For completing self-paced study in ${courseTitle}`, W / 2, 835, W - 360);
       ctx.textAlign = 'left';
 
       // 7. Competency Cards
@@ -273,8 +283,8 @@ export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
       ctx.textAlign = 'center';
       ctx.fillStyle = '#bef264';
       ctx.font = 'bold 22px ui-monospace, SFMono-Regular, Menlo, monospace';
-      ctx.fillText('TAI-ONE', sealX, sealY - 4);
-      ctx.fillText('CERTIFIED', sealX, sealY + 26);
+      ctx.fillText('INTERNAL', sealX, sealY - 4);
+      ctx.fillText('RECORD', sealX, sealY + 26);
 
       ctx.textAlign = 'right';
       ctx.fillStyle = '#fef08a';
@@ -282,13 +292,13 @@ export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
       ctx.fillText(certificate.sealTitle, sealX - 116, sealY - 6);
       ctx.fillStyle = '#bef264';
       ctx.font = '500 22px ui-monospace, SFMono-Regular, Menlo, monospace';
-      ctx.fillText('Tai-one Digital Developer Certified', sealX - 116, sealY + 34);
+      ctx.fillText('Internal Completion Record · Non-Accredited', sealX - 116, sealY + 34);
       ctx.textAlign = 'left';
 
       const link = document.createElement('a');
       const safeFile = courseTitle.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 42);
       link.href = canvas.toDataURL('image/png');
-      link.download = `Tai_one_Certificate_HD_${safeFile}.png`;
+      link.download = `TTG_Certificate_HD_${safeFile}.png`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -360,28 +370,47 @@ export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
       doc.line(pageW - 17 - b, pageH - 17, pageW - 17, pageH - 17);
       doc.line(pageW - 17, pageH - 17 - b, pageW - 17, pageH - 17);
 
-      // 4. Embedded Tai-one Official Logo Crest
+      // 4. Embedded Tsoaela Official Logo Crest (aspect-preserving inside crisp white badge)
+      let pdfHeaderX = 24;
       if (logoDataUrl) {
-        doc.setFillColor(132, 204, 22);
-        doc.circle(38, 36, 13, 'F');
-        doc.addImage(logoDataUrl, 'JPEG', 26, 24, 24, 24);
+        const badgeX = 24;
+        const badgeY = 23;
+        const badgeW = 42;
+        const badgeH = 24;
+        doc.setFillColor(255, 255, 255);
+        doc.setDrawColor(190, 242, 100);
+        doc.setLineWidth(0.6);
+        doc.roundedRect(badgeX, badgeY, badgeW, badgeH, 2.5, 2.5, 'FD');
+        const fitted = getFittedLogoSize(badgeW - 3, badgeH - 3);
+        doc.addImage(
+          logoDataUrl,
+          'JPEG',
+          badgeX + (badgeW - fitted.width) / 2,
+          badgeY + (badgeH - fitted.height) / 2,
+          fitted.width,
+          fitted.height
+        );
+        pdfHeaderX = badgeX + badgeW + 6;
       }
 
       // 5. Header Text Lockup
+      const safePdfAccreditor = /tai-one\s+ai\s+standard\s+board/i.test(certificate.accreditor)
+        ? 'TTG - Tsoaela Training Ground Platform'
+        : certificate.accreditor;
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(9.5);
       doc.setTextColor(190, 242, 100); // #bef264
-      doc.text('TAI-ONE DIGITAL DEVELOPER · TSOAELA TRAINING GROUND ACADEMY', logoDataUrl ? 56 : 24, 30);
+      doc.text('TTG - TSOAELA TRAINING GROUND PLATFORM', pdfHeaderX, 30);
 
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(11);
       doc.setTextColor(254, 252, 232);
-      doc.text(certificate.accreditor.toUpperCase(), logoDataUrl ? 56 : 24, 36);
+      doc.text(safePdfAccreditor.toUpperCase(), pdfHeaderX, 36);
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9);
       doc.setTextColor(163, 230, 53);
-      doc.text(`Category Track: ${certificate.categoryKey}`, logoDataUrl ? 56 : 24, 42);
+      doc.text(`Category Track: ${certificate.categoryKey}`, pdfHeaderX, 42);
 
       // Serial & Status Top-Right
       doc.setFont('helvetica', 'bold');
@@ -393,7 +422,7 @@ export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
       doc.setFontSize(8.5);
       doc.setTextColor(163, 230, 53);
       doc.text(
-        isEarned ? 'STATUS: EARNED & VERIFIED' : `COURSE COMPLETION: ${progressPercent}%`,
+        isEarned ? 'STATUS: COMPLETED (INTERNAL)' : `COURSE COMPLETION: ${progressPercent}%`,
         pageW - 24,
         36,
         { align: 'right' }
@@ -418,7 +447,7 @@ export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(10.5);
       doc.setTextColor(217, 249, 157);
-      doc.text('This institutional academic certificate is officially conferred upon', pageW / 2, 91, {
+      doc.text('This internal platform completion certificate records study progress by', pageW / 2, 91, {
         align: 'center',
       });
 
@@ -437,7 +466,7 @@ export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(12);
       doc.setTextColor(190, 242, 100);
-      doc.text(`For verified mastery in: ${courseTitle}`, pageW / 2, 120, {
+      doc.text(`For completing self-paced study in: ${courseTitle}`, pageW / 2, 120, {
         align: 'center',
         maxWidth: 235,
       });
@@ -494,8 +523,8 @@ export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(6.5);
       doc.setTextColor(190, 242, 100);
-      doc.text('TAI-ONE', pageW - 36, 178, { align: 'center' });
-      doc.text('VERIFIED', pageW - 36, 182, { align: 'center' });
+      doc.text('INTERNAL', pageW - 36, 178, { align: 'center' });
+      doc.text('RECORD', pageW - 36, 182, { align: 'center' });
 
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(9);
@@ -505,12 +534,12 @@ export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
       doc.setTextColor(163, 230, 53);
-      doc.text('Tai-one Digital Developer · Institutional Credential', pageW - 52, 182, {
+      doc.text('TTG - Tsoaela Training Ground Platform · Internal Completion Record', pageW - 52, 182, {
         align: 'right',
       });
 
       const safeFile = courseTitle.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 42);
-      doc.save(`Tai_one_Certificate_${safeFile}_${serialNumber}.pdf`);
+      doc.save(`TTG_Certificate_${safeFile}_${serialNumber}.pdf`);
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -613,7 +642,7 @@ export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-[#65a30d]" />
             <span>
-              Palette: <strong className="text-stone-800 dark:text-stone-200">Golden Green, Dark Green &amp; Lime Textures</strong> · Tai-one Emblem Embedded
+              <strong className="text-stone-800 dark:text-stone-200">Internal Completion Record</strong> · Platform-issued proof of self-paced study (not externally or statutorily accredited)
             </span>
           </div>
           <span className="font-mono text-[11px] tabular-nums">{serialNumber}</span>

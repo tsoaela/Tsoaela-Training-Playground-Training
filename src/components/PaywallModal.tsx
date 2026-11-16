@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Check, X, Shield, Sparkles, BookOpen, Brain, ArrowRight, Lock, Gift } from 'lucide-react';
+import { TTG_LOGO_URL } from '../utils/pdfBranding';
 
 interface PaywallModalProps {
   isOpen: boolean;
@@ -47,11 +48,19 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({
 
         {/* Modal Header */}
         <div className="px-6 pt-8 pb-6 sm:px-8 border-b border-stone-100 dark:border-stone-800 bg-stone-50/60 dark:bg-stone-950/60">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 mb-2">
-            <Gift className="w-4 h-4" />
-            <span>TTG Institutional Grant Policy</span>
-            <span aria-hidden="true">·</span>
-            <span>Zero Subscription Fees ($0.00)</span>
+          <div className="flex flex-wrap items-center gap-3 mb-3">
+            <img
+              src={TTG_LOGO_URL}
+              alt="Tsoaela Training Ground Platform Logo"
+              referrerPolicy="no-referrer"
+              className="h-10 w-auto rounded-lg object-contain bg-white px-1 py-0.5 ring-1 ring-stone-200 dark:ring-stone-700 shadow-xs shrink-0"
+            />
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+              <Gift className="w-4 h-4" />
+              <span>TTG Institutional Grant Policy</span>
+              <span aria-hidden="true">·</span>
+              <span>Zero Subscription Fees ($0.00)</span>
+            </div>
           </div>
 
           <h2 id="paywall-title" className="text-2xl sm:text-3xl font-bold tracking-tight text-stone-900 dark:text-stone-100 text-balance">

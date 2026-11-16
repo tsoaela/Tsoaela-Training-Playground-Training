@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { StudentBadge } from '../types';
 import { TAI_ONE_LOGO_URL } from '../data/certificatesData';
+import { getFittedLogoSize } from '../utils/pdfBranding';
 
 interface ShareAchievementModalProps {
   isOpen: boolean;
@@ -193,30 +194,41 @@ export const ShareAchievementModal: React.FC<ShareAchievementModalProps> = ({
 
         if (cancelled) return;
 
-        // 4. Top Brand Strip with Tai-one Official Crest
+        // 4. Top Brand Strip with Tsoaela Official Crest
+        let brandTextX = 72;
         if (logoImg) {
+          const boxX = 72;
+          const boxY = 64;
+          const boxW = 96;
+          const boxH = 54;
           ctx.save();
+          ctx.fillStyle = '#ffffff';
           ctx.beginPath();
-          ctx.arc(98, 92, 26, 0, Math.PI * 2);
-          ctx.closePath();
-          ctx.clip();
-          ctx.drawImage(logoImg, 72, 66, 52, 52);
-          ctx.restore();
-
-          ctx.beginPath();
-          ctx.arc(98, 92, 27, 0, Math.PI * 2);
+          ctx.roundRect(boxX, boxY, boxW, boxH, 10);
+          ctx.fill();
           ctx.strokeStyle = '#bef264';
           ctx.lineWidth = 2;
           ctx.stroke();
+
+          const fitted = getFittedLogoSize(boxW - 8, boxH - 8);
+          ctx.drawImage(
+            logoImg,
+            boxX + (boxW - fitted.width) / 2,
+            boxY + (boxH - fitted.height) / 2,
+            fitted.width,
+            fitted.height
+          );
+          ctx.restore();
+          brandTextX = boxX + boxW + 18;
         }
 
         ctx.fillStyle = '#bef264';
         ctx.font = 'bold 15px ui-monospace, SFMono-Regular, Menlo, monospace';
-        ctx.fillText('TAI-ONE DIGITAL DEVELOPER · TSOAELA TRAINING GROUND', logoImg ? 140 : 72, 87);
+        ctx.fillText('TTG - TSOAELA TRAINING GROUND PLATFORM', brandTextX, 87);
 
         ctx.fillStyle = '#d9f99d';
         ctx.font = '600 14px system-ui, -apple-system, sans-serif';
-        ctx.fillText('VERIFIED ACADEMIC ACHIEVEMENT CREDENTIAL', logoImg ? 140 : 72, 110);
+        ctx.fillText('VERIFIED ACADEMIC ACHIEVEMENT CREDENTIAL', brandTextX, 110);
 
         // Top-right rarity stamp
         ctx.textAlign = 'right';
@@ -348,7 +360,7 @@ export const ShareAchievementModal: React.FC<ShareAchievementModalProps> = ({
         ctx.fillStyle = 'rgba(217, 249, 157, 0.72)';
         ctx.font = '500 13px ui-monospace, SFMono-Regular, Menlo, monospace';
         ctx.fillText(
-          'TTGA CADEMY CREDENTIAL ARCHIVE · VERIFIED BY TAI-ONE DIGITAL DEVELOPER',
+          'TTG - TSOAELA TRAINING GROUND PLATFORM · CREDENTIAL ARCHIVE',
           72,
           574
         );
@@ -369,7 +381,7 @@ export const ShareAchievementModal: React.FC<ShareAchievementModalProps> = ({
 
   if (!isOpen || !badge) return null;
 
-  const shareText = `Proud to earn the "${badge.title}" (${badge.rarity} Tier) achievement badge at Tai-one Digital Developer / Tsoaela Training Ground — with ${completedCourseCount} ${
+  const shareText = `Proud to earn the "${badge.title}" (${badge.rarity} Tier) achievement badge at TTG - Tsoaela Training Ground Platform — with ${completedCourseCount} ${
     completedCourseCount === 1 ? 'course' : 'courses'
   } completed!`;
 
@@ -378,7 +390,7 @@ export const ShareAchievementModal: React.FC<ShareAchievementModalProps> = ({
     const link = document.createElement('a');
     const safeSlug = badge.title.toLowerCase().replace(/[^a-z0-9]+/g, '_');
     link.href = cardDataUrl;
-    link.download = `Tai_one_Achievement_${safeSlug}.png`;
+    link.download = `TTG_Achievement_${safeSlug}.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -406,13 +418,13 @@ export const ShareAchievementModal: React.FC<ShareAchievementModalProps> = ({
       if (typeof navigator !== 'undefined' && navigator.share) {
         const res = await fetch(cardDataUrl);
         const blob = await res.blob();
-        const file = new File([blob], `tai_one_achievement_${badge.id}.png`, {
+        const file = new File([blob], `ttg_achievement_${badge.id}.png`, {
           type: 'image/png',
         });
 
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({
-            title: `${badge.title} — Tai-one Achievement`,
+            title: `${badge.title} — TTG Platform Achievement`,
             text: shareText,
             files: [file],
           });
@@ -421,7 +433,7 @@ export const ShareAchievementModal: React.FC<ShareAchievementModalProps> = ({
         }
 
         await navigator.share({
-          title: `${badge.title} — Tai-one Achievement`,
+          title: `${badge.title} — TTG Platform Achievement`,
           text: shareText,
         });
         setShareFeedback('Shared achievement summary.');

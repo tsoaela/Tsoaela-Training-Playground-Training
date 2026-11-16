@@ -10,7 +10,12 @@ import {
   resolveQualificationCoreModules,
   resolveQualificationLevelTag,
   buildApplicationPrefillForQualification,
+  findQualificationWithFaculty,
 } from '../data/academicCatalog';
+import {
+  FIELD_ACCREDITATION_REGISTRY,
+  FieldAccreditationProfile,
+} from '../data/accreditationRegistry';
 import { ApplicationPrefillData } from '../types';
 import {
   Building2,
@@ -29,6 +34,13 @@ import {
   Filter,
   Eye,
   ArrowRight,
+  Bookmark,
+  BookmarkCheck,
+  GitCompare,
+  ShieldCheck,
+  ShieldAlert,
+  ExternalLink,
+  Info,
 } from 'lucide-react';
 
 interface AcademicDirectorySectionProps {
@@ -38,6 +50,13 @@ interface AcademicDirectorySectionProps {
   onApplyQualification?: (prefill: ApplicationPrefillData) => void;
   onGenerateStudyGuide?: (topic: string) => void;
   onFilterCatalogByProgram?: (term: string) => void;
+  savedProgramIds?: string[];
+  onToggleSaveProgram?: (qual: AcademicQualificationLevel, faculty?: AcademicFaculty) => void;
+  comparedProgramIds?: string[];
+  onToggleCompareProgram?: (qualId: string) => void;
+  onClearComparedPrograms?: () => void;
+  onOpenCompareModal?: () => void;
+  onOpenSavedProgramsProfile?: () => void;
 }
 
 export const AcademicDirectorySection: React.FC<AcademicDirectorySectionProps> = ({
@@ -47,6 +66,13 @@ export const AcademicDirectorySection: React.FC<AcademicDirectorySectionProps> =
   onApplyQualification,
   onGenerateStudyGuide,
   onFilterCatalogByProgram,
+  savedProgramIds = [],
+  onToggleSaveProgram,
+  comparedProgramIds = [],
+  onToggleCompareProgram,
+  onClearComparedPrograms,
+  onOpenCompareModal,
+  onOpenSavedProgramsProfile,
 }) => {
   const [internalCategory, setInternalCategory] = useState<'all' | AcademicCategoryKey>('all');
   const selectedCategory = controlledCategory !== undefined ? controlledCategory : internalCategory;
@@ -64,9 +90,82 @@ export const AcademicDirectorySection: React.FC<AcademicDirectorySectionProps> =
   } | null>(null);
   const [inspectedQualification, setInspectedQualification] =
     useState<AcademicQualificationLevel | null>(null);
+  const [inspectedAccreditation, setInspectedAccreditation] = useState<{
+    qual: AcademicQualificationLevel;
+    categoryKey: AcademicCategoryKey;
+    facultyName?: string;
+    profile: FieldAccreditationProfile;
+  } | null>(null);
 
   const normalizedQuery = programSearch.trim().toLowerCase();
   const normalizedQualQuery = qualificationSearch.trim().toLowerCase();
+
+  useEffect(() => {
+    if (!inspectedAccreditation) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setInspectedAccreditation(null);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [inspectedAccreditation]);
+
+  const renderVerifiedAccreditationBadge = (
+    qual: AcademicQualificationLevel,
+    categoryKey: AcademicCategoryKey,
+    facultyName?: string
+  ) => {
+    const profile = FIELD_ACCREDITATION_REGISTRY[categoryKey];
+    if (!profile) return null;
+
+    return (
+      <div className="relative inline-flex group/acc">
+        <button
+          type="button"
+          onClick={() =>
+            setInspectedAccreditation({
+              qual,
+              categoryKey,
+              facultyName,
+              profile,
+            })
+          }
+          aria-haspopup="dialog"
+          aria-label={`Verified Accreditation details for ${qual.qualificationType} (${profile.primaryBody.acronym})`}
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800/80 bg-emerald-50/80 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-[10px] font-semibold text-emerald-800 dark:text-emerald-300 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+        >
+          <ShieldCheck className="w-3 h-3 shrink-0 text-emerald-600 dark:text-emerald-400" />
+          <span>Verified Accreditation</span>
+          <Info className="w-2.5 h-2.5 opacity-70" />
+        </button>
+
+        {/* Accessible Hover / Focus Tooltip */}
+        <div
+          role="tooltip"
+          className="pointer-events-none opacity-0 translate-y-1 group-hover/acc:opacity-100 group-hover/acc:translate-y-0 group-focus-within/acc:opacity-100 group-focus-within/acc:translate-y-0 transition-all duration-150 absolute left-0 bottom-full mb-2 w-64 z-40 rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 shadow-xl p-3 text-left"
+        >
+          <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-stone-100 dark:border-stone-800">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+              Field Body: {profile.primaryBody.acronym}
+            </span>
+            <span className="text-[9px] font-mono text-stone-500 dark:text-stone-400">
+              {qual.nqfCredits}
+            </span>
+          </div>
+          <p className="mt-1.5 text-[11px] font-semibold text-stone-900 dark:text-stone-100 leading-snug">
+            {profile.primaryBody.name}
+          </p>
+          <p className="mt-1 text-[10px] text-amber-700 dark:text-amber-400 font-medium leading-snug">
+            {profile.platformStatusLabel}
+          </p>
+          <span className="mt-1.5 block text-[10px] font-semibold text-purple-700 dark:text-purple-400">
+            Click to inspect regulatory body details →
+          </span>
+        </div>
+      </div>
+    );
+  };
 
   useEffect(() => {
     if (!activeQuickViewKey) return;
@@ -333,17 +432,42 @@ export const AcademicDirectorySection: React.FC<AcademicDirectorySectionProps> =
             </ul>
           </div>
 
-          <div className="pt-3 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setActiveQuickViewKey(null);
-                setInspectedQualification({ ...qual, coreModules });
-              }}
-              className="px-2.5 py-1.5 rounded-lg border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 hover:bg-stone-100 dark:hover:bg-stone-700 text-[11px] font-semibold text-stone-800 dark:text-stone-200 cursor-pointer"
-            >
-              Full Specs
-            </button>
+          <div className="pt-3 border-t border-stone-100 dark:border-stone-800 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveQuickViewKey(null);
+                  setInspectedQualification({ ...qual, coreModules });
+                }}
+                className="px-2.5 py-1.5 rounded-lg border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 hover:bg-stone-100 dark:hover:bg-stone-700 text-[11px] font-semibold text-stone-800 dark:text-stone-200 cursor-pointer"
+              >
+                Full Specs
+              </button>
+              {onToggleSaveProgram && (() => {
+                const isSaved = savedProgramIds.includes(qual.id);
+                return (
+                  <button
+                    type="button"
+                    onClick={() => onToggleSaveProgram(qual, faculty)}
+                    aria-pressed={isSaved}
+                    title={isSaved ? 'Remove from My Saved Programs' : 'Bookmark program'}
+                    className={`px-2 py-1.5 rounded-lg border text-[11px] font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer ${
+                      isSaved
+                        ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700'
+                        : 'border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-700 dark:text-stone-200 hover:border-amber-400'
+                    }`}
+                  >
+                    {isSaved ? (
+                      <BookmarkCheck className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                    ) : (
+                      <Bookmark className="w-3.5 h-3.5" />
+                    )}
+                    <span>{isSaved ? 'Saved' : 'Save'}</span>
+                  </button>
+                );
+              })()}
+            </div>
             {canApply && (
               <button
                 type="button"
@@ -380,6 +504,9 @@ export const AcademicDirectorySection: React.FC<AcademicDirectorySectionProps> =
             </h2>
             <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-400 mt-1 max-w-2xl">
               Filter by academic category to view relevant sub-fields and qualification levels, or expand any category card below.
+            </p>
+            <p className="text-[11px] text-amber-800 dark:text-amber-300 mt-2 bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/60 rounded-lg px-3 py-1.5 inline-block">
+              Advisory Pathway Guide: Reference curriculum outlines aligned with standard qualification frameworks. Study modules issue internal TTG completion records and do not confer statutory university degrees.
             </p>
           </div>
 
@@ -642,6 +769,8 @@ export const AcademicDirectorySection: React.FC<AcademicDirectorySectionProps> =
                             const isQuickViewOpen = activeQuickViewKey === quickViewKey;
                             const coreModules = resolveQualificationCoreModules(qual, faculty);
                             const levelTag = resolveQualificationLevelTag(qual);
+                            const isSaved = savedProgramIds.includes(qual.id);
+                            const isCompared = comparedProgramIds.includes(qual.id);
 
                             return (
                               <div
@@ -660,10 +789,36 @@ export const AcademicDirectorySection: React.FC<AcademicDirectorySectionProps> =
                                         {qual.level}
                                       </span>
                                     </div>
-                                    <span className="text-[11px] font-mono text-stone-500 dark:text-stone-400 inline-flex items-center gap-1 shrink-0">
-                                      <Clock className="w-3 h-3" />
-                                      {qual.typicalDuration}
-                                    </span>
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                      <span className="text-[11px] font-mono text-stone-500 dark:text-stone-400 inline-flex items-center gap-1">
+                                        <Clock className="w-3 h-3" />
+                                        {qual.typicalDuration}
+                                      </span>
+                                      {onToggleSaveProgram && (
+                                        <button
+                                          type="button"
+                                          onClick={() => onToggleSaveProgram(qual, faculty)}
+                                          aria-pressed={isSaved}
+                                          aria-label={
+                                            isSaved
+                                              ? `Remove ${qual.qualificationType} from saved programs`
+                                              : `Bookmark ${qual.qualificationType}`
+                                          }
+                                          title={isSaved ? 'Saved to My Saved Programs' : 'Bookmark program'}
+                                          className={`p-1 rounded-md border transition-colors cursor-pointer ${
+                                            isSaved
+                                              ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-700'
+                                              : 'border-stone-200 dark:border-stone-700 text-stone-400 hover:text-amber-600 dark:hover:text-amber-400'
+                                          }`}
+                                        >
+                                          {isSaved ? (
+                                            <BookmarkCheck className="w-3.5 h-3.5" />
+                                          ) : (
+                                            <Bookmark className="w-3.5 h-3.5" />
+                                          )}
+                                        </button>
+                                      )}
+                                    </div>
                                   </div>
 
                                   <h5 className="text-xs font-bold text-stone-900 dark:text-stone-100 leading-snug">
@@ -673,13 +828,37 @@ export const AcademicDirectorySection: React.FC<AcademicDirectorySectionProps> =
                                   <p className="text-[11px] text-stone-600 dark:text-stone-400 leading-relaxed">
                                     {qual.academicFocus}
                                   </p>
+
+                                  <div className="pt-1">
+                                    {renderVerifiedAccreditationBadge(
+                                      qual,
+                                      faculty.filterKey,
+                                      faculty.name
+                                    )}
+                                  </div>
                                 </div>
 
-                                <div className="pt-2.5 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between gap-2 text-[11px]">
+                                <div className="pt-2.5 border-t border-stone-100 dark:border-stone-800 flex flex-wrap items-center justify-between gap-2 text-[11px]">
                                   <span className="font-mono text-stone-500 dark:text-stone-400">
                                     {qual.nqfCredits}
                                   </span>
-                                  <div className="flex items-center gap-2 relative" data-quickview-root>
+                                  <div className="flex flex-wrap items-center gap-1.5 relative" data-quickview-root>
+                                    {onToggleCompareProgram && (
+                                      <button
+                                        type="button"
+                                        onClick={() => onToggleCompareProgram(qual.id)}
+                                        aria-pressed={isCompared}
+                                        title={isCompared ? 'Remove from comparison' : 'Select to compare (up to 3)'}
+                                        className={`px-2 py-1 rounded-lg border text-[11px] font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer ${
+                                          isCompared
+                                            ? 'bg-purple-700 text-white border-purple-700'
+                                            : 'border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-950 text-stone-700 dark:text-stone-200 hover:border-purple-400'
+                                        }`}
+                                      >
+                                        <GitCompare className="w-3 h-3" />
+                                        <span>{isCompared ? 'Selected' : 'Compare'}</span>
+                                      </button>
+                                    )}
                                     <button
                                       type="button"
                                       onClick={() =>
@@ -795,10 +974,36 @@ export const AcademicDirectorySection: React.FC<AcademicDirectorySectionProps> =
             )}
           </div>
 
-          <div className="text-xs text-stone-500 dark:text-stone-400 font-mono tabular-nums shrink-0">
-            Showing {visibleQualifications.length}{' '}
-            {visibleQualifications.length === 1 ? 'qualification' : 'qualifications'}
-            {selectedCategory !== 'all' ? ` in ${selectedCategory}` : ''}
+          <div className="flex flex-wrap items-center gap-2 justify-between sm:justify-end">
+            {onOpenSavedProgramsProfile && (
+              <button
+                type="button"
+                onClick={onOpenSavedProgramsProfile}
+                className="px-3 py-1.5 rounded-lg border border-amber-200 dark:border-amber-800/80 bg-amber-50/70 dark:bg-amber-950/30 hover:bg-amber-100/80 dark:hover:bg-amber-950/60 text-xs font-semibold text-amber-800 dark:text-amber-300 inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <BookmarkCheck className="w-3.5 h-3.5" />
+                <span>Saved ({savedProgramIds.length})</span>
+              </button>
+            )}
+            {onOpenCompareModal && (
+              <button
+                type="button"
+                onClick={onOpenCompareModal}
+                className={`px-3 py-1.5 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer ${
+                  comparedProgramIds.length > 0
+                    ? 'bg-purple-700 hover:bg-purple-800 text-white border-purple-700'
+                    : 'border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:border-purple-400'
+                }`}
+              >
+                <GitCompare className="w-3.5 h-3.5" />
+                <span>Compare ({comparedProgramIds.length}/3)</span>
+              </button>
+            )}
+            <div className="text-xs text-stone-500 dark:text-stone-400 font-mono tabular-nums shrink-0">
+              Showing {visibleQualifications.length}{' '}
+              {visibleQualifications.length === 1 ? 'qualification' : 'qualifications'}
+              {selectedCategory !== 'all' ? ` in ${selectedCategory}` : ''}
+            </div>
           </div>
         </div>
 
@@ -830,6 +1035,8 @@ export const AcademicDirectorySection: React.FC<AcademicDirectorySectionProps> =
               const isQuickViewOpen = activeQuickViewKey === quickViewKey;
               const levelTag = resolveQualificationLevelTag(qual);
               const preferredProgram = qual.matchedPrograms[0];
+              const isSaved = savedProgramIds.includes(qual.id);
+              const isCompared = comparedProgramIds.includes(qual.id);
 
               return (
                 <div
@@ -848,9 +1055,35 @@ export const AcademicDirectorySection: React.FC<AcademicDirectorySectionProps> =
                           {qual.categoryKey}
                         </span>
                       </div>
-                      <span className="text-stone-600 dark:text-stone-400 font-semibold shrink-0">
-                        {qual.typicalDuration}
-                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-stone-600 dark:text-stone-400 font-semibold">
+                          {qual.typicalDuration}
+                        </span>
+                        {onToggleSaveProgram && (
+                          <button
+                            type="button"
+                            onClick={() => onToggleSaveProgram(qual, qual.faculty)}
+                            aria-pressed={isSaved}
+                            aria-label={
+                              isSaved
+                                ? `Remove ${qual.qualificationType} from saved programs`
+                                : `Bookmark ${qual.qualificationType}`
+                            }
+                            title={isSaved ? 'Saved in My Saved Programs' : 'Bookmark program'}
+                            className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                              isSaved
+                                ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-700'
+                                : 'border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-500 hover:text-amber-600 dark:hover:text-amber-400'
+                            }`}
+                          >
+                            {isSaved ? (
+                              <BookmarkCheck className="w-3.5 h-3.5" />
+                            ) : (
+                              <Bookmark className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     <div>
@@ -860,6 +1093,13 @@ export const AcademicDirectorySection: React.FC<AcademicDirectorySectionProps> =
                       <span className="text-[11px] text-stone-500 dark:text-stone-400 block mt-0.5">
                         {qual.facultyName}
                       </span>
+                      <div className="mt-2">
+                        {renderVerifiedAccreditationBadge(
+                          qual,
+                          qual.categoryKey,
+                          qual.facultyName
+                        )}
+                      </div>
                     </div>
 
                     {qual.matchedPrograms.length > 0 && (
@@ -912,7 +1152,23 @@ export const AcademicDirectorySection: React.FC<AcademicDirectorySectionProps> =
                     <span className="text-[11px] font-mono text-stone-500 dark:text-stone-400">
                       {qual.nqfCredits}
                     </span>
-                    <div className="flex items-center gap-1.5 relative" data-quickview-root>
+                    <div className="flex flex-wrap items-center gap-1.5 relative" data-quickview-root>
+                      {onToggleCompareProgram && (
+                        <button
+                          type="button"
+                          onClick={() => onToggleCompareProgram(qual.id)}
+                          aria-pressed={isCompared}
+                          title={isCompared ? 'Remove from comparison' : 'Select to compare (up to 3)'}
+                          className={`px-2.5 py-1.5 rounded-lg border text-xs font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer ${
+                            isCompared
+                              ? 'bg-purple-700 text-white border-purple-700'
+                              : 'border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 hover:border-purple-400 text-stone-700 dark:text-stone-200'
+                          }`}
+                        >
+                          <GitCompare className="w-3.5 h-3.5" />
+                          <span>{isCompared ? 'Selected' : 'Compare'}</span>
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() =>
@@ -1055,30 +1311,252 @@ export const AcademicDirectorySection: React.FC<AcademicDirectorySectionProps> =
               </div>
             </div>
 
-            <div className="px-6 py-4 bg-stone-50 dark:bg-stone-950 border-t border-stone-200 dark:border-stone-800 flex items-center justify-between gap-2">
-              {onApplyQualification || onOpenAccreditation ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const targetQual = inspectedQualification;
-                    setInspectedQualification(null);
-                    if (onApplyQualification && targetQual) {
-                      onApplyQualification(buildApplicationPrefillForQualification(targetQual));
-                    } else if (onOpenAccreditation) {
-                      onOpenAccreditation();
-                    }
-                  }}
-                  className="px-4 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold cursor-pointer inline-flex items-center gap-1.5"
-                >
-                  <GraduationCap className="w-3.5 h-3.5" />
-                  <span>Apply Under This Qualification</span>
-                </button>
-              ) : (
-                <span />
-              )}
+            <div className="px-6 py-4 bg-stone-50 dark:bg-stone-950 border-t border-stone-200 dark:border-stone-800 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {onApplyQualification || onOpenAccreditation ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const targetQual = inspectedQualification;
+                      setInspectedQualification(null);
+                      if (onApplyQualification && targetQual) {
+                        onApplyQualification(buildApplicationPrefillForQualification(targetQual));
+                      } else if (onOpenAccreditation) {
+                        onOpenAccreditation();
+                      }
+                    }}
+                    className="px-4 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold cursor-pointer inline-flex items-center gap-1.5"
+                  >
+                    <GraduationCap className="w-3.5 h-3.5" />
+                    <span>Apply Under This Qualification</span>
+                  </button>
+                ) : null}
+
+                {onToggleSaveProgram && (() => {
+                  const isSaved = savedProgramIds.includes(inspectedQualification.id);
+                  const lookup = findQualificationWithFaculty(inspectedQualification.id);
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => onToggleSaveProgram(inspectedQualification, lookup?.faculty)}
+                      className={`px-3 py-2 rounded-xl border text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer ${
+                        isSaved
+                          ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700'
+                          : 'bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200 border-stone-200 dark:border-stone-700'
+                      }`}
+                    >
+                      {isSaved ? <BookmarkCheck className="w-3.5 h-3.5" /> : <Bookmark className="w-3.5 h-3.5" />}
+                      <span>{isSaved ? 'Saved' : 'Bookmark'}</span>
+                    </button>
+                  );
+                })()}
+
+                {onToggleCompareProgram && (() => {
+                  const isCompared = comparedProgramIds.includes(inspectedQualification.id);
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => onToggleCompareProgram(inspectedQualification.id)}
+                      className={`px-3 py-2 rounded-xl border text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer ${
+                        isCompared
+                          ? 'bg-purple-700 text-white border-purple-700'
+                          : 'bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-200 border-stone-200 dark:border-stone-700'
+                      }`}
+                    >
+                      <GitCompare className="w-3.5 h-3.5" />
+                      <span>{isCompared ? 'Selected to Compare' : 'Compare'}</span>
+                    </button>
+                  );
+                })()}
+              </div>
               <button
                 type="button"
                 onClick={() => setInspectedQualification(null)}
+                className="px-4 py-2 rounded-xl bg-stone-200 dark:bg-stone-800 hover:bg-stone-300 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 text-xs font-semibold cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Modal: Field Accreditation Body Details */}
+      {inspectedAccreditation && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="accreditation-body-modal-title"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
+        >
+          <div
+            className="fixed inset-0 bg-stone-950/75 backdrop-blur-xs"
+            onClick={() => setInspectedAccreditation(null)}
+          />
+          <div className="relative w-full max-w-2xl bg-white dark:bg-stone-900 rounded-2xl shadow-2xl border border-stone-200 dark:border-stone-800 overflow-hidden z-10 my-6 flex flex-col max-h-[88vh]">
+            <div className="px-6 py-4 bg-stone-50 dark:bg-stone-950 border-b border-stone-200 dark:border-stone-800 flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>{inspectedAccreditation.categoryKey} Regulatory Profile</span>
+                  <span aria-hidden="true">·</span>
+                  <span>{inspectedAccreditation.qual.nqfCredits}</span>
+                </div>
+                <h3
+                  id="accreditation-body-modal-title"
+                  className="text-lg font-bold text-stone-900 dark:text-stone-100 leading-snug"
+                >
+                  {inspectedAccreditation.qual.qualificationType}
+                </h3>
+                {inspectedAccreditation.facultyName && (
+                  <p className="text-xs text-stone-500 dark:text-stone-400">
+                    {inspectedAccreditation.facultyName}
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setInspectedAccreditation(null)}
+                className="p-1.5 text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-800 cursor-pointer"
+                aria-label="Close accreditation body details"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-4 text-xs">
+              {/* Transparent Platform Status Banner */}
+              <div className="p-4 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/70 flex items-start gap-3">
+                <ShieldAlert className="w-4 h-4 text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <div className="font-bold text-amber-900 dark:text-amber-200">
+                    {inspectedAccreditation.profile.platformStatusLabel}
+                  </div>
+                  <p className="text-amber-800/90 dark:text-amber-300/90 leading-relaxed">
+                    {inspectedAccreditation.profile.credentialVerificationNote} Below are the reference statutory and disciplinary accrediting councils that govern this academic field.
+                  </p>
+                </div>
+              </div>
+
+              {/* Primary Accrediting Body */}
+              <div className="p-4 rounded-xl border border-emerald-200 dark:border-emerald-800/70 bg-emerald-50/40 dark:bg-emerald-950/20 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="px-2 py-0.5 rounded-md bg-emerald-700 text-white font-mono text-[10px] font-bold">
+                    PRIMARY COUNCIL · {inspectedAccreditation.profile.primaryBody.acronym}
+                  </span>
+                  <span className="text-[11px] font-mono text-stone-500 dark:text-stone-400">
+                    {inspectedAccreditation.profile.primaryBody.jurisdiction}
+                  </span>
+                </div>
+                <h4 className="text-sm font-bold text-stone-900 dark:text-stone-100">
+                  {inspectedAccreditation.profile.primaryBody.name}
+                </h4>
+                <p className="text-stone-700 dark:text-stone-300 leading-relaxed">
+                  {inspectedAccreditation.profile.primaryBody.focus}
+                </p>
+                <a
+                  href={inspectedAccreditation.profile.primaryBody.websiteUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-400 hover:underline pt-1"
+                >
+                  <span>Visit Official Accreditation Authority</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+
+              {/* Secondary Bodies */}
+              <div className="space-y-2">
+                <h4 className="text-[11px] font-bold uppercase tracking-wider text-stone-500 dark:text-stone-400">
+                  Related Disciplinary &amp; International Recognition Councils
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {inspectedAccreditation.profile.secondaryBodies.map((body) => (
+                    <div
+                      key={body.acronym}
+                      className="p-3.5 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/60 dark:bg-stone-950/60 space-y-1.5"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono font-bold text-[11px] text-purple-700 dark:text-purple-400">
+                          {body.acronym}
+                        </span>
+                        <a
+                          href={body.websiteUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-stone-400 hover:text-purple-700 dark:hover:text-purple-300"
+                          aria-label={`Open ${body.name} website`}
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      </div>
+                      <div className="font-bold text-stone-900 dark:text-stone-100 leading-snug">
+                        {body.name}
+                      </div>
+                      <p className="text-[11px] text-stone-600 dark:text-stone-400 leading-snug">
+                        {body.focus}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Field Compliance Requirements */}
+              <div className="p-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 space-y-2">
+                <h4 className="text-[11px] font-bold uppercase tracking-wider text-stone-700 dark:text-stone-300">
+                  Academic Compliance Benchmarks for {inspectedAccreditation.categoryKey}
+                </h4>
+                <ul className="space-y-1.5">
+                  {inspectedAccreditation.profile.complianceCriteria.map((criterion) => (
+                    <li
+                      key={criterion}
+                      className="flex items-start gap-2 text-stone-700 dark:text-stone-300 leading-relaxed"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                      <span>{criterion}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="pt-2 border-t border-stone-100 dark:border-stone-800 text-[11px] text-stone-500 dark:text-stone-400">
+                  {inspectedAccreditation.profile.creditFrameworkSummary}
+                </p>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 bg-stone-50 dark:bg-stone-950 border-t border-stone-200 dark:border-stone-800 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {onOpenAccreditation && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInspectedAccreditation(null);
+                      onOpenAccreditation();
+                    }}
+                    className="px-3.5 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 hover:bg-stone-100 dark:hover:bg-stone-800 text-xs font-semibold text-stone-800 dark:text-stone-200 inline-flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    <span>Open Platform Self-Audit</span>
+                  </button>
+                )}
+                {onApplyQualification && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const target = inspectedAccreditation.qual;
+                      setInspectedAccreditation(null);
+                      onApplyQualification(buildApplicationPrefillForQualification(target));
+                    }}
+                    className="px-4 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <GraduationCap className="w-3.5 h-3.5" />
+                    <span>Apply Under This Qualification</span>
+                  </button>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setInspectedAccreditation(null)}
                 className="px-4 py-2 rounded-xl bg-stone-200 dark:bg-stone-800 hover:bg-stone-300 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 text-xs font-semibold cursor-pointer"
               >
                 Close
@@ -1255,6 +1733,67 @@ export const AcademicDirectorySection: React.FC<AcademicDirectorySectionProps> =
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Bottom Compare Tray */}
+      {comparedProgramIds.length > 0 && onOpenCompareModal && (
+        <div
+          role="region"
+          aria-label="Program Comparison Tray"
+          className="sticky bottom-3 z-30 rounded-2xl border border-purple-300 dark:border-purple-700 bg-white/95 dark:bg-stone-900/95 backdrop-blur-md shadow-2xl p-3 sm:p-4 flex flex-col md:flex-row md:items-center justify-between gap-3"
+        >
+          <div className="flex flex-wrap items-center gap-2 min-w-0">
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-purple-700 dark:text-purple-300 shrink-0">
+              <GitCompare className="w-4 h-4" />
+              <span>Compare ({comparedProgramIds.length}/3):</span>
+            </span>
+            {comparedProgramIds.map((qid) => {
+              const entry = findQualificationWithFaculty(qid);
+              if (!entry) return null;
+              return (
+                <span
+                  key={qid}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 text-[11px] font-semibold text-purple-900 dark:text-purple-200 max-w-full"
+                >
+                  <span className="truncate max-w-[180px] sm:max-w-[220px]">
+                    {entry.faculty.filterKey}: {entry.qualification.qualificationType}
+                  </span>
+                  {onToggleCompareProgram && (
+                    <button
+                      type="button"
+                      onClick={() => onToggleCompareProgram(qid)}
+                      className="text-purple-500 hover:text-rose-600 cursor-pointer shrink-0"
+                      aria-label={`Remove ${entry.qualification.qualificationType} from compare`}
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </span>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0 justify-end">
+            {onClearComparedPrograms && (
+              <button
+                type="button"
+                onClick={onClearComparedPrograms}
+                className="px-3 py-1.5 rounded-xl border border-stone-200 dark:border-stone-700 text-xs font-semibold text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 cursor-pointer"
+              >
+                Clear
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onOpenCompareModal}
+              className="px-4 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+            >
+              <GitCompare className="w-3.5 h-3.5" />
+              <span>Compare Programs ({comparedProgramIds.length}/3)</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       )}

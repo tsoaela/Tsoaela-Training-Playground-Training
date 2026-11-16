@@ -115,17 +115,17 @@ export const CourseCertificatesGalleryModal: React.FC<CourseCertificatesGalleryM
           <div className="flex items-center gap-3.5">
             <img
               src={TAI_ONE_LOGO_URL}
-              alt="Tai-one Official Seal"
+              alt="TTG - Tsoaela Training Ground Platform Seal"
               referrerPolicy="no-referrer"
-              className="w-11 h-11 rounded-full object-cover border-2 border-[#bef264]"
+              className="h-12 w-auto rounded-xl object-contain bg-white p-1 border-2 border-[#bef264] shrink-0"
             />
             <div>
               <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-wider text-[#bef264]">
                 <Award className="w-3.5 h-3.5" />
-                <span>Tai-one Certificate Registry · Golden-Green &amp; Lime Editions</span>
+                <span>TTG - Tsoaela Training Ground Platform · Internal Certificate Archive</span>
               </div>
               <h2 className="text-lg sm:text-xl font-bold text-white">
-                Course Certificates Attached by Category ({items.length} Courses)
+                Platform Completion Certificates by Category ({items.length} Courses)
               </h2>
             </div>
           </div>
@@ -215,7 +215,7 @@ export const CourseCertificatesGalleryModal: React.FC<CourseCertificatesGalleryM
         <div className="px-5 py-3 border-t border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 flex items-center justify-between text-xs text-stone-500">
           <span className="flex items-center gap-1.5">
             <CheckCircle2 className="w-4 h-4 text-[#65a30d]" />
-            Every course carries a unique category certificate with Tai-one crest &amp; PDF verification.
+            Every course includes a downloadable internal completion certificate (PNG/PDF). Platform-issued study record; not externally accredited.
           </span>
           <button
             type="button"

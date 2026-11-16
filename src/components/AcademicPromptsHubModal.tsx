@@ -65,7 +65,7 @@ Instructions:
 4. Include a clear AI policy clause stating acceptable vs. unacceptable uses of GenAI (${inputs.aiPolicyMode || 'Permitted with Explicit Citation'}), attribution standards, and penalties for unapproved automated submissions.
 Format: Clean Markdown with structured headers and a syllabus table.`,
     sampleOutput: `# Syllabus: Intro to Data Science & Cognitive Systems (15-Week University Course)
-**Level:** Undergraduate | **Accreditation:** GISDQ Standard
+**Level:** Undergraduate | **Quality Benchmark:** TTG Internal Curriculum Standard (Non-Accredited)
 
 ## Student Learning Outcomes (SLOs)
 - **SLO 1 (Analyze):** Deconstruct multi-modal datasets using statistical distributions and Bayesian heuristics.

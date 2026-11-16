@@ -17,14 +17,14 @@ export interface CategoryCertificateTemplate {
 }
 
 export const CATEGORY_CERTIFICATE_TEMPLATES: Record<string, CategoryCertificateTemplate> = {
-  'AI Courses (AI Generated)': {
-    categoryKey: 'AI Courses (AI Generated)',
-    credentialTitle: 'Certificate in Frontier AI & Reasoning Systems',
+  'Frontier AI & Systems': {
+    categoryKey: 'Frontier AI & Systems',
+    credentialTitle: 'Completion Certificate in Frontier AI & Reasoning Systems',
     subtitle: 'Autonomous Compute Allocation, Verifier Architectures & Swarm Protocols',
-    distinctionLabel: 'FRONTIER AI FELLOWSHIP',
+    distinctionLabel: 'INTERNAL COMPLETION RECORD',
     credentialCodePrefix: 'TTG-AI',
-    accreditor: 'TAI-ONE AI Standards Board',
-    sealTitle: 'VERIFIED AI SYSTEMS ARCHITECT',
+    accreditor: 'TTG - Tsoaela Training Ground Platform',
+    sealTitle: 'TTG INTERNAL COMPLETION SEAL',
     competencies: [
       'Test-Time Search Compute & MCTS Rollouts',
       'Process-Supervised Verification & Error Pruning',
@@ -35,12 +35,12 @@ export const CATEGORY_CERTIFICATE_TEMPLATES: Record<string, CategoryCertificateT
   },
   'Cognitive Models': {
     categoryKey: 'Cognitive Models',
-    credentialTitle: 'Certificate in First-Principles Cognitive Modeling',
+    credentialTitle: 'Completion Certificate in First-Principles Cognitive Modeling',
     subtitle: 'Axiomatic Deconstruction, System Boundaries & Feedback Architecture',
-    distinctionLabel: 'COGNITIVE SYSTEMS HONORS',
+    distinctionLabel: 'INTERNAL COMPLETION RECORD',
     credentialCodePrefix: 'TTG-COG',
-    accreditor: 'TTG Institutional Board',
-    sealTitle: 'SYSTEMS DECONSTRUCTION SEAL',
+    accreditor: 'TTG Systems Curriculum Division (Internal)',
+    sealTitle: 'TTG COMPLETION RECORD SEAL',
     competencies: [
       'Axiomatic Problem Deconstruction',
       'System Boundary & Delay Cascade Mapping',
@@ -51,12 +51,12 @@ export const CATEGORY_CERTIFICATE_TEMPLATES: Record<string, CategoryCertificateT
   },
   'Executive Leadership': {
     categoryKey: 'Executive Leadership',
-    credentialTitle: 'Executive Diploma in Sovereign Institutional Leadership',
+    credentialTitle: 'Completion Certificate in Institutional Leadership & Strategy',
     subtitle: 'Multi-Year Capital Stewardship, Geopolitical Shielding & Governance Invariants',
-    distinctionLabel: 'SOVEREIGN STEWARDSHIP AWARD',
+    distinctionLabel: 'INTERNAL COMPLETION RECORD',
     credentialCodePrefix: 'TTG-EXEC',
-    accreditor: 'Sovereign Governance Council',
-    sealTitle: 'SOVEREIGN GOVERNANCE COUNCIL',
+    accreditor: 'TTG Executive Curriculum Division (Internal)',
+    sealTitle: 'TTG COMPLETION RECORD SEAL',
     competencies: [
       'Multi-Horizon Strategic Capital Allocation',
       'Anti-Fragile Cultural & Operational Invariants',
@@ -67,12 +67,12 @@ export const CATEGORY_CERTIFICATE_TEMPLATES: Record<string, CategoryCertificateT
   },
   'Music Streaming & Audio DSP': {
     categoryKey: 'Music Streaming & Audio DSP',
-    credentialTitle: 'Studio Master Certificate in Broadcast Audio DSP',
+    credentialTitle: 'Completion Certificate in Broadcast Audio DSP',
     subtitle: 'ITU-R BS.1770 Loudness Mastering, Sidechain Ducking & Psychoacoustic Synthesis',
-    distinctionLabel: 'BROADCAST ACOUSTICS MASTER',
+    distinctionLabel: 'INTERNAL COMPLETION RECORD',
     credentialCodePrefix: 'TTG-DSP',
-    accreditor: 'TAI-ONE Acoustic Engineering Guild',
-    sealTitle: 'MASTER AUDIO DSP ENGINEER',
+    accreditor: 'TTG Digital World Audio Division (Internal)',
+    sealTitle: 'TTG STUDIO COMPLETION SEAL',
     competencies: [
       '-14.0 LUFS EBU R128 Loudness Compliance',
       'Frequency-Selective Voice-Over Sidechain Ducking',
@@ -83,12 +83,12 @@ export const CATEGORY_CERTIFICATE_TEMPLATES: Record<string, CategoryCertificateT
   },
   'Visuals & Motion Art': {
     categoryKey: 'Visuals & Motion Art',
-    credentialTitle: 'Studio Master Certificate in Generative Visuals & ABR Streaming',
+    credentialTitle: 'Completion Certificate in Generative Visuals & ABR Streaming',
     subtitle: 'GLSL Fragment Shaders, Volumetric Raymarching & Adaptive Bitrate Distribution',
-    distinctionLabel: 'VISUAL COMPUTING DISTINCTION',
+    distinctionLabel: 'INTERNAL COMPLETION RECORD',
     credentialCodePrefix: 'TTG-VIS',
-    accreditor: 'TTG Digital World Graphics Bureau',
-    sealTitle: 'GENERATIVE SHADER ARCHITECT',
+    accreditor: 'TTG Digital World Graphics Division (Internal)',
+    sealTitle: 'TTG VISUALS COMPLETION SEAL',
     competencies: [
       '60 FPS GLSL Signed Distance Field Shaders',
       '4K HLS Adaptive Bitrate Manifest Engineering',
@@ -99,12 +99,12 @@ export const CATEGORY_CERTIFICATE_TEMPLATES: Record<string, CategoryCertificateT
   },
   'Mural Art & Spatial Canvas': {
     categoryKey: 'Mural Art & Spatial Canvas',
-    credentialTitle: 'Heritage Certificate in Monumental Muralism & Spatial Canvas',
+    credentialTitle: 'Completion Certificate in Monumental Muralism & Spatial Canvas',
     subtitle: 'Anamorphic Architectural Scaling, Mineral Silicate Chemistry & AR Projection',
-    distinctionLabel: 'MONUMENTAL CANVAS LAUREATE',
+    distinctionLabel: 'INTERNAL COMPLETION RECORD',
     credentialCodePrefix: 'TTG-MUR',
-    accreditor: 'Lisbon & Kyoto Urban Arts Consortium',
-    sealTitle: 'SPATIAL MURALIST GUILD',
+    accreditor: 'TTG Spatial Arts Division (Internal)',
+    sealTitle: 'TTG SPATIAL ARTS COMPLETION SEAL',
     competencies: [
       'Fibonacci Multi-Story Proportional Grid Scaling',
       'Potassium Silicate Concrete Silicification Chemistry',
@@ -115,12 +115,12 @@ export const CATEGORY_CERTIFICATE_TEMPLATES: Record<string, CategoryCertificateT
   },
   'Broadcast Engineering': {
     categoryKey: 'Broadcast Engineering',
-    credentialTitle: 'Executive Certificate in Broadcast Orchestration & Live Playout',
+    credentialTitle: 'Completion Certificate in Broadcast Orchestration & Live Playout',
     subtitle: 'Master Control Matrix Switching, Synthetic SLA Observability & Zero-Downtime DR',
-    distinctionLabel: 'MASTER CONTROL DIRECTOR',
+    distinctionLabel: 'INTERNAL COMPLETION RECORD',
     credentialCodePrefix: 'TTG-BCAST',
-    accreditor: 'TAI-ONE Broadcast Standards Authority',
-    sealTitle: 'MASTER CONTROL ORCHESTRATOR',
+    accreditor: 'TTG Broadcast Curriculum Division (Internal)',
+    sealTitle: 'TTG BROADCAST COMPLETION SEAL',
     competencies: [
       'Multi-Bus Program & Preview Video Matrix Routing',
       'Sub-20ms Synthetic Telemetry & Prometheus Probes',
@@ -139,7 +139,19 @@ export function resolveCertificateByCategory(params: {
   accreditor?: string;
   outcomes?: string[];
 }): CourseCertificateSpec {
-  const exact = CATEGORY_CERTIFICATE_TEMPLATES[params.category];
+  const normalizedCategory =
+    /^(ai\s+courses?|ai\s+course\s*\(ai\s+generated\)|ai\s+courses\s*\(ai\s+generated\))$/i.test(
+      params.category.trim()
+    )
+      ? 'Frontier AI & Systems'
+      : params.category;
+  const sanitizedAccreditor =
+    params.accreditor &&
+    !/tai-one\s+ai\s+standard\s+board/i.test(params.accreditor)
+      ? params.accreditor
+      : undefined;
+
+  const exact = CATEGORY_CERTIFICATE_TEMPLATES[normalizedCategory];
   if (exact) {
     return {
       id: `cert_${params.id}`,
@@ -148,7 +160,7 @@ export function resolveCertificateByCategory(params: {
       subtitle: `${params.title} · ${exact.subtitle}`,
       distinctionLabel: exact.distinctionLabel,
       credentialCodePrefix: exact.credentialCodePrefix,
-      accreditor: params.accreditor || exact.accreditor,
+      accreditor: sanitizedAccreditor || exact.accreditor,
       sealTitle: exact.sealTitle,
       competencies:
         params.outcomes && params.outcomes.length >= 2
@@ -160,7 +172,7 @@ export function resolveCertificateByCategory(params: {
   }
 
   // Fallback category synthesis for custom/faculty categories
-  const cleanCategory = params.category || params.field || 'Institutional Studies';
+  const cleanCategory = normalizedCategory || params.field || 'Institutional Studies';
   const shortCode = cleanCategory
     .replace(/[^A-Za-z]/g, '')
     .toUpperCase()
@@ -169,18 +181,18 @@ export function resolveCertificateByCategory(params: {
   return {
     id: `cert_${params.id}`,
     categoryKey: cleanCategory,
-    credentialTitle: `Certificate in ${cleanCategory}`,
-    subtitle: `${params.title} · Accredited Curriculum Qualification`,
-    distinctionLabel: 'VERIFIED ACADEMIC CREDENTIAL',
+    credentialTitle: `Completion Certificate in ${cleanCategory}`,
+    subtitle: `${params.title} · Internal Platform Completion Record`,
+    distinctionLabel: 'INTERNAL COMPLETION CREDENTIAL',
     credentialCodePrefix: `TTG-${shortCode}`,
-    accreditor: params.accreditor || 'TTG Institutional Accreditation Board',
-    sealTitle: 'OFFICIAL COMPETENCY SEAL',
+    accreditor: sanitizedAccreditor || 'TTG - Tsoaela Training Ground Platform',
+    sealTitle: 'INTERNAL COMPLETION SEAL',
     competencies:
       params.outcomes && params.outcomes.length > 0
         ? params.outcomes.slice(0, 3)
         : [
-            `Core Mastery of ${params.title}`,
-            'Applied Analytical Assessment Verification',
+            `Core Study of ${params.title}`,
+            'Self-Paced Module Assessment Completion',
             'First-Principles Methodological Execution',
           ],
     texturePattern: 'botanical_lattice',

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { UserProfile, StudyGuide, ReadingProgress } from '../types';
+import React, { useEffect, useRef, useState } from 'react';
+import { UserProfile, StudyGuide, ReadingProgress, BackgroundSyncStatus } from '../types';
 import { 
   X, 
   Download, 
@@ -15,11 +15,17 @@ import {
   ShieldCheck, 
   ListChecks, 
   FileCode,
-  Calendar
+  Calendar,
+  History,
+  FileEdit,
+  Wifi,
+  WifiOff,
+  RefreshCw
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
-import { loadLogoDataUrl, TAI_ONE_LOGO_URL } from '../utils/pdfBranding';
+import { loadLogoDataUrl, TAI_ONE_LOGO_URL, getFittedLogoSize } from '../utils/pdfBranding';
+import { QuizHistoryTimeline } from './QuizHistoryTimeline';
 
 interface ReadingProgressExportModalProps {
   isOpen: boolean;
@@ -27,6 +33,11 @@ interface ReadingProgressExportModalProps {
   user: UserProfile;
   studyGuides: StudyGuide[];
   readingProgress: Record<string, ReadingProgress>;
+  isOnline?: boolean;
+  unsyncedNotesCount?: number;
+  syncStatus?: BackgroundSyncStatus;
+  lastSyncedAt?: string | null;
+  onTriggerSync?: () => void;
 }
 
 export const ReadingProgressExportModal: React.FC<ReadingProgressExportModalProps> = ({
@@ -35,10 +46,25 @@ export const ReadingProgressExportModal: React.FC<ReadingProgressExportModalProp
   user,
   studyGuides,
   readingProgress,
+  isOnline = true,
+  unsyncedNotesCount = 0,
+  syncStatus = 'idle',
+  lastSyncedAt = null,
+  onTriggerSync,
 }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'chapters' | 'json'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'chapters' | 'quiz_history' | 'json'>('overview');
   const [copiedJson, setCopiedJson] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const prevOnlineRef = useRef<boolean>(isOnline);
+
+  // Trigger a background sync request automatically when the app returns online with unsynced notes
+  useEffect(() => {
+    const cameBackOnline = !prevOnlineRef.current && isOnline;
+    prevOnlineRef.current = isOnline;
+    if ((cameBackOnline || isOnline) && unsyncedNotesCount > 0 && syncStatus !== 'syncing') {
+      onTriggerSync?.();
+    }
+  }, [isOnline, unsyncedNotesCount, syncStatus, onTriggerSync]);
 
   if (!isOpen) return null;
 
@@ -84,7 +110,7 @@ export const ReadingProgressExportModal: React.FC<ReadingProgressExportModalProp
     report_type: 'Student Reading Progress & Chapter Completion Transcript',
     document_id: reportId,
     generated_at: generatedAt,
-    accreditation_standard: 'Global Institutional Skills Development Qualification (GISDQ)',
+    quality_benchmark: 'TTG Internal Self-Audit Standard (Non-Accredited)',
     student: {
       id: user.id,
       name: user.name,
@@ -116,7 +142,7 @@ export const ReadingProgressExportModal: React.FC<ReadingProgressExportModalProp
         field: guide.field || 'Cognitive Sciences',
         difficulty: guide.difficulty,
         is_accredited: guide.is_accredited,
-        accreditor_name: guide.accreditor_name || 'TTG Institutional Board',
+        accreditor_name: guide.accreditor_name || 'TTG Internal Curriculum Division',
         duration_label: guide.duration_label,
         progress_percentage: progressPercent,
         status: isCompleted ? 'Completed' : completedIndices.length > 0 ? 'In Progress' : 'Not Started',
@@ -128,9 +154,12 @@ export const ReadingProgressExportModal: React.FC<ReadingProgressExportModalProp
           chapter_title: ch.title,
           is_completed: completedIndices.includes(idx),
           completion_status: completedIndices.includes(idx) ? 'Completed' : 'Pending',
+          notes: prog?.chapterNotes?.[idx] || '',
         })),
         quiz_scores: prog?.quizScores || {},
+        quiz_history: prog?.quizHistory || [],
         student_study_notes: prog?.notes || '',
+        chapter_notes: prog?.chapterNotes || {},
         unlocked_badges: prog?.unlockedBadges || [],
       };
     }),
@@ -154,16 +183,26 @@ export const ReadingProgressExportModal: React.FC<ReadingProgressExportModalProp
       doc.setFillColor(132, 204, 22);
       doc.rect(0, 28, 210, 2, 'F');
 
+      let titleX = 14;
       if (logoDataUrl) {
-        doc.addImage(logoDataUrl, 'JPEG', 12, 4, 20, 20);
+        const fitted = getFittedLogoSize(36, 20);
+        doc.setFillColor(255, 255, 255);
+        doc.roundedRect(12, 4, fitted.width + 3, 20, 2, 2, 'F');
+        doc.addImage(
+          logoDataUrl,
+          'JPEG',
+          13.5,
+          4 + (20 - fitted.height) / 2,
+          fitted.width,
+          fitted.height
+        );
+        titleX = 12 + fitted.width + 8;
       }
-
-      const titleX = logoDataUrl ? 36 : 14;
 
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(13);
       doc.setTextColor(255, 255, 255);
-      doc.text('TAI-ONE DIGITAL DEVELOPER · TTG EDUCATION', titleX, 12);
+      doc.text('TTG - TSOAELA TRAINING GROUND PLATFORM', titleX, 12);
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9);
@@ -232,7 +271,7 @@ export const ReadingProgressExportModal: React.FC<ReadingProgressExportModalProp
         ['Courses In Progress', `${startedCourses.length} Courses`],
         ['Total Chapters Completed', `${totalCompletedChaptersCount} of ${totalChaptersInCurriculum} Chapters (${overallProgressPercent}%)`],
         ['Average Quiz Performance', `${avgQuizScore}% Passing Rate`],
-        ['Professional Accreditations', `${studyGuides.filter(g => g.is_accredited).length} Verified Institutions`],
+        ['Quality-Verified Modules', `${studyGuides.filter(g => g.is_accredited).length} Internal QA Modules`],
       ];
 
       (doc as any).autoTable({
@@ -277,7 +316,7 @@ export const ReadingProgressExportModal: React.FC<ReadingProgressExportModalProp
           : 'Not Started (0%)';
 
         const accreditationText = guide.is_accredited 
-          ? `Accredited: ${guide.accreditor_name || 'Institutional'}` 
+          ? `Quality-Checked: ${guide.accreditor_name || 'TTG Internal QA'}` 
           : 'Standard Curriculum';
 
         return [
@@ -292,7 +331,7 @@ export const ReadingProgressExportModal: React.FC<ReadingProgressExportModalProp
 
       (doc as any).autoTable({
         startY: (doc as any).lastAutoTable.finalY + 14,
-        head: [['Course & Accreditation', 'Category', 'Status', 'Chapters', 'Completed Chapters Log', 'Student Notes']],
+        head: [['Course & Quality Check', 'Category', 'Status', 'Chapters', 'Completed Chapters Log', 'Student Notes']],
         body: courseBreakdownData,
         theme: 'grid',
         headStyles: { fillColor: [0, 102, 204], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
@@ -319,7 +358,7 @@ export const ReadingProgressExportModal: React.FC<ReadingProgressExportModalProp
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(7.5);
         doc.setTextColor(148, 163, 184);
-        doc.text('TTG Institutional Digital Education Credential · Verifiable Learning Transcript', 14, 288);
+        doc.text('TTG Platform Study Transcript · Internal Completion Record (Non-Accredited)', 14, 288);
         doc.text(`Page ${i} of ${totalPages}`, 196, 288, { align: 'right' });
       }
 
@@ -371,13 +410,13 @@ export const ReadingProgressExportModal: React.FC<ReadingProgressExportModalProp
       <div className="relative w-full max-w-4xl bg-white dark:bg-stone-900 rounded-3xl shadow-2xl border border-stone-200 dark:border-stone-800 overflow-hidden z-10 flex flex-col max-h-[90vh]">
         
         {/* Header */}
-        <div className="p-5 sm:p-6 border-b border-stone-200 dark:border-stone-800 flex items-center justify-between bg-stone-50/70 dark:bg-stone-950/70">
+        <div className="p-5 sm:p-6 border-b border-stone-200 dark:border-stone-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-stone-50/70 dark:bg-stone-950/70">
           <div className="flex items-center gap-3">
             <img
               src={TAI_ONE_LOGO_URL}
-              alt="Tai-one Digital Developer Logo"
+              alt="Tsoaela Training Ground Platform Logo"
               referrerPolicy="no-referrer"
-              className="w-10 h-10 rounded-full object-cover ring-1 ring-emerald-500/50 shrink-0"
+              className="h-11 w-auto rounded-xl object-contain bg-white p-1 ring-1 ring-stone-200 dark:ring-stone-700 shrink-0"
             />
             <div>
               <h2 className="text-base sm:text-lg font-bold text-stone-900 dark:text-stone-100">
@@ -389,7 +428,61 @@ export const ReadingProgressExportModal: React.FC<ReadingProgressExportModalProp
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 justify-end">
+            {/* Offline Notes Sync Status Indicator */}
+            <div
+              role="status"
+              aria-live="polite"
+              title={
+                lastSyncedAt
+                  ? `Last background sync: ${new Date(lastSyncedAt).toLocaleString()}`
+                  : 'Personal chapter notes sync queue'
+              }
+              className={`px-3 py-1.5 rounded-xl border text-xs flex items-center gap-2 ${
+                !isOnline
+                  ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300'
+                  : syncStatus === 'syncing'
+                  ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-300 dark:border-blue-800 text-blue-800 dark:text-blue-300'
+                  : unsyncedNotesCount > 0
+                  ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-300 dark:border-indigo-800 text-indigo-800 dark:text-indigo-300'
+                  : 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
+              }`}
+            >
+              {!isOnline ? (
+                <WifiOff className="w-3.5 h-3.5 shrink-0" />
+              ) : syncStatus === 'syncing' ? (
+                <RefreshCw className="w-3.5 h-3.5 shrink-0 animate-spin" />
+              ) : (
+                <Wifi className="w-3.5 h-3.5 shrink-0" />
+              )}
+
+              <div className="flex items-center gap-1.5 font-medium">
+                <span className="font-semibold">Offline Notes Sync:</span>
+                {syncStatus === 'syncing' ? (
+                  <span>Syncing {unsyncedNotesCount} note{unsyncedNotesCount === 1 ? '' : 's'}…</span>
+                ) : unsyncedNotesCount > 0 ? (
+                  <span className="font-mono font-bold tabular-nums">
+                    {unsyncedNotesCount} unsynced {unsyncedNotesCount === 1 ? 'note' : 'notes'}
+                    {!isOnline ? ' (Queued)' : ''}
+                  </span>
+                ) : (
+                  <span className="font-mono tabular-nums">
+                    {isOnline ? '0 unsynced · All synced' : 'Offline · 0 unsynced'}
+                  </span>
+                )}
+              </div>
+
+              {isOnline && unsyncedNotesCount > 0 && syncStatus !== 'syncing' && onTriggerSync && (
+                <button
+                  type="button"
+                  onClick={onTriggerSync}
+                  className="ml-1 px-2 py-0.5 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold transition-colors cursor-pointer"
+                >
+                  Sync Now
+                </button>
+              )}
+            </div>
+
             <button
               onClick={handlePrint}
               className="p-2 text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-100 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-xl transition-all"
@@ -428,6 +521,17 @@ export const ReadingProgressExportModal: React.FC<ReadingProgressExportModalProp
               }`}
             >
               Completed Chapters ({totalCompletedChaptersCount})
+            </button>
+            <button
+              onClick={() => setActiveTab('quiz_history')}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 ${
+                activeTab === 'quiz_history'
+                  ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900'
+                  : 'text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800'
+              }`}
+            >
+              <History className="w-3.5 h-3.5" />
+              <span>Quiz History</span>
             </button>
             <button
               onClick={() => setActiveTab('json')}
@@ -506,7 +610,7 @@ export const ReadingProgressExportModal: React.FC<ReadingProgressExportModalProp
                 <span className="text-xl font-bold text-stone-900 dark:text-stone-100">{uniqueBadges.length}</span>
               </div>
               <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium mt-0.5 block">
-                GISDQ Verified
+                Internal Platform Record
               </span>
             </div>
           </div>
@@ -539,7 +643,7 @@ export const ReadingProgressExportModal: React.FC<ReadingProgressExportModalProp
                           </h4>
                           {guide.is_accredited && (
                             <span className="px-2 py-0.5 text-[10px] rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-semibold border border-emerald-200 dark:border-emerald-800">
-                              Accredited
+                              Quality-Checked
                             </span>
                           )}
                           {isCompleted ? (
@@ -631,6 +735,7 @@ export const ReadingProgressExportModal: React.FC<ReadingProgressExportModalProp
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {guide.chapters.map((chapter, idx) => {
                           const isDone = completedIndices.includes(idx);
+                          const chapterSummaryNote = prog?.chapterNotes?.[idx];
                           return (
                             <div 
                               key={idx}
@@ -647,13 +752,19 @@ export const ReadingProgressExportModal: React.FC<ReadingProgressExportModalProp
                               }`}>
                                 <Check className="w-3 h-3" />
                               </div>
-                              <div className="min-w-0 flex-1">
+                              <div className="min-w-0 flex-1 space-y-1">
                                 <span className="text-[10px] font-mono block uppercase tracking-wider opacity-75">
                                   Chapter {idx + 1} · {isDone ? 'Completed' : 'Pending'}
                                 </span>
                                 <p className="text-xs font-semibold truncate">
                                   {chapter.title}
                                 </p>
+                                {chapterSummaryNote && (
+                                  <p className="text-[11px] text-stone-600 dark:text-stone-400 italic flex items-start gap-1 pt-0.5">
+                                    <FileEdit className="w-3 h-3 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                                    <span className="line-clamp-2">&ldquo;{chapterSummaryNote}&rdquo;</span>
+                                  </p>
+                                )}
                               </div>
                             </div>
                           );
@@ -662,13 +773,46 @@ export const ReadingProgressExportModal: React.FC<ReadingProgressExportModalProp
 
                       {prog?.notes && (
                         <div className="p-3 bg-stone-50 dark:bg-stone-950 rounded-xl text-xs text-stone-600 dark:text-stone-400 border border-stone-100 dark:border-stone-800 italic">
-                          <span className="font-bold not-italic text-stone-700 dark:text-stone-300 mr-2">Study Notes:</span>
+                          <span className="font-bold not-italic text-stone-700 dark:text-stone-300 mr-2">Course Study Notes:</span>
                           "{prog.notes}"
                         </div>
                       )}
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: QUIZ HISTORY TIMELINE */}
+          {activeTab === 'quiz_history' && (
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100">
+                    Course Quiz History &amp; Score Improvement Timeline
+                  </h3>
+                  <p className="text-xs text-stone-500 dark:text-stone-400">
+                    All past assessment attempts and score trajectories recorded across your active and completed courses
+                  </p>
+                </div>
+                <span className="text-xs text-stone-500 font-mono">
+                  {studyGuides.reduce(
+                    (sum, g) => sum + (readingProgress[g.id]?.quizHistory?.length || 0),
+                    0
+                  )}{' '}
+                  Total Logged Attempts
+                </span>
+              </div>
+
+              <div className="space-y-4">
+                {studyGuides.map((guide) => (
+                  <QuizHistoryTimeline
+                    key={guide.id}
+                    guide={guide}
+                    progress={readingProgress[guide.id]}
+                  />
+                ))}
               </div>
             </div>
           )}

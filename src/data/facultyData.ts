@@ -43,6 +43,23 @@ export const INITIAL_FACULTY_ENROLLMENTS: EnrolledStudentRecord[] = [
         createdAt: '2026-11-10T14:20:00.000Z',
       },
     ],
+    courseFeedback: [
+      {
+        id: 'cf_101_1',
+        studentName: 'Tsoaelat S.',
+        studentEmail: 'Tsoaelat.s@gmail.com',
+        courseId: 'sg_foundations_systems',
+        courseTitle: 'Foundations of First-Principles Systems Thinking',
+        moduleIndex: 1,
+        moduleTitle: '02. Boundary Isolation & Delayed Feedback Loops',
+        difficultyRating: 4,
+        clarityRating: 5,
+        focusArea: 'Both',
+        comment:
+          'The distinction between physical latency and reporting lag is very clear; adding one numeric queue worked example would help first-time readers.',
+        createdAt: '2026-11-12T10:15:00.000Z',
+      },
+    ],
   },
   {
     id: 'enr_107',
@@ -205,6 +222,23 @@ export const INITIAL_FACULTY_ENROLLMENTS: EnrolledStudentRecord[] = [
         improvements: 'Compare beam width k=4 vs k=16 perplexity thresholds.',
         critique: 'Excellent rollout budget analysis. The verifier pruning criteria saved significant inference compute without dropping recall.',
         createdAt: '2026-11-09T16:40:00.000Z',
+      },
+    ],
+    courseFeedback: [
+      {
+        id: 'cf_102_1',
+        studentName: 'Tsoaelat S.',
+        studentEmail: 'Tsoaelat.s@gmail.com',
+        courseId: 'sg_ai_test_time_search',
+        courseTitle: 'Large Reasoning Models (LRMs) & Test-Time Search Compute',
+        moduleIndex: 2,
+        moduleTitle: '03. Algorithmic Implementation: Backtracking Heuristics',
+        difficultyRating: 5,
+        clarityRating: 4,
+        focusArea: 'Difficulty',
+        comment:
+          'Challenging derivation of KV-cache rollback memory bounds — pacing took ~10 minutes longer than recommended, though the pseudocode walkthrough clarified it.',
+        createdAt: '2026-11-13T15:30:00.000Z',
       },
     ],
   },

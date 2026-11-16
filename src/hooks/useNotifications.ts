@@ -6,28 +6,13 @@ const REGISTERED_COURSES_STORAGE_KEY = 'ttg_registered_courses';
 
 const INITIAL_NOTIFICATIONS: AppNotification[] = [
   {
-    id: 'notif_seed_1',
-    type: 'assignment_graded',
-    title: 'Assignment Graded: 94%',
-    message: 'Dr. Evelyn Brand graded "Process-Supervised Verifier Rollout Lab" in Large Reasoning Models (LRMs) & Test-Time Search Compute.',
-    courseId: 'sg_ai_test_time_search',
-    courseTitle: 'Large Reasoning Models (LRMs) & Test-Time Search Compute',
-    timestamp: new Date(Date.now() - 1000 * 60 * 35).toISOString(),
-    read: false,
-    metadata: {
-      score: 94,
-      assignmentTitle: 'Process-Supervised Verifier Rollout Lab',
-      feedback: 'Strong KV-cache rollback derivation and clean ablation bounds.',
-    },
-  },
-  {
     id: 'notif_seed_2',
     type: 'chapter_added',
     title: 'New Chapter Published',
     message: 'Chapter "03. Operational Exercise: Root Cause Deconstruction" was updated in Foundations of First-Principles Systems Thinking.',
     courseId: 'sg_foundations_systems',
     courseTitle: 'Foundations of First-Principles Systems Thinking',
-    timestamp: new Date(Date.now() - 1000 * 60 * 140).toISOString(),
+    timestamp: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
     read: false,
     metadata: {
       chapterTitle: '03. Operational Exercise: Root Cause Deconstruction',
@@ -215,6 +200,19 @@ export function useNotifications(initialCourseIds: string[] = [
     setNotifications([]);
   }, []);
 
+  const removePassedNotifications = useCallback(() => {
+    setNotifications(prev =>
+      prev.filter(
+        n =>
+          !(
+            n.read ||
+            (n.type === 'assignment_graded' &&
+              (n.metadata?.score === undefined || n.metadata.score >= 70))
+          )
+      )
+    );
+  }, []);
+
   const dismissActiveAlert = useCallback(() => {
     setActiveAlert(null);
   }, []);
@@ -237,7 +235,9 @@ export function useNotifications(initialCourseIds: string[] = [
     markAllAsRead,
     dismissNotification,
     clearAll,
+    removePassedNotifications,
     activeAlert,
     dismissActiveAlert,
   };
 }
+

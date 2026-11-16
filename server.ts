@@ -4,13 +4,40 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { generateDocumentPdfBuffer } from './src/server/pdfService';
 import { applyBackgroundSyncBatch, getSyncedUserState } from './src/server/syncDatabase';
+import {
+  analyzeStudyProgressWithGemini,
+  explainStudyPassageWithGemini,
+} from './src/server/focusAiService';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+function resolveServerPort(isProduction: boolean): number {
+  const portFlagIdx = process.argv.findIndex((arg) => arg === '--port' || arg === '-p');
+  if (portFlagIdx !== -1 && process.argv[portFlagIdx + 1]) {
+    const cliPort = parseInt(process.argv[portFlagIdx + 1], 10);
+    if (!Number.isNaN(cliPort) && cliPort > 0) return cliPort;
+  }
+
+  const eqPortArg = process.argv.find((arg) => arg.startsWith('--port='));
+  if (eqPortArg) {
+    const cliPort = parseInt(eqPortArg.split('=')[1], 10);
+    if (!Number.isNaN(cliPort) && cliPort > 0) return cliPort;
+  }
+
+  const envPort = process.env.PORT ? parseInt(process.env.PORT, 10) : NaN;
+  if (!isProduction) {
+    // In dev, nginx occupies 8080 and proxies to 3000; never accidentally bind 8080 in dev.
+    return !Number.isNaN(envPort) && envPort > 0 && envPort !== 8080 ? envPort : 3000;
+  }
+
+  return !Number.isNaN(envPort) && envPort > 0 ? envPort : 3000;
+}
+
 async function startServer() {
   const app = express();
-  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+  const isProduction = process.env.NODE_ENV === 'production';
+  const PORT = resolveServerPort(isProduction);
 
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -55,6 +82,81 @@ async function startServer() {
     } catch (err: any) {
       console.error('Background sync error:', err);
       return res.status(500).json({ error: 'Failed to commit background sync batch' });
+    }
+  });
+
+  // Focus AI Mode: Server-side Gemini analysis of current study progress & past performance trends
+  app.post('/api/focus-ai/analyze', async (req, res) => {
+    try {
+      const payload = req.body || {};
+      if (!Array.isArray(payload.courses) || payload.courses.length === 0) {
+        return res.status(400).json({
+          error: 'At least one course telemetry entry is required for Focus AI analysis.',
+          code: 'INVALID_PAYLOAD',
+        });
+      }
+
+      const result = await analyzeStudyProgressWithGemini({
+        userName: typeof payload.userName === 'string' && payload.userName.trim() ? payload.userName : 'Scholar',
+        specialization: typeof payload.specialization === 'string' ? payload.specialization : undefined,
+        syncedFocusMinutes: Number(payload.syncedFocusMinutes) || 0,
+        averageQuizScore: Number(payload.averageQuizScore) || 0,
+        courses: payload.courses,
+      });
+
+      return res.json(result);
+    } catch (err: any) {
+      console.error('Focus AI Gemini error:', err);
+      const statusCode =
+        typeof err?.statusCode === 'number'
+          ? err.statusCode
+          : typeof err?.status === 'number'
+          ? err.status
+          : 500;
+      return res.status(statusCode >= 400 && statusCode < 600 ? statusCode : 500).json({
+        error: err?.message || 'Unable to generate Focus AI study recommendations.',
+        code: err?.code || 'GEMINI_ANALYSIS_FAILED',
+      });
+    }
+  });
+
+  // TAI Tutor: Context-aware explanation for highlighted passages across study pages
+  app.post('/api/tutor/explain', async (req, res) => {
+    try {
+      const payload = req.body || {};
+      const highlightedText =
+        typeof payload.highlightedText === 'string' ? payload.highlightedText.trim() : '';
+      const question = typeof payload.question === 'string' ? payload.question.trim() : '';
+
+      if (!highlightedText && !question) {
+        return res.status(400).json({
+          error: 'Highlighted text or a study question is required.',
+          code: 'INVALID_PAYLOAD',
+        });
+      }
+
+      const result = await explainStudyPassageWithGemini({
+        highlightedText: highlightedText || question,
+        question,
+        mode: payload.mode,
+        courseTitle: typeof payload.courseTitle === 'string' ? payload.courseTitle : undefined,
+        chapterTitle: typeof payload.chapterTitle === 'string' ? payload.chapterTitle : undefined,
+        pageLabel: typeof payload.pageLabel === 'string' ? payload.pageLabel : undefined,
+      });
+
+      return res.json(result);
+    } catch (err: any) {
+      console.error('TAI Tutor error:', err);
+      const statusCode =
+        typeof err?.statusCode === 'number'
+          ? err.statusCode
+          : typeof err?.status === 'number'
+          ? err.status
+          : 500;
+      return res.status(statusCode >= 400 && statusCode < 600 ? statusCode : 500).json({
+        error: err?.message || 'Unable to generate TAI Tutor explanation.',
+        code: err?.code || 'GEMINI_TUTOR_FAILED',
+      });
     }
   });
 
@@ -105,15 +207,18 @@ async function startServer() {
   });
 
   // Mount Vite middlewares in development
-  const isProduction = process.env.NODE_ENV === 'production';
   if (!isProduction) {
+    const hmrDisabled = process.env.DISABLE_HMR === 'true';
     const vite = await createViteServer({
       server: {
         middlewareMode: true,
-        hmr: false, // Explicitly disabled to prevent WebSocket connection errors in AI Studio iframe
-        watch: {
-          ignored: ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/data/**'],
-        },
+        hmr: false,
+        ws: false, // Disable Vite WebSocket server (port 24678) in AI Studio iframe / middleware mode
+        watch: hmrDisabled
+          ? null
+          : {
+              ignored: ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/data/**'],
+            },
       },
       appType: 'spa',
     });

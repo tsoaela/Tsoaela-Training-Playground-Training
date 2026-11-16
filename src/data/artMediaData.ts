@@ -235,7 +235,7 @@ export const EDUCATION_COURSES: EducationCourse[] = [
       id: 'course_music_dsp',
       title: 'Mastering Broadcast Audio DSP & Psychoacoustic Engineering',
       category: 'Music Streaming & Audio DSP',
-      accreditor: 'TAI-ONE Acoustic Engineering Guild',
+      accreditor: 'TTG Digital World Audio Division (Internal QA)',
       outcomes: [
         'Calibrate broadcast signal chains to compliant ITU-R BS.1770-4 (-14 LUFS)',
         'Design adaptive sidechain ducking compressors with VAD telemetry',
@@ -315,7 +315,7 @@ export const EDUCATION_COURSES: EducationCourse[] = [
       id: 'course_visual_motion',
       title: 'Generative Motion Systems & ABR Streaming Architecture',
       category: 'Visuals & Motion Art',
-      accreditor: 'TTG Digital World Graphics Bureau',
+      accreditor: 'TTG Digital World Graphics Division (Internal QA)',
       outcomes: [
         'Write optimized WebGL/GLSL fragment shaders for fluid dynamics',
         'Configure HLS and DASH streaming manifests with multi-tier ABR profiles',
@@ -395,7 +395,7 @@ export const EDUCATION_COURSES: EducationCourse[] = [
       id: 'course_mural_art',
       title: 'Monumental Muralism: Spatial Scaling, Chemistry & AR Projection',
       category: 'Mural Art & Spatial Canvas',
-      accreditor: 'Lisbon & Kyoto Urban Arts Consortium',
+      accreditor: 'TTG Spatial Arts Division (Internal QA)',
       outcomes: [
         'Scale proportional murals across 100m+ façades via Fibonacci & laser grids',
         'Formulate archival silicate and lime-based mineral pigments',
@@ -475,7 +475,7 @@ export const EDUCATION_COURSES: EducationCourse[] = [
       id: 'course_broadcast_eng',
       title: 'TAI-ONE Broadcast Orchestrator & Live Studio Playout',
       category: 'Broadcast Engineering',
-      accreditor: 'TAI-ONE Broadcast Standards Authority',
+      accreditor: 'TTG Broadcast Curriculum Division (Internal QA)',
       outcomes: [
         'Operate Master Orchestrator matrix switchers across multi-format feeds',
         'Audit 100% SLA compliance with sub-20ms synthetic probes',

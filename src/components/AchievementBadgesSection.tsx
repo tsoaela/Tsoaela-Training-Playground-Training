@@ -195,7 +195,7 @@ export const AchievementBadgesSection: React.FC<AchievementBadgesSectionProps> =
             No achievement badges match this filter yet.
           </p>
           <p className="text-xs text-stone-500 dark:text-stone-400">
-            Complete accredited study guide assessments in Educare to unlock custom crests.
+            Complete quality-verified study guide assessments in Educare to unlock custom crests.
           </p>
         </div>
       ) : (

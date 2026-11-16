@@ -68,17 +68,17 @@ export const UserProfileCertificatesSection: React.FC<UserProfileCertificatesSec
     <section className="border border-stone-200 dark:border-stone-800 rounded-2xl bg-white dark:bg-stone-900 p-6 sm:p-8 space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-stone-100 dark:border-stone-800 pb-5">
         <div className="flex items-start gap-3.5">
-          <div className="p-0.5 rounded-full bg-gradient-to-br from-[#bef264] via-[#84cc16] to-[#052e16] shrink-0 hidden sm:block">
+          <div className="p-1 rounded-xl bg-white ring-2 ring-[#84cc16]/60 shadow-xs shrink-0 hidden sm:block">
             <img
               src={TAI_ONE_LOGO_URL}
-              alt="Tai-one Official Credential Seal"
+              alt="TTG - Tsoaela Training Ground Platform Seal"
               referrerPolicy="no-referrer"
-              className="w-11 h-11 rounded-full object-cover"
+              className="h-11 w-auto object-contain rounded-lg"
             />
           </div>
           <div>
             <div className="flex items-center gap-2 text-xs text-stone-500 dark:text-stone-400 mb-1">
-              <span>Academic Credentials</span>
+              <span>Internal Completion Records</span>
               <span aria-hidden="true">·</span>
               <span className="font-mono tabular-nums font-semibold text-[#65a30d] dark:text-[#a3e635]">
                 {earnedCount} of {courseEntries.length} Earned
@@ -88,7 +88,7 @@ export const UserProfileCertificatesSection: React.FC<UserProfileCertificatesSec
               Course Completion Certificates
             </h2>
             <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-400 mt-1">
-              Inspect high-resolution, Tai-one branded completion certificates crafted in the platform&apos;s golden-green, dark-green, and lime palette.
+              Downloadable completion records issued by TTG - Tsoaela Training Ground Platform tracking your self-paced study progress across platform courses (internal platform records, not externally accredited).
             </p>
           </div>
         </div>
@@ -136,7 +136,7 @@ export const UserProfileCertificatesSection: React.FC<UserProfileCertificatesSec
                     {isEarned ? (
                       <>
                         <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Completion Verified</span>
+                        <span>Completed (Internal)</span>
                       </>
                     ) : (
                       <span>{pct}% Completed</span>

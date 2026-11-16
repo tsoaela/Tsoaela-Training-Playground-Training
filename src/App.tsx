@@ -7,12 +7,16 @@ import {
   Booking, 
   InvoiceReceipt,
   ReadingProgress,
+  ReadingProgressUpdateOptions,
+  QuizAttemptEntry,
   Reminder,
   StudyGuide,
   EnrolledStudentRecord,
   PeerReviewEntry,
+  CourseModuleFeedback,
   AppNotification,
-  OfflineAssignmentSubmission
+  OfflineAssignmentSubmission,
+  SavedAcademicProgram
 } from './types';
 import { 
   INITIAL_USER, 
@@ -46,12 +50,25 @@ import { UserActivityDashboardTab } from './components/UserActivityDashboardTab'
 import { FacultyPortalTab } from './components/FacultyPortalTab';
 import { ApplicationRegistrationModal } from './components/ApplicationRegistrationModal';
 import { StudyGroupVideoRoomModal } from './components/StudyGroupVideoRoomModal';
+import { ProgramComparisonModal } from './components/ProgramComparisonModal';
+import {
+  StudentFeedbackModal,
+  SubmitCourseFeedbackPayload,
+} from './components/StudentFeedbackModal';
+import { ResearchCornerAiTutorSidebar } from './components/ResearchCornerAiTutorSidebar';
+import {
+  AcademicCategoryKey,
+  AcademicFaculty,
+  AcademicQualificationLevel,
+  buildSavedAcademicProgram,
+} from './data/academicCatalog';
 import { useNotifications } from './hooks/useNotifications';
 import { useBackgroundSync } from './hooks/useBackgroundSync';
 import { usePomodoroTimer } from './hooks/usePomodoroTimer';
 import { useOnlineStatus, cacheAllStudyGuidesLocally } from './utils/offlineStorage';
 import { AuthorDocument, MusicTrack, PhotoItem, VideoItem, BookItem, ApplicationCategory, ApplicationPrefillData } from './types';
 import { CheckCircle2, ShieldCheck, Award, BookOpen, Video, X } from 'lucide-react';
+import { TTG_LOGO_URL } from './utils/pdfBranding';
 
 export default function App() {
   // Theme state with localStorage persistence
@@ -117,11 +134,50 @@ export default function App() {
     }
   });
 
-  // Dynamic Study Guides State (including AI Courses)
+  const isRemovedSyntheticReasoningCourse = (g: StudyGuide) =>
+    /^(ai courses?( \(ai generated\))?)$/i.test((g.category || '').trim()) &&
+    g.field === 'Synthetic Reasoning & AI Systems' &&
+    g.reading_time === '45 min read';
+
+  const normalizeStudyGuideBranding = (g: StudyGuide): StudyGuide => {
+    const normalizedCategory = /^(ai courses?( \(ai generated\))?)$/i.test((g.category || '').trim())
+      ? 'Frontier AI & Systems'
+      : g.category;
+    const rawAccreditor = g.certificate?.accreditor || '';
+    const cleanedAccreditor =
+      !rawAccreditor ||
+      /tai-one|standard board|ai course generated/i.test(rawAccreditor)
+        ? 'TTG - Tsoaela Training Ground Platform'
+        : rawAccreditor;
+    const rawCertCategoryKey = g.certificate?.categoryKey || '';
+    const cleanedCertCategoryKey = /^(ai courses?( \(ai generated\))?)$/i.test(rawCertCategoryKey.trim())
+      ? 'Frontier AI & Systems'
+      : rawCertCategoryKey;
+    return {
+      ...g,
+      category: normalizedCategory,
+      ...(g.certificate
+        ? {
+            certificate: {
+              ...g.certificate,
+              accreditor: cleanedAccreditor,
+              ...(cleanedCertCategoryKey ? { categoryKey: cleanedCertCategoryKey } : {}),
+            },
+          }
+        : {}),
+    };
+  };
+
+  // Dynamic Study Guides State (including Frontier AI & Systems)
   const [studyGuides, setStudyGuides] = useState<StudyGuide[]>(() => {
     try {
       const saved = localStorage.getItem('ttg_study_guides');
-      return saved ? JSON.parse(saved) : STUDY_GUIDES;
+      if (!saved) return STUDY_GUIDES;
+      const parsed: StudyGuide[] = JSON.parse(saved);
+      if (!Array.isArray(parsed)) return STUDY_GUIDES;
+      return parsed
+        .filter((g) => !isRemovedSyntheticReasoningCourse(g))
+        .map(normalizeStudyGuideBranding);
     } catch {
       return STUDY_GUIDES;
     }
@@ -131,7 +187,30 @@ export default function App() {
   const [readingProgress, setReadingProgress] = useState<Record<string, ReadingProgress>>(() => {
     try {
       const saved = localStorage.getItem('ttg_reading_progress');
-      return saved ? JSON.parse(saved) : INITIAL_READING_PROGRESS;
+      if (!saved) return INITIAL_READING_PROGRESS;
+      const parsed: Record<string, ReadingProgress> = JSON.parse(saved);
+      if (!parsed || typeof parsed !== 'object') return INITIAL_READING_PROGRESS;
+      const merged: Record<string, ReadingProgress> = { ...parsed };
+      Object.entries(INITIAL_READING_PROGRESS).forEach(([guideId, seed]) => {
+        const existing = merged[guideId];
+        if (!existing) {
+          merged[guideId] = seed;
+        } else {
+          merged[guideId] = {
+            ...existing,
+            chapterNotes:
+              existing.chapterNotes && Object.keys(existing.chapterNotes).length > 0
+                ? existing.chapterNotes
+                : seed.chapterNotes,
+            quizHistory:
+              existing.quizHistory && existing.quizHistory.length > 0
+                ? existing.quizHistory
+                : seed.quizHistory,
+            lastAccessedAt: existing.lastAccessedAt || seed.lastAccessedAt,
+          };
+        }
+      });
+      return merged;
     } catch {
       return INITIAL_READING_PROGRESS;
     }
@@ -187,6 +266,10 @@ export default function App() {
         return {
           ...rec,
           peerReviews: rec.peerReviews ?? seedMatch?.peerReviews ?? [],
+          courseFeedback:
+            rec.courseFeedback && rec.courseFeedback.length > 0
+              ? rec.courseFeedback
+              : (seedMatch?.courseFeedback ?? []),
         };
       });
       const missingSeeds = INITIAL_FACULTY_ENROLLMENTS.filter(s => !existingIds.has(s.id));
@@ -216,6 +299,7 @@ export default function App() {
     markAllAsRead,
     dismissNotification,
     clearAll,
+    removePassedNotifications,
     activeAlert,
     dismissActiveAlert,
   } = useNotifications(studyGuides.map(g => g.id));
@@ -276,6 +360,19 @@ export default function App() {
   // University Syllabus & Academic Prompts Studio Modal State
   const [isAcademicPromptsOpen, setIsAcademicPromptsOpen] = useState(false);
 
+  // Student Course Module Feedback Modal State
+  const [studentFeedbackModalState, setStudentFeedbackModalState] = useState<{
+    isOpen: boolean;
+    courseId?: string;
+    moduleIndex?: number;
+  }>({ isOpen: false });
+
+  // Active Study Guide Context for Persistent TAI Tutor
+  const [activeStudyContext, setActiveStudyContext] = useState<{
+    courseTitle?: string;
+    chapterTitle?: string;
+  } | null>(null);
+
   // Free Institutional Accreditation & Productivity Registration Modal State
   const [isAccreditationPortalOpen, setIsAccreditationPortalOpen] = useState(false);
 
@@ -311,6 +408,7 @@ export default function App() {
   // Background Synchronization Service: pushes locally cached study progress & offline assignments to /api/sync
   const {
     pendingCount: pendingSyncCount,
+    unsyncedNotesCount,
     syncStatus,
     lastSyncedAt,
     queueStudyProgress,
@@ -359,6 +457,229 @@ export default function App() {
     }
   );
 
+  // Saved Academic Programs (Bookmarked Qualifications) & Side-by-Side Comparison (up to 3)
+  const [savedPrograms, setSavedPrograms] = useState<SavedAcademicProgram[]>(() => {
+    try {
+      const saved = localStorage.getItem('ttg_saved_programs');
+      const parsed = saved ? JSON.parse(saved) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [comparedQualificationIds, setComparedQualificationIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('ttg_compared_programs');
+      const parsed = saved ? JSON.parse(saved) : [];
+      return Array.isArray(parsed) ? parsed.slice(0, 3) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [isCompareModalOpen, setIsCompareModalOpen] = useState(false);
+  const [requestedAcademicCategory, setRequestedAcademicCategory] = useState<'all' | AcademicCategoryKey | null>(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('ttg_saved_programs', JSON.stringify(savedPrograms));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [savedPrograms]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('ttg_compared_programs', JSON.stringify(comparedQualificationIds));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [comparedQualificationIds]);
+
+  const savedProgramIds = savedPrograms.map((p) => p.qualificationId);
+
+  const handleToggleSaveProgram = (qual: AcademicQualificationLevel, faculty?: AcademicFaculty) => {
+    const exists = savedPrograms.some((p) => p.qualificationId === qual.id);
+    if (exists) {
+      setSavedPrograms((prev) => prev.filter((p) => p.qualificationId !== qual.id));
+      triggerToast(`Removed "${qual.qualificationType}" from My Saved Programs.`);
+    } else {
+      const entry = buildSavedAcademicProgram(qual, faculty);
+      setSavedPrograms((prev) => [entry, ...prev]);
+      triggerToast(`Bookmarked "${qual.qualificationType}" to My Saved Programs.`);
+    }
+  };
+
+  const handleRemoveSavedProgram = (qualificationId: string) => {
+    const target = savedPrograms.find((p) => p.qualificationId === qualificationId);
+    setSavedPrograms((prev) => prev.filter((p) => p.qualificationId !== qualificationId));
+    if (target) {
+      triggerToast(`Removed "${target.qualificationType}" from My Saved Programs.`);
+    }
+  };
+
+  const handleToggleCompareProgram = (qualificationId: string) => {
+    setComparedQualificationIds((prev) => {
+      if (prev.includes(qualificationId)) {
+        return prev.filter((id) => id !== qualificationId);
+      }
+      if (prev.length >= 3) {
+        triggerToast('You can compare up to 3 programs at a time. Remove one first.');
+        return prev;
+      }
+      return [...prev, qualificationId];
+    });
+  };
+
+  const handleBrowseQualifications = (category?: AcademicCategoryKey) => {
+    setRequestedAcademicCategory(category || 'all');
+    setActiveTab('education');
+  };
+
+  const handleOpenSavedProgramsProfile = () => {
+    setActiveTab('activity');
+    window.setTimeout(() => {
+      document
+        .getElementById('my-saved-programs-section')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 90);
+  };
+
+  const refreshActiveCoursesAndCleanPassed = (showToast = true) => {
+    const todayStr = new Date().toISOString().slice(0, 10);
+
+    // 1. Refresh study guides from canonical catalog while keeping valid AI-generated courses
+    const canonicalMap = new Map(STUDY_GUIDES.map((g) => [g.id, g]));
+    const refreshedGuides: StudyGuide[] = [
+      ...STUDY_GUIDES,
+      ...studyGuides.filter(
+        (g) =>
+          g.is_ai_generated &&
+          !canonicalMap.has(g.id) &&
+          !isRemovedSyntheticReasoningCourse(g)
+      ),
+    ];
+    setStudyGuides(refreshedGuides);
+    cacheAllStudyGuidesLocally(refreshedGuides);
+
+    // 2. Clean passed quiz/course activities while retaining unlocked achievement badges and active progress
+    const cleanedProgress: Record<string, ReadingProgress> = {};
+    refreshedGuides.forEach((guide) => {
+      const prevProg = readingProgress[guide.id];
+      const totalChapters = Math.max(1, guide.chapters.length);
+      const minPassScore = guide.quizzes?.[0]?.minScoreToPass || 70;
+
+      if (!prevProg) {
+        return;
+      }
+
+      const filteredQuizScores: Record<string, number> = {};
+      if (prevProg.quizScores) {
+        Object.entries(prevProg.quizScores).forEach(([quizId, score]) => {
+          const matchingQuiz = guide.quizzes?.find((q) => q.id === quizId);
+          const threshold = matchingQuiz?.minScoreToPass || minPassScore;
+          if (typeof score === 'number' && score < threshold) {
+            filteredQuizScores[quizId] = score;
+          }
+        });
+      }
+
+      const wasCompleted = prevProg.isCompleted || prevProg.progressPercent >= 100;
+      const activeChapters = wasCompleted
+        ? []
+        : (prevProg.completedChapters || []).filter((idx) => idx >= 0 && idx < totalChapters);
+      const recalculatedPercent = wasCompleted
+        ? 0
+        : Math.round((activeChapters.length / totalChapters) * 100);
+
+      cleanedProgress[guide.id] = {
+        ...prevProg,
+        completedChapters: activeChapters,
+        progressPercent: recalculatedPercent,
+        isCompleted: false,
+        lastReadDate: prevProg.lastReadDate || todayStr,
+        quizScores: filteredQuizScores,
+        quizHistory: (prevProg.quizHistory || []).filter((attempt) => !attempt.passed),
+        completionLog: wasCompleted ? [] : prevProg.completionLog || [],
+      };
+    });
+    setReadingProgress(cleanedProgress);
+
+    // 3. Refresh active enrollments and clear passed scores on the active user's records
+    setEnrollments((prev) =>
+      prev.map((rec) => {
+        const isCurrentUser =
+          rec.studentEmail.toLowerCase() === user.email.toLowerCase() ||
+          rec.studentName.toLowerCase() === user.name.toLowerCase();
+        const refreshedPct = cleanedProgress[rec.courseId]?.progressPercent ?? rec.progressPercent;
+        if (!isCurrentUser) {
+          return {
+            ...rec,
+            progressPercent: refreshedPct < 100 ? refreshedPct : 45,
+          };
+        }
+        return {
+          ...rec,
+          progressPercent: recalculatedSafePct(refreshedPct),
+          testScore: rec.testScore !== undefined && rec.testScore >= 70 ? undefined : rec.testScore,
+          assignmentScore:
+            rec.assignmentScore !== undefined && rec.assignmentScore >= 70
+              ? undefined
+              : rec.assignmentScore,
+          assignmentStatus:
+            rec.assignmentStatus === 'Graded' && (rec.assignmentScore ?? 0) >= 70
+              ? 'Not Submitted'
+              : rec.assignmentStatus,
+        };
+      })
+    );
+
+    // 4. Remove expired one-time reminders & passed notifications/session logs
+    setReminders((prev) =>
+      prev.filter((r) => !(r.frequency === 'Once' && r.date < todayStr))
+    );
+    removePassedNotifications();
+    pomodoro.clearCompletedSessionLogs();
+
+    if (showToast) {
+      triggerToast('Active user courses refreshed and passed activities removed.');
+    }
+  };
+
+  function recalculatedSafePct(pct: number): number {
+    return Number.isFinite(pct) && pct >= 0 && pct < 100 ? pct : 0;
+  }
+
+  // One-time startup refresh so stale passed activities & removed courses in localStorage are cleaned automatically
+  useEffect(() => {
+    try {
+      const migrated = localStorage.getItem('ttg_courses_refreshed_v1');
+      if (!migrated) {
+        refreshActiveCoursesAndCleanPassed(false);
+        localStorage.setItem('ttg_courses_refreshed_v1', 'true');
+      }
+      const purgedSynthetic = localStorage.getItem('ttg_removed_synthetic_reasoning_v1');
+      if (!purgedSynthetic) {
+        const activeIds = new Set(studyGuides.map((g) => g.id));
+        setReadingProgress((prev) => {
+          const next: Record<string, ReadingProgress> = {};
+          Object.entries(prev).forEach(([id, entry]) => {
+            if (activeIds.has(id) || !id.startsWith('sg_ai_custom_')) {
+              next[id] = entry;
+            }
+          });
+          return next;
+        });
+        setEnrollments((prev) =>
+          prev.filter((rec) => activeIds.has(rec.courseId) || !rec.courseId.startsWith('sg_ai_custom_'))
+        );
+        localStorage.setItem('ttg_removed_synthetic_reasoning_v1', 'true');
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleUpdateProfile = (updates: Partial<UserProfile>) => {
     const previousEmail = user.email;
     const previousName = user.name;
@@ -402,7 +723,7 @@ export default function App() {
   };
 
   const handleAccreditationSuccess = (registrationId: string) => {
-    setToastMessage(`Institutional accreditation verified! ID: ${registrationId}`);
+    setToastMessage(`Internal QA self-audit recorded! Ref: ${registrationId}`);
     setTimeout(() => setToastMessage(null), 5000);
   };
 
@@ -565,9 +886,25 @@ export default function App() {
   };
 
   const handleAddStudyGuide = (newGuide: StudyGuide) => {
-    setStudyGuides(prev => [newGuide, ...prev]);
-    registerCourse(newGuide.id);
-    triggerToast(`✨ AI Course Generated: "${newGuide.title}" added to curriculum!`);
+    const normalizedGuide = normalizeStudyGuideBranding(newGuide);
+    setStudyGuides(prev => [normalizedGuide, ...prev]);
+    registerCourse(normalizedGuide.id);
+    triggerToast(`✨ New Course Added: "${normalizedGuide.title}" is now available in your curriculum!`);
+  };
+
+  const handleRemoveStudyGuide = (guideId: string) => {
+    const target = studyGuides.find((g) => g.id === guideId);
+    setStudyGuides((prev) => prev.filter((g) => g.id !== guideId));
+    setReadingProgress((prev) => {
+      if (!(guideId in prev)) return prev;
+      const next = { ...prev };
+      delete next[guideId];
+      return next;
+    });
+    setEnrollments((prev) => prev.filter((rec) => rec.courseId !== guideId));
+    if (target) {
+      triggerToast(`Removed course "${target.title}".`);
+    }
   };
 
   // Faculty Portal Syllabus Update & Grading Handlers
@@ -786,31 +1123,120 @@ export default function App() {
     queueAssignmentSubmission(newSubmission);
   };
 
+  const handleOpenStudentFeedback = (courseId?: string, moduleIndex?: number) => {
+    setStudentFeedbackModalState({
+      isOpen: true,
+      courseId,
+      moduleIndex: moduleIndex ?? 0,
+    });
+  };
+
+  const handleSubmitCourseFeedback = (payload: SubmitCourseFeedbackPayload) => {
+    const newFeedback: CourseModuleFeedback = {
+      id: `fb_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      studentName: user.name,
+      studentEmail: user.email,
+      courseId: payload.courseId,
+      courseTitle: payload.courseTitle,
+      moduleIndex: payload.moduleIndex,
+      moduleTitle: payload.moduleTitle,
+      difficultyRating: payload.difficultyRating,
+      clarityRating: payload.clarityRating,
+      focusArea: payload.focusArea,
+      comment: payload.comment,
+      createdAt: new Date().toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      }),
+    };
+
+    const matchedGuide = studyGuides.find(g => g.id === payload.courseId);
+
+    setEnrollments(prev => {
+      const userEmailLower = user.email.trim().toLowerCase();
+      const userNameLower = user.name.trim().toLowerCase();
+      const existingIdx = prev.findIndex(
+        e =>
+          e.courseId === payload.courseId &&
+          ((userEmailLower && e.studentEmail.toLowerCase() === userEmailLower) ||
+            (userNameLower && e.studentName.toLowerCase() === userNameLower))
+      );
+
+      if (existingIdx >= 0) {
+        return prev.map((rec, i) =>
+          i === existingIdx
+            ? {
+                ...rec,
+                courseFeedback: [newFeedback, ...(rec.courseFeedback || [])],
+              }
+            : rec
+        );
+      }
+
+      const newRecord: EnrolledStudentRecord = {
+        id: `enr_${payload.courseId}_${Date.now()}`,
+        studentName: user.name,
+        studentEmail: user.email,
+        courseId: payload.courseId,
+        courseTitle: payload.courseTitle,
+        facultyName: matchedGuide?.field || matchedGuide?.category || 'Tsoaela Institutional Curriculum',
+        qualificationLevel: 'Enrolled TTG Scholar',
+        enrolledDate: new Date().toISOString().slice(0, 10),
+        progressPercent: readingProgress[payload.courseId]?.progressPercent || 0,
+        assignmentTitle: `${payload.courseTitle} Applied Assessment`,
+        assignmentStatus: 'Not Submitted',
+        peerReviews: [],
+        courseFeedback: [newFeedback],
+      };
+      return [newRecord, ...prev];
+    });
+
+    triggerToast(`Module feedback saved for "${payload.moduleTitle}" and sent to Faculty Review.`);
+  };
+
   // Reading Progress Handler
   const handleUpdateReadingProgress = (
-    guideId: string, 
-    chapterIdx: number, 
-    totalChapters: number, 
+    guideId: string,
+    chapterIdx: number,
+    totalChapters: number,
     notes?: string,
     quizScore?: number,
-    badgeId?: string
+    badgeId?: string,
+    options?: ReadingProgressUpdateOptions
   ) => {
     registerCourse(guideId);
+    const nowIso = new Date().toISOString();
+    const todayDate = nowIso.slice(0, 10);
 
     const current = readingProgress[guideId] || {
       guideId,
       completedChapters: [],
       progressPercent: 0,
-      lastReadDate: new Date().toISOString().slice(0, 10),
+      lastReadDate: todayDate,
+      lastAccessedAt: nowIso,
       isCompleted: false,
       notes: '',
+      chapterNotes: {},
       quizScores: {},
+      quizHistory: [],
       unlockedBadges: [],
       completionLog: [],
     };
 
     let newCompleted = [...current.completedChapters];
     let newCompletionLog = [...(current.completionLog || [])];
+    const existingChapterNotes = { ...(current.chapterNotes || {}) };
+
+    if (options?.chapterNote) {
+      const targetIdx = options.chapterNote.chapterIdx;
+      const trimmedOrRaw = options.chapterNote.notes;
+      existingChapterNotes[targetIdx] = trimmedOrRaw;
+      newCompletionLog = newCompletionLog.map((entry) =>
+        entry.chapterIdx === targetIdx ? { ...entry, notes: trimmedOrRaw } : entry
+      );
+    }
+
     if (chapterIdx >= 0) {
       if (newCompleted.includes(chapterIdx)) {
         newCompleted = newCompleted.filter(idx => idx !== chapterIdx);
@@ -819,23 +1245,44 @@ export default function App() {
         newCompleted.push(chapterIdx);
         newCompletionLog.push({
           chapterIdx,
-          completedAt: new Date().toISOString(),
+          completedAt: nowIso,
+          ...(existingChapterNotes[chapterIdx] ? { notes: existingChapterNotes[chapterIdx] } : {}),
         });
       }
     }
 
-    const progressPercent = Math.round((newCompleted.length / totalChapters) * 100);
+    const safeTotal = Math.max(1, totalChapters);
+    const progressPercent = Math.round((newCompleted.length / safeTotal) * 100);
     const isCompleted = progressPercent >= 100;
 
-    // Handle quiz results
+    // Handle quiz results & full attempt history timeline
     const newQuizScores = { ...(current.quizScores || {}) };
-    if (quizScore !== undefined) {
+    const newQuizHistory: QuizAttemptEntry[] = [...(current.quizHistory || [])];
+    const submittedAttempt = options?.quizAttempt;
+    const effectiveScore = submittedAttempt ? submittedAttempt.score : quizScore;
+
+    if (submittedAttempt) {
+      const attemptEntry: QuizAttemptEntry = {
+        id: `qa_${guideId}_${Date.now()}`,
+        quizId: submittedAttempt.quizId,
+        quizTitle: submittedAttempt.quizTitle,
+        score: submittedAttempt.score,
+        minScoreToPass: submittedAttempt.minScoreToPass,
+        passed: submittedAttempt.passed,
+        correctCount: submittedAttempt.correctCount,
+        totalQuestions: submittedAttempt.totalQuestions,
+        attemptedAt: nowIso,
+      };
+      newQuizHistory.push(attemptEntry);
+      newQuizScores[submittedAttempt.quizId] = submittedAttempt.score;
+    } else if (quizScore !== undefined) {
       newQuizScores['default'] = quizScore;
     }
 
-    // Handle badges
+    // Handle badges (only unlock if no quizAttempt failed)
     const newBadges = [...(current.unlockedBadges || [])];
-    if (badgeId && !newBadges.includes(badgeId)) {
+    const canUnlockBadge = !submittedAttempt || submittedAttempt.passed;
+    if (badgeId && canUnlockBadge && !newBadges.includes(badgeId)) {
       newBadges.push(badgeId);
     }
 
@@ -843,10 +1290,13 @@ export default function App() {
       guideId,
       completedChapters: newCompleted.sort((a, b) => a - b),
       progressPercent,
-      lastReadDate: new Date().toISOString().slice(0, 10),
+      lastReadDate: todayDate,
+      lastAccessedAt: nowIso,
       isCompleted: isCompleted || current.isCompleted,
       notes: notes !== undefined ? notes : current.notes,
+      chapterNotes: existingChapterNotes,
       quizScores: newQuizScores,
+      quizHistory: newQuizHistory,
       unlockedBadges: newBadges,
       completionLog: newCompletionLog,
     };
@@ -857,9 +1307,9 @@ export default function App() {
     }));
 
     // Enqueue updated progress for immediate or offline-deferred database synchronization
-    queueStudyProgress(guideId, updatedProgress);
+    queueStudyProgress(guideId, updatedProgress, options?.chapterNote?.chapterIdx);
 
-    if (quizScore !== undefined) {
+    if (effectiveScore !== undefined) {
       setEnrollments(prev =>
         prev.map(rec =>
           rec.courseId === guideId &&
@@ -868,18 +1318,22 @@ export default function App() {
             ? {
                 ...rec,
                 progressPercent: Math.max(rec.progressPercent, progressPercent),
-                testScore: Math.max(rec.testScore ?? 0, quizScore),
+                testScore: Math.max(rec.testScore ?? 0, effectiveScore),
               }
             : rec
         )
       );
       const matchedGuide = studyGuides.find(g => g.id === guideId);
+      const minPass = submittedAttempt?.minScoreToPass ?? 70;
       notifyAssignmentGraded({
         courseId: guideId,
         courseTitle: matchedGuide?.title || 'Course Module',
-        assignmentTitle: 'Module Assessment & Quiz',
-        score: quizScore,
-        feedback: quizScore >= 70 ? 'Passing threshold achieved.' : 'Review module invariants and retry.',
+        assignmentTitle: submittedAttempt?.quizTitle || 'Module Assessment & Quiz',
+        score: effectiveScore,
+        feedback:
+          effectiveScore >= minPass
+            ? 'Passing threshold achieved.'
+            : 'Attempt logged to Quiz History — review modules and retry.',
         force: true,
       });
     }
@@ -1129,6 +1583,7 @@ export default function App() {
             onOpenReminders={handleOpenReminders}
             onTriggerPaywall={handleOpenPaywall}
             onAddStudyGuide={handleAddStudyGuide}
+            onRemoveStudyGuide={handleRemoveStudyGuide}
             onInitiateBookingCheckout={handleInitiateBookingCheckout}
             onViewReceipt={(invId) => {
               const found = invoices.find(i => i.id === invId || i.invoice_number === invId);
@@ -1166,6 +1621,17 @@ export default function App() {
             onEnrollInCourse={handleEnrollInCourse}
             pomodoro={pomodoro}
             onOpenActivityDashboard={() => setActiveTab('activity')}
+            savedProgramIds={savedProgramIds}
+            onToggleSaveProgram={handleToggleSaveProgram}
+            comparedProgramIds={comparedQualificationIds}
+            onToggleCompareProgram={handleToggleCompareProgram}
+            onClearComparedPrograms={() => setComparedQualificationIds([])}
+            onOpenCompareModal={() => setIsCompareModalOpen(true)}
+            onOpenSavedProgramsProfile={handleOpenSavedProgramsProfile}
+            requestedAcademicCategory={requestedAcademicCategory}
+            onClearRequestedAcademicCategory={() => setRequestedAcademicCategory(null)}
+            onOpenStudentFeedback={handleOpenStudentFeedback}
+            onActiveStudyContextChange={setActiveStudyContext}
           />
         )}
 
@@ -1215,11 +1681,33 @@ export default function App() {
               setTargetStudyGuideId(guideId);
               setActiveTab('educare');
             }}
+            onStartStudyRoom={(title, id) => {
+              requireAuth(() => {
+                setActiveStudyRoom({ courseTitle: title, courseId: id });
+                notifyStudyGroupInitiated({
+                  courseId: id,
+                  courseTitle: title,
+                  hostName: user.name,
+                });
+              }, 'Sign in or register to join live study group video rooms.');
+            }}
             onOpenFacultyPortal={() => setActiveTab('faculty_portal')}
             syncedFocusMinutes={pomodoro.syncedFocusMinutes}
             completedPomodoroSessions={pomodoro.completedSessions}
             pomodoroLogs={pomodoro.sessionLogs}
             onUpdateProfile={handleUpdateProfile}
+            savedPrograms={savedPrograms}
+            comparedProgramIds={comparedQualificationIds}
+            onRemoveSavedProgram={handleRemoveSavedProgram}
+            onBrowseQualifications={handleBrowseQualifications}
+            onApplyQualification={(prefill) =>
+              handleOpenApplicationRegistration(prefill.category || 'course_educare', prefill)
+            }
+            onToggleCompareProgram={handleToggleCompareProgram}
+            onOpenCompareModal={() => setIsCompareModalOpen(true)}
+            onRefreshActiveCourses={() => refreshActiveCoursesAndCleanPassed(true)}
+            onRemovePassedActivities={() => refreshActiveCoursesAndCleanPassed(true)}
+            onOpenStudentFeedback={handleOpenStudentFeedback}
           />
         )}
 
@@ -1264,6 +1752,15 @@ export default function App() {
             onUpdateProfile={handleUpdateProfile}
             syncedFocusMinutes={pomodoro.syncedFocusMinutes}
             completedPomodoroSessions={pomodoro.completedSessions}
+            savedPrograms={savedPrograms}
+            comparedProgramIds={comparedQualificationIds}
+            onRemoveSavedProgram={handleRemoveSavedProgram}
+            onBrowseQualifications={handleBrowseQualifications}
+            onApplyQualification={(prefill) =>
+              handleOpenApplicationRegistration(prefill.category || 'course_educare', prefill)
+            }
+            onToggleCompareProgram={handleToggleCompareProgram}
+            onOpenCompareModal={() => setIsCompareModalOpen(true)}
           />
         )}
 
@@ -1280,14 +1777,14 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <img
-              src="/assets/aistudio/InShot_20260522_150628190_3d2729ca.jpg"
-              alt="Tai-one Digital Developer Logo"
+              src={TTG_LOGO_URL}
+              alt="Tsoaela Training Ground Platform Logo"
               referrerPolicy="no-referrer"
-              className="w-7 h-7 rounded-full object-cover ring-1 ring-emerald-500/40 shrink-0"
+              className="h-9 w-auto rounded-lg object-contain bg-white px-1 py-0.5 ring-1 ring-stone-200 dark:ring-stone-700 shrink-0"
             />
             <span className="font-bold text-stone-900 dark:text-stone-100">TTG</span>
             <span>·</span>
-            <span>Tai-one Digital Developer · Tsoaela Training Ground Platform</span>
+            <span>TTG - Tsoaela Training Ground Platform</span>
             <span>·</span>
             <span>All Rights Reserved 2026</span>
           </div>
@@ -1377,6 +1874,11 @@ export default function App() {
         user={user}
         studyGuides={studyGuides}
         readingProgress={readingProgress}
+        isOnline={isOnline}
+        unsyncedNotesCount={unsyncedNotesCount}
+        syncStatus={syncStatus}
+        lastSyncedAt={lastSyncedAt}
+        onTriggerSync={() => void triggerManualSync()}
       />
 
       {/* University Syllabus & Academic Prompt Studio Modal */}
@@ -1429,6 +1931,56 @@ export default function App() {
         onLoginSuccess={handleLoginSuccess}
         initialMode={authModalMode}
         guardMessage={authGuardMessage}
+      />
+
+      {/* Side-by-Side Academic Program Comparison Modal (up to 3 programs) */}
+      <ProgramComparisonModal
+        isOpen={isCompareModalOpen}
+        onClose={() => setIsCompareModalOpen(false)}
+        comparedQualificationIds={comparedQualificationIds}
+        savedProgramIds={savedProgramIds}
+        onRemoveFromCompare={(qualId) =>
+          setComparedQualificationIds((prev) => prev.filter((id) => id !== qualId))
+        }
+        onClearAllCompare={() => setComparedQualificationIds([])}
+        onToggleSaveProgram={handleToggleSaveProgram}
+        onApplyQualification={(prefill) =>
+          handleOpenApplicationRegistration(prefill.category || 'course_educare', prefill)
+        }
+      />
+
+      {/* Student Module Difficulty & Clarity Feedback Modal */}
+      <StudentFeedbackModal
+        isOpen={studentFeedbackModalState.isOpen}
+        onClose={() => setStudentFeedbackModalState((prev) => ({ ...prev, isOpen: false }))}
+        studyGuides={studyGuides}
+        enrollments={enrollments}
+        user={user}
+        initialCourseId={studentFeedbackModalState.courseId}
+        initialModuleIndex={studentFeedbackModalState.moduleIndex}
+        onSubmitCourseFeedback={handleSubmitCourseFeedback}
+      />
+
+      {/* Persistent TAI Tutor Floating Sidebar */}
+      <ResearchCornerAiTutorSidebar
+        activePageLabel={
+          activeTab === 'educare' || activeTab === 'education'
+            ? 'Educare Study Guides'
+            : activeTab === 'research'
+            ? 'Research Corner'
+            : activeTab === 'digital_world'
+            ? 'Digital World Academy'
+            : activeTab === 'activity'
+            ? 'User Activity Dashboard'
+            : activeTab === 'faculty_portal'
+            ? 'Faculty Portal'
+            : activeTab === 'careers'
+            ? 'Career Roadmap'
+            : activeTab === 'retreats'
+            ? 'TTG Retreats'
+            : 'TTG Learning Platform'
+        }
+        activeStudyContext={activeStudyContext}
       />
 
     </div>

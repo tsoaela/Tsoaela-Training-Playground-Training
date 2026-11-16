@@ -12,11 +12,14 @@ import {
   Map,
   ChevronUp,
   Award,
-  ArrowDown
+  ArrowDown,
+  ShieldCheck
 } from 'lucide-react';
 import {
   ACADEMIC_CATEGORY_FILTERS,
   AcademicCategoryKey,
+  AcademicFaculty,
+  AcademicQualificationLevel,
 } from '../data/academicCatalog';
 import { 
   UserProfile, 
@@ -26,6 +29,7 @@ import {
   Booking, 
   InvoiceReceipt, 
   ReadingProgress, 
+  ReadingProgressUpdateOptions,
   AuthorDocument,
   OfflineAssignmentSubmission,
   EnrolledStudentRecord,
@@ -44,7 +48,9 @@ import { LearningVelocityPanel } from './LearningVelocityPanel';
 import { CourseLeaderboardWidget } from './CourseLeaderboardWidget';
 import { CareerRoadmapPanel } from './CareerRoadmapPanel';
 import { PomodoroStudyTimer } from './PomodoroStudyTimer';
+import { AccreditationWorkflowSection } from './AccreditationWorkflowSection';
 import { CheckoutMode } from './StripeCheckoutModal';
+import { TTG_LOGO_URL } from '../utils/pdfBranding';
 
 export type EducationSubTab = 'educare' | 'community' | 'research' | 'digital_world' | 'careers' | 'retreats';
 
@@ -57,10 +63,11 @@ interface EducationPlatformHubProps {
   invoices: InvoiceReceipt[];
   readingProgress: Record<string, ReadingProgress>;
   initialSubTab?: EducationSubTab;
-  onUpdateReadingProgress: (guideId: string, chapterIdx: number, totalChapters: number, notes?: string, quizScore?: number, badgeId?: string) => void;
+  onUpdateReadingProgress: (guideId: string, chapterIdx: number, totalChapters: number, notes?: string, quizScore?: number, badgeId?: string, options?: ReadingProgressUpdateOptions) => void;
   onOpenReminders: (targetTitle?: string) => void;
   onTriggerPaywall: (featureName?: string, plan?: 'educare_pro' | 'research_pass') => void;
   onAddStudyGuide?: (guide: StudyGuide) => void;
+  onRemoveStudyGuide?: (guideId: string) => void;
   onInitiateBookingCheckout: (mode: CheckoutMode) => void;
   onViewReceipt?: (invoiceId: string) => void;
   targetStudyGuideId?: string | null;
@@ -101,8 +108,20 @@ interface EducationPlatformHubProps {
     setLinkedGuideId: (guideId: string) => void;
     updateConfig: (partial: Partial<PomodoroIntervalConfig>) => void;
     syncElapsedFocusSession: () => void;
+    clearCompletedSessionLogs?: () => void;
   };
   onOpenActivityDashboard?: () => void;
+  savedProgramIds?: string[];
+  onToggleSaveProgram?: (qual: AcademicQualificationLevel, faculty?: AcademicFaculty) => void;
+  comparedProgramIds?: string[];
+  onToggleCompareProgram?: (qualId: string) => void;
+  onClearComparedPrograms?: () => void;
+  onOpenCompareModal?: () => void;
+  onOpenSavedProgramsProfile?: () => void;
+  requestedAcademicCategory?: 'all' | AcademicCategoryKey | null;
+  onClearRequestedAcademicCategory?: () => void;
+  onOpenStudentFeedback?: (courseId?: string, moduleIndex?: number) => void;
+  onActiveStudyContextChange?: (context: { courseTitle?: string; chapterTitle?: string } | null) => void;
 }
 
 export const EducationPlatformHub: React.FC<EducationPlatformHubProps> = ({
@@ -118,6 +137,7 @@ export const EducationPlatformHub: React.FC<EducationPlatformHubProps> = ({
   onOpenReminders,
   onTriggerPaywall,
   onAddStudyGuide,
+  onRemoveStudyGuide,
   onInitiateBookingCheckout,
   onViewReceipt,
   targetStudyGuideId,
@@ -141,12 +161,23 @@ export const EducationPlatformHub: React.FC<EducationPlatformHubProps> = ({
   onEnrollInCourse,
   pomodoro,
   onOpenActivityDashboard,
+  savedProgramIds = [],
+  onToggleSaveProgram,
+  comparedProgramIds = [],
+  onToggleCompareProgram,
+  onClearComparedPrograms,
+  onOpenCompareModal,
+  onOpenSavedProgramsProfile,
+  requestedAcademicCategory = null,
+  onClearRequestedAcademicCategory,
+  onOpenStudentFeedback,
+  onActiveStudyContextChange,
 }) => {
   const [subTab, setSubTab] = useState<EducationSubTab>(initialSubTab);
   const [selectedAcademicCategory, setSelectedAcademicCategory] = useState<'all' | AcademicCategoryKey>('all');
   const [leaderboardGuideId, setLeaderboardGuideId] = useState<string>(studyGuides[0]?.id || '');
   const [roadmapTargetGuideId, setRoadmapTargetGuideId] = useState<string | null>(null);
-  const [activeInsightPanel, setActiveInsightPanel] = useState<'none' | 'velocity' | 'leaderboard' | 'roadmap'>('none');
+  const [activeInsightPanel, setActiveInsightPanel] = useState<'none' | 'velocity' | 'leaderboard' | 'roadmap' | 'workflow'>('none');
 
   const handleSelectAcademicCategory = (
     category: 'all' | AcademicCategoryKey,
@@ -167,6 +198,25 @@ export const EducationPlatformHub: React.FC<EducationPlatformHubProps> = ({
 
   const activeLeaderboardGuide =
     studyGuides.find((g) => g.id === leaderboardGuideId) || studyGuides[0];
+
+  // Sync sub-tab when parent App changes initialSubTab
+  useEffect(() => {
+    setSubTab(initialSubTab);
+  }, [initialSubTab]);
+
+  // Automatically jump to Academic Qualifications when requested (e.g., from Saved Programs)
+  useEffect(() => {
+    if (requestedAcademicCategory) {
+      setSelectedAcademicCategory(requestedAcademicCategory);
+      setSubTab('educare');
+      window.setTimeout(() => {
+        document
+          .getElementById('academic-qualifications-cards')
+          ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 90);
+      onClearRequestedAcademicCategory?.();
+    }
+  }, [requestedAcademicCategory, onClearRequestedAcademicCategory]);
 
   // Automatically switch sub-tab if an item was targeted by global search
   useEffect(() => {
@@ -265,10 +315,13 @@ export const EducationPlatformHub: React.FC<EducationPlatformHubProps> = ({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pt-4 pb-2 border-b border-stone-100 dark:border-stone-800 gap-2">
-            <div className="flex items-center gap-2">
-              <span className="p-1 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400">
-                <GraduationCap className="w-4 h-4" />
-              </span>
+            <div className="flex items-center gap-2.5">
+              <img
+                src={TTG_LOGO_URL}
+                alt="Tsoaela Training Ground Platform Logo"
+                referrerPolicy="no-referrer"
+                className="h-9 w-auto rounded-lg object-contain bg-white px-1 py-0.5 ring-1 ring-stone-200 dark:ring-stone-700 shadow-xs shrink-0"
+              />
               <div>
                 <h2 className="text-sm font-bold tracking-tight text-stone-900 dark:text-stone-100">
                   TTG Education Platform
@@ -284,6 +337,7 @@ export const EducationPlatformHub: React.FC<EducationPlatformHubProps> = ({
                 { id: 'velocity' as const, label: 'Learning Velocity', icon: BarChart3 },
                 { id: 'leaderboard' as const, label: 'Course Leaderboards', icon: Trophy },
                 { id: 'roadmap' as const, label: 'Career Roadmap', icon: Map },
+                { id: 'workflow' as const, label: 'Accreditation Workflow', icon: ShieldCheck },
               ].map((panel) => {
                 const PanelIcon = panel.icon;
                 const active = activeInsightPanel === panel.id;
@@ -456,41 +510,70 @@ export const EducationPlatformHub: React.FC<EducationPlatformHubProps> = ({
               onExploreAcademicCategory={(cat) => handleSelectAcademicCategory(cat, true)}
             />
           )}
+
+          {activeInsightPanel === 'workflow' && (
+            <AccreditationWorkflowSection
+              onOpenAccreditationModal={onOpenAccreditation}
+              onJumpToQualifications={() => {
+                setActiveInsightPanel('none');
+                handleSelectAcademicCategory('all', true);
+              }}
+            />
+          )}
         </div>
       )}
 
       {/* Render Selected Educational Module */}
       <div className="animate-fade-in">
         {subTab === 'educare' && (
-          <EducareTab
-            user={user}
-            studyGuides={studyGuides}
-            readingProgress={readingProgress}
-            onUpdateProgress={onUpdateReadingProgress}
-            onOpenReminders={onOpenReminders}
-            onTriggerPaywall={onTriggerPaywall}
-            onAddStudyGuide={onAddStudyGuide}
-            targetGuideId={targetStudyGuideId || roadmapTargetGuideId || undefined}
-            onClearTargetGuide={() => {
-              onClearTargetGuide?.();
-              setRoadmapTargetGuideId(null);
-            }}
-            onOpenExportReport={onOpenExportReport}
-            onOpenAcademicPrompts={onOpenAcademicPrompts}
-            onOpenAccreditation={onOpenAccreditation}
-            onApplyQualification={onApplyQualification}
-            pendingEditorDocument={pendingEditorDocument}
-            onClearPendingDocument={onClearPendingDocument}
-            onStartStudyRoom={onStartStudyRoom}
-            isAuthenticated={isAuthenticated}
-            onRequireAuth={onRequireAuth}
-            onSubmitAssignment={onSubmitAssignment}
-            offlineAssignments={offlineAssignments}
-            enrollments={enrollments}
-            onEnrollInCourse={onEnrollInCourse}
-            selectedAcademicCategory={selectedAcademicCategory}
-            onSelectAcademicCategory={(cat) => handleSelectAcademicCategory(cat, false)}
-          />
+          <div className="space-y-8">
+            <EducareTab
+              user={user}
+              studyGuides={studyGuides}
+              readingProgress={readingProgress}
+              onUpdateProgress={onUpdateReadingProgress}
+              onOpenReminders={onOpenReminders}
+              onTriggerPaywall={onTriggerPaywall}
+              onAddStudyGuide={onAddStudyGuide}
+              onRemoveStudyGuide={onRemoveStudyGuide}
+              targetGuideId={targetStudyGuideId || roadmapTargetGuideId || undefined}
+              onClearTargetGuide={() => {
+                onClearTargetGuide?.();
+                setRoadmapTargetGuideId(null);
+              }}
+              onOpenExportReport={onOpenExportReport}
+              onOpenAcademicPrompts={onOpenAcademicPrompts}
+              onOpenAccreditation={onOpenAccreditation}
+              onApplyQualification={onApplyQualification}
+              pendingEditorDocument={pendingEditorDocument}
+              onClearPendingDocument={onClearPendingDocument}
+              onStartStudyRoom={onStartStudyRoom}
+              isAuthenticated={isAuthenticated}
+              onRequireAuth={onRequireAuth}
+              onSubmitAssignment={onSubmitAssignment}
+              offlineAssignments={offlineAssignments}
+              enrollments={enrollments}
+              onEnrollInCourse={onEnrollInCourse}
+              selectedAcademicCategory={selectedAcademicCategory}
+              onSelectAcademicCategory={(cat) => handleSelectAcademicCategory(cat, false)}
+              savedProgramIds={savedProgramIds}
+              onToggleSaveProgram={onToggleSaveProgram}
+              comparedProgramIds={comparedProgramIds}
+              onToggleCompareProgram={onToggleCompareProgram}
+              onClearComparedPrograms={onClearComparedPrograms}
+              onOpenCompareModal={onOpenCompareModal}
+              onOpenSavedProgramsProfile={onOpenSavedProgramsProfile}
+              onOpenStudentFeedback={onOpenStudentFeedback}
+              onActiveStudyContextChange={onActiveStudyContextChange}
+            />
+
+            {activeInsightPanel !== 'workflow' && (
+              <AccreditationWorkflowSection
+                onOpenAccreditationModal={onOpenAccreditation}
+                onJumpToQualifications={() => handleSelectAcademicCategory('all', true)}
+              />
+            )}
+          </div>
         )}
 
         {subTab === 'community' && (

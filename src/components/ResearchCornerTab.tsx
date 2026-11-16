@@ -279,15 +279,6 @@ Based on TTG cross-sectional telemetry across Tier-1 sovereign funds and enterpr
                       <span className="font-mono tabular-nums">{paper.pages} Pages</span>
                       <span aria-hidden="true">·</span>
                       <span>{paper.author}</span>
-                      {paper.is_ai_generated && (
-                        <>
-                          <span aria-hidden="true">·</span>
-                          <span className="text-purple-700 dark:text-purple-400 font-semibold font-mono flex items-center gap-1">
-                            <Sparkles className="w-3 h-3" />
-                            <span>AI GENERATED</span>
-                          </span>
-                        </>
-                      )}
 
                       {readPapers.includes(paper.id) && (
                         <span className="text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800 inline-flex items-center gap-1 font-mono">

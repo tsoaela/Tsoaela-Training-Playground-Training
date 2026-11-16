@@ -1,9 +1,20 @@
 import React, { useState, useMemo } from 'react';
-import { UserProfile, InvoiceReceipt, SubscriptionTier, ReadingProgress, StudyGuide, EnrolledStudentRecord } from '../types';
+import {
+  UserProfile,
+  InvoiceReceipt,
+  SubscriptionTier,
+  ReadingProgress,
+  StudyGuide,
+  EnrolledStudentRecord,
+  SavedAcademicProgram,
+  ApplicationPrefillData,
+} from '../types';
 import { CreditCard, ExternalLink, FileText, CheckCircle2, Sparkles, RefreshCw, Bell, HelpCircle, Check } from 'lucide-react';
+import { AcademicCategoryKey } from '../data/academicCatalog';
 import { AchievementBadgesSection } from './AchievementBadgesSection';
 import { UserProfileCertificatesSection } from './UserProfileCertificatesSection';
 import { ProfileEditCard } from './ProfileEditCard';
+import { SavedProgramsSection } from './SavedProgramsSection';
 
 interface BillingDashboardTabProps {
   user: UserProfile;
@@ -22,6 +33,13 @@ interface BillingDashboardTabProps {
   onUpdateProfile?: (updates: Partial<UserProfile>) => void;
   syncedFocusMinutes?: number;
   completedPomodoroSessions?: number;
+  savedPrograms?: SavedAcademicProgram[];
+  comparedProgramIds?: string[];
+  onRemoveSavedProgram?: (qualificationId: string) => void;
+  onBrowseQualifications?: (category?: AcademicCategoryKey) => void;
+  onApplyQualification?: (prefill: ApplicationPrefillData) => void;
+  onToggleCompareProgram?: (qualificationId: string) => void;
+  onOpenCompareModal?: () => void;
 }
 
 export const BillingDashboardTab: React.FC<BillingDashboardTabProps> = ({
@@ -41,6 +59,13 @@ export const BillingDashboardTab: React.FC<BillingDashboardTabProps> = ({
   onUpdateProfile,
   syncedFocusMinutes = 0,
   completedPomodoroSessions = 0,
+  savedPrograms = [],
+  comparedProgramIds = [],
+  onRemoveSavedProgram,
+  onBrowseQualifications,
+  onApplyQualification,
+  onToggleCompareProgram,
+  onOpenCompareModal,
 }) => {
   const [receiptFilter, setReceiptFilter] = useState<'all' | 'retreat' | 'grant'>('all');
   const [copiedInvoiceId, setCopiedInvoiceId] = useState<string | null>(null);
@@ -104,6 +129,19 @@ export const BillingDashboardTab: React.FC<BillingDashboardTabProps> = ({
           onUpdateProfile={onUpdateProfile}
           syncedFocusMinutes={syncedFocusMinutes}
           completedSessions={completedPomodoroSessions}
+        />
+      )}
+
+      {/* My Saved Programs Section (Bookmarked Academic Qualifications) */}
+      {onRemoveSavedProgram && (
+        <SavedProgramsSection
+          savedPrograms={savedPrograms}
+          comparedProgramIds={comparedProgramIds}
+          onRemoveSavedProgram={onRemoveSavedProgram}
+          onBrowseQualifications={onBrowseQualifications}
+          onApplyQualification={onApplyQualification}
+          onToggleCompareProgram={onToggleCompareProgram}
+          onOpenCompareModal={onOpenCompareModal}
         />
       )}
 

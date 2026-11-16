@@ -298,6 +298,13 @@ export function usePomodoroTimer(
       ? Math.floor(Math.max(0, totalPhaseSeconds - timerState.remainingSeconds) / 60)
       : 0;
 
+  const clearCompletedSessionLogs = useCallback(() => {
+    setStats(prev => ({
+      ...prev,
+      logs: [],
+    }));
+  }, []);
+
   return {
     phase: timerState.phase,
     isRunning: timerState.isRunning,
@@ -317,5 +324,6 @@ export function usePomodoroTimer(
     setLinkedGuideId,
     updateConfig,
     syncElapsedFocusSession,
+    clearCompletedSessionLogs,
   };
 }

@@ -12,6 +12,7 @@ import {
   FlushSyncResult,
   getLastSyncedAt,
   getSyncQueue,
+  getUnsyncedNotesCount,
 } from '../services/backgroundSyncService';
 
 export function useBackgroundSync(
@@ -108,8 +109,8 @@ export function useBackgroundSync(
   }, [isOnline, queuedItems.length, performSync]);
 
   const queueStudyProgress = useCallback(
-    (guideId: string, progress: ReadingProgress) => {
-      const updated = enqueueStudyProgressSync(userId, guideId, progress);
+    (guideId: string, progress: ReadingProgress, dirtyChapterIdx?: number) => {
+      const updated = enqueueStudyProgressSync(userId, guideId, progress, dirtyChapterIdx);
       setQueuedItems(updated);
       if (navigator.onLine) {
         void performSync();
@@ -133,9 +134,12 @@ export function useBackgroundSync(
     [performSync]
   );
 
+  const unsyncedNotesCount = getUnsyncedNotesCount(queuedItems);
+
   return {
     queuedItems,
     pendingCount: queuedItems.length,
+    unsyncedNotesCount,
     syncStatus,
     lastSyncedAt,
     queueStudyProgress,

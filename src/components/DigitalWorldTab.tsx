@@ -517,7 +517,7 @@ export const DigitalWorldTab: React.FC<DigitalWorldTabProps> = ({
               Digital World of Education & Art Media
             </h1>
             <p className="mt-2 text-stone-600 dark:text-stone-400 max-w-2xl text-sm sm:text-base">
-              High-fidelity music streaming with -14 LUFS DSP, real-time 4K generative visual streams, monumental mural canvases, and accredited broadcast engineering academies.
+              High-fidelity music streaming with -14 LUFS DSP, real-time 4K generative visual streams, monumental mural canvases, and structured broadcast engineering academies.
             </p>
           </div>
 
@@ -1233,7 +1233,7 @@ export const DigitalWorldTab: React.FC<DigitalWorldTabProps> = ({
                   Broadcast & Creative Engineering Academy
                 </h2>
                 <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-400 mt-1 max-w-xl">
-                  Accredited educational syllabi covering broadcast acoustics, -14 LUFS loudness mastering, GLSL generative shaders, and urban mural spatial geometry.
+                  Structured self-paced syllabi covering broadcast acoustics, -14 LUFS loudness mastering, GLSL generative shaders, and urban mural spatial geometry.
                 </p>
               </div>
 

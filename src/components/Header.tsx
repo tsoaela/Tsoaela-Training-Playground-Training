@@ -39,6 +39,7 @@ import {
   Clock
 } from 'lucide-react';
 import { BackgroundSyncStatus } from '../types';
+import { TTG_LOGO_URL } from '../utils/pdfBranding';
 
 const RECENT_SEARCHES_STORAGE_KEY = 'ttg_recent_global_searches';
 const MAX_RECENT_SEARCHES = 5;
@@ -365,7 +366,7 @@ export const Header: React.FC<HeaderProps> = ({
     'Bali Retreat',
     'Autonomous Swarms',
     'Institutional DSP',
-    'Accredited Courses',
+    'Quality-Verified Courses',
   ];
 
   return (
@@ -381,10 +382,10 @@ export const Header: React.FC<HeaderProps> = ({
               className="text-lg font-bold tracking-tight text-stone-900 dark:text-stone-100 whitespace-nowrap shrink-0 hover:text-amber-700 dark:hover:text-amber-400 transition-colors cursor-pointer flex items-center gap-2.5"
             >
               <img
-                src="/assets/aistudio/InShot_20260522_150628190_3d2729ca.jpg"
-                alt="Tai-one Digital Developer Logo"
+                src={TTG_LOGO_URL}
+                alt="Tsoaela Training Ground Platform Logo"
                 referrerPolicy="no-referrer"
-                className="w-8 h-8 rounded-full object-cover ring-1 ring-emerald-500/40 shadow-xs shrink-0"
+                className="h-9 w-auto rounded-lg object-contain bg-white px-1 py-0.5 ring-1 ring-stone-200 dark:ring-stone-700 shadow-xs shrink-0"
               />
               <span>TTG</span>
               <span className="hidden xl:inline text-xs font-semibold text-stone-500 dark:text-stone-400">

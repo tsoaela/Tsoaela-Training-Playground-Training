@@ -23,7 +23,7 @@ export const ProfileEditCard: React.FC<ProfileEditCardProps> = ({
     user.specialization || 'Autonomous Systems & Quantitative Economics'
   );
   const [bio, setBio] = useState(
-    user.bio || 'Executive scholar pursuing accredited cross-disciplinary mastery.'
+    user.bio || 'Executive scholar pursuing structured cross-disciplinary mastery.'
   );
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [savedBanner, setSavedBanner] = useState(false);
@@ -33,7 +33,7 @@ export const ProfileEditCard: React.FC<ProfileEditCardProps> = ({
     setEmail(user.email);
     setInstitution(user.institution || 'Tsoaela Training Ground Institute');
     setSpecialization(user.specialization || 'Autonomous Systems & Quantitative Economics');
-    setBio(user.bio || 'Executive scholar pursuing accredited cross-disciplinary mastery.');
+    setBio(user.bio || 'Executive scholar pursuing structured cross-disciplinary mastery.');
   }, [user]);
 
   const handleSave = (e: React.FormEvent) => {
@@ -66,7 +66,7 @@ export const ProfileEditCard: React.FC<ProfileEditCardProps> = ({
     setEmail(user.email);
     setInstitution(user.institution || 'Tsoaela Training Ground Institute');
     setSpecialization(user.specialization || 'Autonomous Systems & Quantitative Economics');
-    setBio(user.bio || 'Executive scholar pursuing accredited cross-disciplinary mastery.');
+    setBio(user.bio || 'Executive scholar pursuing structured cross-disciplinary mastery.');
     setErrorMsg(null);
     setIsEditing(false);
   };
@@ -114,7 +114,7 @@ export const ProfileEditCard: React.FC<ProfileEditCardProps> = ({
             </div>
             {(user.bio || !isEditing) && (
               <p className="text-xs text-stone-600 dark:text-stone-400 pt-1 max-w-2xl">
-                {user.bio || 'Executive scholar pursuing accredited cross-disciplinary mastery.'}
+                {user.bio || 'Executive scholar pursuing structured cross-disciplinary mastery.'}
               </p>
             )}
           </div>

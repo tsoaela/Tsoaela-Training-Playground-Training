@@ -1075,3 +1075,49 @@ export function buildApplicationPrefillForQualification(
   };
 }
 
+export function findQualificationWithFaculty(qualificationId: string): {
+  qualification: AcademicQualificationLevel;
+  faculty: AcademicFaculty;
+  coreModules: string[];
+} | null {
+  for (const faculty of ACADEMIC_FACULTIES) {
+    const qualification = faculty.qualifications.find((q) => q.id === qualificationId);
+    if (qualification) {
+      return {
+        qualification,
+        faculty,
+        coreModules: resolveQualificationCoreModules(qualification, faculty),
+      };
+    }
+  }
+  return null;
+}
+
+export function buildSavedAcademicProgram(
+  qual: AcademicQualificationLevel,
+  faculty?: AcademicFaculty
+) {
+  const resolvedFaculty =
+    faculty ||
+    ACADEMIC_FACULTIES.find(
+      (f) => f.filterKey === qual.categoryKey || f.name === qual.facultyName
+    ) ||
+    ACADEMIC_FACULTIES[0];
+
+  return {
+    qualificationId: qual.id,
+    qualificationType: qual.qualificationType,
+    level: qual.level,
+    categoryKey: qual.categoryKey || resolvedFaculty.filterKey,
+    facultyId: resolvedFaculty.id,
+    facultyName: qual.facultyName || resolvedFaculty.name,
+    typicalDuration: qual.typicalDuration,
+    nqfCredits: qual.nqfCredits,
+    entryRequirement: qual.entryRequirement,
+    academicFocus: qual.academicFocus,
+    assessmentFormat: qual.assessmentFormat,
+    progressionPath: qual.progressionPath,
+    coreModules: resolveQualificationCoreModules(qual, resolvedFaculty),
+    savedAt: new Date().toISOString(),
+  };
+}

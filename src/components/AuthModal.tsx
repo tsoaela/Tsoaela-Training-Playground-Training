@@ -17,6 +17,7 @@ import {
   Briefcase
 } from 'lucide-react';
 import { UserProfile, UserRole } from '../types';
+import { TTG_LOGO_URL } from '../utils/pdfBranding';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -113,10 +114,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       >
         {/* Header Bar */}
         <div className="flex items-center justify-between p-5 border-b border-stone-100 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-900/50">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 flex items-center justify-center font-bold text-xs">
-              TTG
-            </div>
+          <div className="flex items-center gap-3">
+            <img
+              src={TTG_LOGO_URL}
+              alt="Tsoaela Training Ground Platform Logo"
+              referrerPolicy="no-referrer"
+              className="h-10 w-auto rounded-lg object-contain bg-white px-1 py-0.5 ring-1 ring-stone-200 dark:ring-stone-700 shadow-xs shrink-0"
+            />
             <div>
               <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100">
                 {mode === 'login' ? 'Sign In to Your Account' : 'Register Creator & Student Profile'}

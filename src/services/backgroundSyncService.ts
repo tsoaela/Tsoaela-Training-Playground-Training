@@ -28,6 +28,13 @@ export function getSyncQueue(): SyncQueueItem[] {
   }
 }
 
+export function getUnsyncedNotesCount(queue: SyncQueueItem[]): number {
+  return queue.reduce(
+    (sum, item) => sum + (item.unsyncedNoteChapterIndices?.length || 0),
+    0
+  );
+}
+
 export function getLastSyncedAt(): string | null {
   try {
     return localStorage.getItem(LAST_SYNC_AT_KEY);
@@ -79,9 +86,19 @@ async function registerServiceWorkerBackgroundSync(): Promise<void> {
 export function enqueueStudyProgressSync(
   userId: string,
   guideId: string,
-  progress: ReadingProgress
+  progress: ReadingProgress,
+  dirtyChapterIdx?: number
 ): SyncQueueItem[] {
   const existing = getSyncQueue();
+  const prevMatching = existing.find(
+    (item) => item.type === 'study_progress' && item.userId === userId && item.courseId === guideId
+  );
+  const noteIndicesSet = new Set<number>(prevMatching?.unsyncedNoteChapterIndices || []);
+  if (typeof dirtyChapterIdx === 'number' && dirtyChapterIdx >= 0) {
+    noteIndicesSet.add(dirtyChapterIdx);
+  }
+  const unsyncedNoteChapterIndices = Array.from(noteIndicesSet).sort((a, b) => a - b);
+
   // Coalesce latest study_progress snapshot per userId + guideId so queue stays compact
   const filtered = existing.filter(
     (item) => !(item.type === 'study_progress' && item.userId === userId && item.courseId === guideId)
@@ -94,6 +111,7 @@ export function enqueueStudyProgressSync(
     queuedAt: new Date().toISOString(),
     retryCount: 0,
     progressPayload: progress,
+    unsyncedNoteChapterIndices,
   };
   const nextQueue = [nextItem, ...filtered];
   saveSyncQueue(nextQueue);

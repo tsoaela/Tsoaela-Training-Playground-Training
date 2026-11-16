@@ -59,7 +59,7 @@ interface MilestoneQualificationProfile {
 }
 
 const CATEGORY_CAREER_PATHS: Record<string, CareerPathSpec> = {
-  'AI Courses (AI Generated)': {
+  'Frontier AI & Systems': {
     trackTitle: 'Frontier AI & Autonomous Systems Architecture',
     targetRoles: [
       'AI Systems Architect',

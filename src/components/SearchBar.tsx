@@ -110,11 +110,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({
               <span className="flex items-center gap-1 text-stone-700 dark:text-stone-300">
                 <span className="tabular-nums font-bold">{stats.studyFields}</span>
                 <span>Study Fields</span>
-                {stats.hasAiCourses && (
-                  <span className="text-purple-700 dark:text-purple-400 font-semibold">
-                    (including AI COURSES · AI GENERATED)
-                  </span>
-                )}
               </span>
             </>
           )}

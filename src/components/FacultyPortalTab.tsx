@@ -22,7 +22,9 @@ import {
   MessageSquare,
   Star,
   ThumbsUp,
-  Eye
+  Eye,
+  Gauge,
+  MessageSquarePlus
 } from 'lucide-react';
 import {
   BarChart,
@@ -87,7 +89,8 @@ export const FacultyPortalTab: React.FC<FacultyPortalTabProps> = ({
   onGradeAssignment,
   onAddPeerReview,
 }) => {
-  const [activeSubView, setActiveSubView] = useState<'enrollment' | 'results' | 'syllabus'>('enrollment');
+  const [activeSubView, setActiveSubView] = useState<'enrollment' | 'results' | 'feedback' | 'syllabus'>('enrollment');
+  const [feedbackFocusFilter, setFeedbackFocusFilter] = useState<'All' | 'Difficulty' | 'Clarity' | 'Both'>('All');
   const [selectedCourseId, setSelectedCourseId] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'Pending Grading' | 'Graded' | 'Not Submitted'>('all');
   const [studentSearch, setStudentSearch] = useState('');
@@ -141,6 +144,41 @@ export const FacultyPortalTab: React.FC<FacultyPortalTabProps> = ({
     if (selectedCourseId === 'all') return enrollments;
     return enrollments.filter(e => e.courseId === selectedCourseId);
   }, [enrollments, selectedCourseId]);
+
+  // Aggregate student module feedback stored in enrollment.courseFeedback arrays
+  const allCourseFeedback = useMemo(() => {
+    const entries = courseScopedEnrollments.flatMap((rec) =>
+      (rec.courseFeedback || []).map((fb) => ({
+        ...fb,
+        enrollmentId: rec.id,
+        qualificationLevel: rec.qualificationLevel,
+      }))
+    );
+    return entries.sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }, [courseScopedEnrollments]);
+
+  const filteredCourseFeedback = useMemo(() => {
+    if (feedbackFocusFilter === 'All') return allCourseFeedback;
+    return allCourseFeedback.filter((fb) => fb.focusArea === feedbackFocusFilter);
+  }, [allCourseFeedback, feedbackFocusFilter]);
+
+  const feedbackMetrics = useMemo(() => {
+    if (allCourseFeedback.length === 0) {
+      return { avgDifficulty: '0.0', avgClarity: '0.0', challengingCount: 0 };
+    }
+    const diffSum = allCourseFeedback.reduce((s, f) => s + (f.difficultyRating || 0), 0);
+    const clarSum = allCourseFeedback.reduce((s, f) => s + (f.clarityRating || 0), 0);
+    const challengingCount = allCourseFeedback.filter(
+      (f) => f.difficultyRating >= 4 || f.clarityRating <= 2
+    ).length;
+    return {
+      avgDifficulty: (diffSum / allCourseFeedback.length).toFixed(1),
+      avgClarity: (clarSum / allCourseFeedback.length).toFixed(1),
+      challengingCount,
+    };
+  }, [allCourseFeedback]);
 
   const gradingRecord = useMemo(
     () => (gradingRecordId ? enrollments.find(e => e.id === gradingRecordId) || null : null),
@@ -610,6 +648,19 @@ export const FacultyPortalTab: React.FC<FacultyPortalTabProps> = ({
 
             <button
               type="button"
+              onClick={() => setActiveSubView('feedback')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                activeSubView === 'feedback'
+                  ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 shadow-xs'
+                  : 'bg-white dark:bg-stone-900 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-800 hover:bg-stone-100 dark:hover:bg-stone-800'
+              }`}
+            >
+              <MessageSquarePlus className="w-3.5 h-3.5" />
+              <span>Module Feedback ({allCourseFeedback.length})</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => setActiveSubView('syllabus')}
               className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
                 activeSubView === 'syllabus'
@@ -748,6 +799,18 @@ export const FacultyPortalTab: React.FC<FacultyPortalTabProps> = ({
                               <span className="font-mono tabular-nums text-stone-500 dark:text-stone-400">
                                 {peerCount} {peerCount === 1 ? 'Peer Review' : 'Peer Reviews'}
                               </span>
+                              {(rec.courseFeedback?.length || 0) > 0 && (
+                                <>
+                                  <span className="text-stone-300 dark:text-stone-700" aria-hidden="true">·</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => isInstructor && setActiveSubView('feedback')}
+                                    className="font-mono tabular-nums font-semibold text-purple-700 dark:text-purple-400 hover:underline cursor-pointer"
+                                  >
+                                    {rec.courseFeedback!.length} Module {rec.courseFeedback!.length === 1 ? 'Note' : 'Notes'}
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </td>
 
@@ -1261,6 +1324,130 @@ export const FacultyPortalTab: React.FC<FacultyPortalTabProps> = ({
         </div>
       )}
 
+      {/* Sub-view 2.5: Student Module Feedback Review */}
+      {isInstructor && activeSubView === 'feedback' && (
+        <div className="space-y-6">
+          <div className="rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 p-6 space-y-5 shadow-xs">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-stone-100 dark:border-stone-800 pb-4">
+              <div>
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-purple-700 dark:text-purple-400 mb-1">
+                  <MessageSquarePlus className="w-4 h-4" />
+                  <span>Enrollment courseFeedback Queue</span>
+                </div>
+                <h2 className="text-lg font-bold text-stone-900 dark:text-stone-100">
+                  Student Module Difficulty &amp; Clarity Feedback
+                </h2>
+                <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+                  Review specific comments left by students inside enrollment records to calibrate module difficulty, worked examples, and pacing.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5">
+                {(['All', 'Difficulty', 'Clarity', 'Both'] as const).map((focus) => (
+                  <button
+                    key={focus}
+                    type="button"
+                    onClick={() => setFeedbackFocusFilter(focus)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
+                      feedbackFocusFilter === focus
+                        ? 'bg-purple-700 text-white'
+                        : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700'
+                    }`}
+                  >
+                    {focus}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Summary KPI Strip */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 text-xs">
+              <div className="p-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950/60">
+                <span className="text-stone-500 dark:text-stone-400 block">
+                  Average Reported Difficulty
+                </span>
+                <span className="text-2xl font-extrabold font-mono text-amber-600 dark:text-amber-400 mt-0.5 block">
+                  {feedbackMetrics.avgDifficulty} / 5
+                </span>
+              </div>
+              <div className="p-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950/60">
+                <span className="text-stone-500 dark:text-stone-400 block">
+                  Average Clarity Score
+                </span>
+                <span className="text-2xl font-extrabold font-mono text-emerald-600 dark:text-emerald-400 mt-0.5 block">
+                  {feedbackMetrics.avgClarity} / 5
+                </span>
+              </div>
+              <div className="p-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950/60">
+                <span className="text-stone-500 dark:text-stone-400 block">
+                  Flagged High-Friction Modules
+                </span>
+                <span className="text-2xl font-extrabold font-mono text-rose-600 dark:text-rose-400 mt-0.5 block">
+                  {feedbackMetrics.challengingCount}
+                </span>
+              </div>
+            </div>
+
+            {/* Feedback Cards */}
+            {filteredCourseFeedback.length === 0 ? (
+              <div className="p-8 rounded-xl border border-dashed border-stone-200 dark:border-stone-800 text-center text-xs text-stone-500 dark:text-stone-400">
+                No student module feedback entries match the current course or dimension filter.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredCourseFeedback.map((fb) => (
+                  <div
+                    key={fb.id}
+                    className="p-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-950/50 space-y-2.5 text-xs"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-bold text-stone-900 dark:text-stone-100">
+                            {fb.studentName}
+                          </span>
+                          <span className="text-[11px] font-mono text-stone-500">
+                            {fb.studentEmail}
+                          </span>
+                          <span className="px-2 py-0.5 rounded bg-purple-50 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-[10px] font-bold uppercase">
+                            {fb.focusArea}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">
+                          <span className="font-semibold text-stone-700 dark:text-stone-300">
+                            {fb.courseTitle}
+                          </span>
+                          <span aria-hidden="true"> · </span>
+                          <span>Module: {fb.moduleTitle}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] shrink-0">
+                        <span className="px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 font-bold inline-flex items-center gap-1">
+                          <Gauge className="w-3 h-3" />
+                          Difficulty {fb.difficultyRating}/5
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-bold inline-flex items-center gap-1">
+                          <Sparkles className="w-3 h-3" />
+                          Clarity {fb.clarityRating}/5
+                        </span>
+                        <span className="text-stone-400">
+                          {new Date(fb.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+
+                    <p className="text-stone-700 dark:text-stone-300 leading-relaxed bg-white dark:bg-stone-900 p-3 rounded-lg border border-stone-200/70 dark:border-stone-800">
+                      {fb.comment}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Sub-view 3: Syllabus & Chapter Manager */}
       {isInstructor && activeSubView === 'syllabus' && activeSyllabusCourse && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1687,7 +1874,7 @@ export const FacultyPortalTab: React.FC<FacultyPortalTabProps> = ({
 
         if (!cert) return null;
 
-        const courseTitle = rec?.courseTitle || matchedGuide?.title || 'Accredited Course';
+        const courseTitle = rec?.courseTitle || matchedGuide?.title || 'Platform Course';
         const recipientName = rec?.studentName || user.name || 'Academic Scholar';
         const progressPercent = rec?.progressPercent ?? 100;
         const quizScore = rec?.testScore;

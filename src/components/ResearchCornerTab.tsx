@@ -4,6 +4,14 @@ import { Lock, FileText, Sparkles, Send, CheckCircle2, ArrowUpRight, X, Shield, 
 import { SearchBar } from './SearchBar';
 import { ResearchCitationHelperModal } from './ResearchCitationHelperModal';
 import { CATALOG_STATS } from '../data/mockData';
+import {
+  CatalogMultiFilterState,
+  CatalogSortBy,
+  CatalogSortDirection,
+  EMPTY_CATALOG_FILTERS,
+  filterAndSortResearchPapers,
+  getResearchPaperNqfLevel,
+} from '../utils/catalogOrganization';
 
 interface ResearchCornerTabProps {
   user: UserProfile;
@@ -12,6 +20,10 @@ interface ResearchCornerTabProps {
   onTriggerPaywall: (featureName?: string, plan?: 'educare_pro' | 'research_pass') => void;
   targetPaperId?: string;
   onClearTargetPaper?: () => void;
+  externalFilters?: CatalogMultiFilterState;
+  sortBy?: CatalogSortBy;
+  sortDirection?: CatalogSortDirection;
+  onResetExternalFilters?: () => void;
 }
 
 export const ResearchCornerTab: React.FC<ResearchCornerTabProps> = ({
@@ -21,6 +33,10 @@ export const ResearchCornerTab: React.FC<ResearchCornerTabProps> = ({
   onTriggerPaywall,
   targetPaperId,
   onClearTargetPaper,
+  externalFilters = EMPTY_CATALOG_FILTERS,
+  sortBy = 'recommended',
+  sortDirection = 'desc',
+  onResetExternalFilters,
 }) => {
   const [selectedPaper, setSelectedPaper] = useState<ResearchPaper | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -83,9 +99,9 @@ export const ResearchCornerTab: React.FC<ResearchCornerTabProps> = ({
     { id: 'premium', label: 'Research Pass' },
   ], []);
 
-  // Filter research papers based on title or category (and keywords/takeaways)
+  // Filter & sort research papers based on title, category, multi-select hub filters, and sort order
   const filteredPapers = useMemo(() => {
-    return researchPapers.filter(paper => {
+    const baseFiltered = researchPapers.filter(paper => {
       // Category filter
       if (selectedCategory === 'free' && paper.is_premium) return false;
       if (selectedCategory === 'premium' && !paper.is_premium) return false;
@@ -113,7 +129,15 @@ export const ResearchCornerTab: React.FC<ResearchCornerTabProps> = ({
 
       return true;
     });
-  }, [researchPapers, selectedCategory, searchQuery]);
+
+    return filterAndSortResearchPapers(
+      baseFiltered,
+      readPapers,
+      externalFilters,
+      sortBy,
+      sortDirection
+    );
+  }, [researchPapers, selectedCategory, searchQuery, readPapers, externalFilters, sortBy, sortDirection]);
 
   const handleOpenPaper = (paper: ResearchPaper) => {
     if (paper.is_premium && !isSubscribedToResearch) {
@@ -216,6 +240,7 @@ Based on TTG cross-sectional telemetry across Tier-1 sovereign funds and enterpr
             onResetFilters={() => {
               setSearchQuery('');
               setSelectedCategory('all');
+              onResetExternalFilters?.();
             }}
             stats={{
               curatedModules: CATALOG_STATS.curatedModules,
@@ -233,18 +258,22 @@ Based on TTG cross-sectional telemetry across Tier-1 sovereign funds and enterpr
         <div className="rounded-2xl border border-dashed border-stone-300 dark:border-stone-700 p-12 text-center bg-stone-50/50 dark:bg-stone-900/40">
           <FileText className="w-8 h-8 text-stone-400 dark:text-stone-500 mx-auto mb-3" />
           <h3 className="text-base font-semibold text-stone-900 dark:text-stone-100">
-            No research papers found matching &ldquo;{searchQuery}&rdquo;
+            No research papers found matching active filters
           </h3>
           <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 max-w-sm mx-auto">
-            Try searching for terms such as &ldquo;swarms&rdquo;, &ldquo;compute&rdquo;, &ldquo;macro&rdquo;, or &ldquo;neuroplastic&rdquo;.
+            Try searching for terms such as &ldquo;swarms&rdquo;, &ldquo;compute&rdquo;, or resetting your multi-select filters.
           </p>
           <div className="mt-4">
             <button
               type="button"
-              onClick={() => setSearchQuery('')}
+              onClick={() => {
+                setSearchQuery('');
+                setSelectedCategory('all');
+                onResetExternalFilters?.();
+              }}
               className="px-3.5 py-1.5 text-xs font-medium text-stone-800 dark:text-stone-200 bg-stone-200 dark:bg-stone-800 hover:bg-stone-300 dark:hover:bg-stone-700 rounded-lg transition-colors"
             >
-              Clear Search
+              Reset Search & Filters
             </button>
           </div>
         </div>
@@ -277,6 +306,10 @@ Based on TTG cross-sectional telemetry across Tier-1 sovereign funds and enterpr
                       <span>{paper.publication_date}</span>
                       <span aria-hidden="true">·</span>
                       <span className="font-mono tabular-nums">{paper.pages} Pages</span>
+                      <span aria-hidden="true">·</span>
+                      <span className="font-mono tabular-nums font-semibold text-stone-700 dark:text-stone-300">
+                        NQF Level {getResearchPaperNqfLevel(paper)}
+                      </span>
                       <span aria-hidden="true">·</span>
                       <span>{paper.author}</span>
 

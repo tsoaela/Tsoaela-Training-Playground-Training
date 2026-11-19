@@ -26,6 +26,7 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { loadLogoDataUrl, TAI_ONE_LOGO_URL, getFittedLogoSize } from '../utils/pdfBranding';
 import { QuizHistoryTimeline } from './QuizHistoryTimeline';
+import { ReadingProgress as ReadingProgressIndicator } from './ReadingProgress';
 
 interface ReadingProgressExportModalProps {
   isOpen: boolean;
@@ -678,17 +679,18 @@ export const ReadingProgressExportModal: React.FC<ReadingProgressExportModalProp
                       </div>
 
                       {/* Mini Progress Bar */}
-                      <div className="w-full sm:w-36 space-y-1">
-                        <div className="flex justify-between text-[10px] font-mono text-stone-500">
-                          <span>Progress</span>
-                          <span className="font-bold text-stone-900 dark:text-stone-100">{progress}%</span>
-                        </div>
-                        <div className="h-1.5 w-full bg-stone-100 dark:bg-stone-800 rounded-full overflow-hidden">
-                          <div 
-                            className={`h-full rounded-full transition-all duration-300 ${isCompleted ? 'bg-emerald-500' : 'bg-blue-600'}`}
-                            style={{ width: `${progress}%` }}
-                          />
-                        </div>
+                      <div className="w-full sm:w-36">
+                        <ReadingProgressIndicator
+                          guideId={guide.id}
+                          courseTitle={guide.title}
+                          completedCount={completedIndices.length}
+                          totalCount={guide.chapters.length}
+                          progressPercent={progress}
+                          isCompleted={Boolean(isCompleted)}
+                          variant="compact"
+                          enableConfetti
+                          confettiVariant="contained"
+                        />
                       </div>
                     </div>
                   );

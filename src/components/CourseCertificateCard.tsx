@@ -1,5 +1,5 @@
 import React from 'react';
-import { Award, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { Award, CheckCircle2, Lock } from 'lucide-react';
 import { CourseCertificateSpec } from '../types';
 import { TAI_ONE_LOGO_URL } from '../data/certificatesData';
 
@@ -17,7 +17,8 @@ interface CourseCertificateCardProps {
 
 /**
  * Renders the course certificate designed in golden green, dark green, and lime
- * layered SVG textures with the official Tai-one emblem and category-specific artwork.
+ * layered SVG textures with the official TTG emblem and category-specific artwork.
+ * When !isEarned, displays a locked template specimen without personalized serial/name issuance.
  */
 export const CourseCertificateCard: React.FC<CourseCertificateCardProps> = ({
   certificate,
@@ -32,6 +33,10 @@ export const CourseCertificateCard: React.FC<CourseCertificateCardProps> = ({
 }) => {
   const patternId = `cert_tex_${certificate.id.replace(/[^a-zA-Z0-9]/g, '_')}`;
   const gradGoldGreenId = `cert_gold_green_${certificate.id.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+  const displayRecipient = isEarned ? recipientName : '[LEARNER NAME · TEMPLATE PREVIEW]';
+  const displaySerial = isEarned ? serialNumber : 'TTG-TEMPLATE-LOCKED';
+  const displayIssueDate = isEarned ? issueDate : 'ISSUED UPON 100% COURSE COMPLETION';
 
   return (
     <div
@@ -104,6 +109,23 @@ export const CourseCertificateCard: React.FC<CourseCertificateCardProps> = ({
         <rect width="100%" height="100%" fill={`url(#${patternId})`} />
       </svg>
 
+      {/* Locked Specimen Watermark Overlay when !isEarned */}
+      {!isEarned && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center overflow-hidden"
+        >
+          <div className="rotate-[-18deg] border-y-2 border-[#bef264]/35 bg-[#022c22]/65 px-10 py-2.5 backdrop-blur-[1px] text-center shadow-lg">
+            <span className="block text-xs sm:text-sm font-mono font-extrabold uppercase tracking-[0.28em] text-[#fef08a]/90">
+              CERTIFICATION TEMPLATE ONLY · LOCKED
+            </span>
+            <span className="block text-[10px] font-mono text-[#bef264]/80 tracking-wider mt-0.5">
+              COMPLETE COURSE (100%) OR PASS QUIZ (70%+) TO UNLOCK CREDENTIAL
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Fine Lime-Gold Corner Ornate Inner Frames */}
       <div className="pointer-events-none absolute inset-2.5 sm:inset-3.5 rounded-xl border border-[#bef264]/45" />
       <div className="pointer-events-none absolute inset-4 sm:inset-5 rounded-lg border border-[#ca8a04]/45" />
@@ -114,8 +136,8 @@ export const CourseCertificateCard: React.FC<CourseCertificateCardProps> = ({
       <div className="pointer-events-none absolute bottom-4 left-4 h-6 w-6 border-b-2 border-l-2 border-[#eab308]/85 rounded-bl-md" />
       <div className="pointer-events-none absolute bottom-4 right-4 h-6 w-6 border-b-2 border-r-2 border-[#eab308]/85 rounded-br-md" />
 
-      <div className="relative z-10 space-y-5">
-        {/* Top Crest Row: Tai-one Official Logo + Issuing Institution + Category */}
+      <div className={`relative z-10 space-y-5 ${!isEarned ? 'opacity-85' : ''}`}>
+        {/* Top Crest Row: TTG Official Logo + Issuing Institution + Category */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#84cc16]/30 pb-4">
           <div className="flex items-center gap-3.5">
             <div className="p-1 rounded-xl bg-white ring-2 ring-[#bef264]/80 shadow-lg shrink-0">
@@ -150,13 +172,13 @@ export const CourseCertificateCard: React.FC<CourseCertificateCardProps> = ({
                 </>
               ) : (
                 <>
-                  <ShieldCheck className="w-3.5 h-3.5 text-[#eab308]" />
-                  <span>Completion Track · {progressPercent}% Complete</span>
+                  <Lock className="w-3.5 h-3.5 text-[#eab308]" />
+                  <span>Template Locked · {progressPercent}% Complete</span>
                 </>
               )}
             </span>
             <span className="text-[10px] font-mono text-[#d9f99d]/80 tabular-nums">
-              Serial: {serialNumber}
+              Serial: {displaySerial}
             </span>
           </div>
         </div>
@@ -164,18 +186,30 @@ export const CourseCertificateCard: React.FC<CourseCertificateCardProps> = ({
         {/* Centerpiece Typography */}
         <div className="text-center space-y-2 py-2">
           <div className="text-[11px] font-mono uppercase tracking-[0.26em] text-[#d9f99d]">
-            {certificate.distinctionLabel}
+            {isEarned ? certificate.distinctionLabel : `${certificate.distinctionLabel} · SAMPLE TEMPLATE`}
           </div>
           <h3 className={`${compact ? 'text-xl sm:text-2xl' : 'text-2xl sm:text-3xl'} font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-[#fef9c3] via-[#bef264] to-[#eab308]`}>
             {certificate.credentialTitle}
           </h3>
           <p className="text-xs text-[#d9f99d]/85 max-w-2xl mx-auto">
-            This internal platform completion certificate records self-paced study by
+            {isEarned
+              ? 'This internal platform completion certificate records self-paced study by'
+              : 'Sample certification layout — upon completion this credential is awarded to'}
           </p>
 
           <div className="pt-1 pb-1">
-            <div className={`${compact ? 'text-2xl sm:text-3xl' : 'text-3xl sm:text-4xl'} font-black tracking-tight text-white drop-shadow-sm`}>
-              {recipientName}
+            <div
+              className={`${
+                compact
+                  ? isEarned
+                    ? 'text-2xl sm:text-3xl'
+                    : 'text-lg sm:text-xl'
+                  : isEarned
+                  ? 'text-3xl sm:text-4xl'
+                  : 'text-xl sm:text-2xl'
+              } font-black tracking-tight text-white drop-shadow-sm ${!isEarned ? 'font-mono text-[#bef264]/80' : ''}`}
+            >
+              {displayRecipient}
             </div>
             <div className="mx-auto mt-1.5 h-px w-56 bg-gradient-to-r from-transparent via-[#a3e635] to-transparent" />
           </div>
@@ -202,10 +236,12 @@ export const CourseCertificateCard: React.FC<CourseCertificateCardProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-4 border-t border-[#84cc16]/30 text-[11px]">
           <div className="space-y-0.5">
             <div className="font-mono text-[#a3e635] uppercase tracking-wider font-bold">
-              Issue Date: {issueDate}
+              Issue Date: {displayIssueDate}
             </div>
             <div className="text-[#d9f99d]/80">
-              {quizScore !== undefined
+              {!isEarned
+                ? 'Template Specimen · Exports & Personal Issuance Locked Until Completion'
+                : quizScore !== undefined
                 ? `Self-Assessment Score: ${quizScore}% · Non-Accredited Platform Record`
                 : `Internal Completion Record · Non-Accredited`}
             </div>
@@ -216,7 +252,7 @@ export const CourseCertificateCard: React.FC<CourseCertificateCardProps> = ({
             <div className="text-right">
               <div className="text-xs font-bold text-[#fef08a]">{certificate.sealTitle}</div>
               <div className="text-[10px] font-mono text-[#bef264]/80">
-                Internal Completion Record · Non-Accredited
+                {isEarned ? 'Internal Completion Record · Non-Accredited' : 'Certification Template Preview'}
               </div>
             </div>
             <div
@@ -227,7 +263,11 @@ export const CourseCertificateCard: React.FC<CourseCertificateCardProps> = ({
               }}
             >
               <div className="w-9 h-9 rounded-full bg-[#022c22] flex items-center justify-center border border-[#bef264]/70">
-                <Award className="w-5 h-5 text-[#bef264]" />
+                {isEarned ? (
+                  <Award className="w-5 h-5 text-[#bef264]" />
+                ) : (
+                  <Lock className="w-4 h-4 text-[#eab308]" />
+                )}
               </div>
             </div>
           </div>

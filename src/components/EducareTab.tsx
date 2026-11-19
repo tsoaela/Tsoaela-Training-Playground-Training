@@ -1,21 +1,31 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Lock, BookOpen, Clock, Sparkles, Send, CheckCircle2, ChevronRight, X, ArrowUpRight, Search, Bell, CheckSquare, Square, RotateCcw, FileEdit, Award, Plus, Cpu, BarChart, Trophy, Star, ShieldCheck, Download, MessageSquare, MessageSquarePlus, ListOrdered, Library, FileText, Type, Save, WifiOff, Check, CheckCheck, Wand2, AlertCircle, AlertTriangle, Info, FileDown, Heading1, Heading2, Quote, Eraser, GraduationCap, Video, Trash2, Layers } from 'lucide-react';
+import { Lock, BookOpen, Clock, Sparkles, Send, CheckCircle2, ChevronRight, X, ArrowUpRight, Search, Bell, CheckSquare, Square, RotateCcw, FileEdit, Award, Plus, Cpu, BarChart, Trophy, Star, ShieldCheck, Download, MessageSquare, MessageSquarePlus, ListOrdered, Library, FileText, Type, Save, WifiOff, Check, CheckCheck, Wand2, AlertCircle, AlertTriangle, Info, FileDown, Heading1, Heading2, Quote, Eraser, GraduationCap, Video, Trash2, Layers, QrCode } from 'lucide-react';
 import { SearchBar } from './SearchBar';
 import { CourseLeaderboardWidget } from './CourseLeaderboardWidget';
 import { AcademicDirectorySection } from './AcademicDirectorySection';
 import { AcademicCategoryKey, AcademicFaculty, AcademicQualificationLevel } from '../data/academicCatalog';
 import { CATALOG_STATS, STUDENT_BADGES, GLOBAL_LEADERBOARD, LIBRARY_RESOURCES, STUDY_ACTIVITY, INITIAL_DOCUMENTS } from '../data/mockData';
-import { StudyGuide, UserProfile, ReadingProgress, ReadingProgressUpdateOptions, Quiz, StudentBadge, MediaItem, AuthorDocument, StudyActivity, OfflineAssignmentSubmission, EnrolledStudentRecord, ApplicationPrefillData } from '../types';
+import { StudyGuide, UserProfile, ReadingProgress, ReadingProgressUpdateOptions, ChapterQuizPerformance, Quiz, StudentBadge, MediaItem, AuthorDocument, StudyActivity, OfflineAssignmentSubmission, EnrolledStudentRecord, ApplicationPrefillData } from '../types';
 import { QuizHistoryTimeline } from './QuizHistoryTimeline';
+import { ReadingProgress as ReadingProgressIndicator } from './ReadingProgress';
 import { analyzeDocumentText, applySuggestion, fixAllSafeSuggestions, calculateReadability, TextSuggestion } from '../utils/textQualityEngine';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { CourseCertificateModal } from './CourseCertificateModal';
 import { CourseCertificatesGalleryModal } from './CourseCertificatesGalleryModal';
 import { QctoBlueprintModal } from './QctoBlueprintModal';
+import { CourseQrShareModal } from './CourseQrShareModal';
 import { EDUCATION_COURSES } from '../data/artMediaData';
 import { formatCertificateSerial, getCertificateForStudyGuide, resolveCertificateByCategory } from '../data/certificatesData';
 import { loadLogoDataUrl, getFittedLogoSize } from '../utils/pdfBranding';
+import {
+  CatalogMultiFilterState,
+  CatalogSortBy,
+  CatalogSortDirection,
+  EMPTY_CATALOG_FILTERS,
+  filterAndSortStudyGuides,
+  getStudyGuideNqfLevel,
+} from '../utils/catalogOrganization';
 import { 
   BarChart as ReBarChart, 
   Bar, 
@@ -39,6 +49,8 @@ interface EducareTabProps {
   onAddStudyGuide?: (guide: StudyGuide) => void;
   onRemoveStudyGuide?: (guideId: string) => void;
   targetGuideId?: string;
+  targetChapterIdx?: number | null;
+  targetLaunchQuizId?: string | null;
   onClearTargetGuide?: () => void;
   onOpenExportReport?: () => void;
   onOpenAcademicPrompts?: () => void;
@@ -64,6 +76,12 @@ interface EducareTabProps {
   onOpenSavedProgramsProfile?: () => void;
   onOpenStudentFeedback?: (courseId?: string, moduleIndex?: number) => void;
   onActiveStudyContextChange?: (context: { courseTitle?: string; chapterTitle?: string } | null) => void;
+  unlockedLongCourseIds?: string[];
+  onUnlockLongCourse?: (guide: StudyGuide) => void;
+  externalFilters?: CatalogMultiFilterState;
+  sortBy?: CatalogSortBy;
+  sortDirection?: CatalogSortDirection;
+  onResetExternalFilters?: () => void;
 }
 
 export const EducareTab: React.FC<EducareTabProps> = ({
@@ -76,6 +94,8 @@ export const EducareTab: React.FC<EducareTabProps> = ({
   onAddStudyGuide,
   onRemoveStudyGuide,
   targetGuideId,
+  targetChapterIdx = null,
+  targetLaunchQuizId = null,
   onClearTargetGuide,
   onOpenExportReport,
   onOpenAcademicPrompts,
@@ -101,6 +121,12 @@ export const EducareTab: React.FC<EducareTabProps> = ({
   onOpenSavedProgramsProfile,
   onOpenStudentFeedback,
   onActiveStudyContextChange,
+  unlockedLongCourseIds = [],
+  onUnlockLongCourse,
+  externalFilters = EMPTY_CATALOG_FILTERS,
+  sortBy = 'recommended',
+  sortDirection = 'desc',
+  onResetExternalFilters,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -133,6 +159,11 @@ export const EducareTab: React.FC<EducareTabProps> = ({
   const [certificateGuide, setCertificateGuide] = useState<StudyGuide | null>(null);
   const [isCertificatesGalleryOpen, setIsCertificatesGalleryOpen] = useState(false);
   const [blueprintGuide, setBlueprintGuide] = useState<StudyGuide | null>(null);
+  const [qrShareGuide, setQrShareGuide] = useState<StudyGuide | null>(null);
+  const [highlightedChapterIdx, setHighlightedChapterIdx] = useState<number | null>(null);
+  const readerBodyRef = useRef<HTMLDivElement>(null);
+  const pendingChapterIdxRef = useRef<number | null>(null);
+  const pendingLaunchQuizIdRef = useRef<string | null>(null);
 
   // PDF Report Generation
   const handleDownloadReport = async () => {
@@ -228,16 +259,38 @@ export const EducareTab: React.FC<EducareTabProps> = ({
     };
   }, []);
 
-  // Open target guide if navigated from global search (guarded by active student validation)
+  // Open target guide if navigated from global search or Next Best Step banner
   useEffect(() => {
     if (targetGuideId) {
       const found = studyGuides.find(g => g.id === targetGuideId);
       if (found) {
+        pendingChapterIdxRef.current = targetChapterIdx ?? null;
+        pendingLaunchQuizIdRef.current = targetLaunchQuizId ?? null;
         handleOpenGuide(found);
         onClearTargetGuide?.();
       }
     }
-  }, [targetGuideId, studyGuides, onClearTargetGuide, isAuthenticated]);
+  }, [targetGuideId, targetChapterIdx, targetLaunchQuizId, studyGuides, onClearTargetGuide, isAuthenticated]);
+
+  // Scroll cleanly to deep-linked chapter when activeGuide renders
+  useEffect(() => {
+    if (!activeGuide || highlightedChapterIdx === null) return;
+    const scrollTimer = window.setTimeout(() => {
+      const el = readerBodyRef.current?.querySelector(
+        `[data-chapter-index="${highlightedChapterIdx}"]`
+      );
+      if (el instanceof HTMLElement) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 120);
+    const clearTimer = window.setTimeout(() => {
+      setHighlightedChapterIdx(null);
+    }, 4500);
+    return () => {
+      window.clearTimeout(scrollTimer);
+      window.clearTimeout(clearTimer);
+    };
+  }, [activeGuide, highlightedChapterIdx]);
 
   // Document Editor State
   const [documents, setDocuments] = useState<AuthorDocument[]>(INITIAL_DOCUMENTS);
@@ -443,16 +496,20 @@ export const EducareTab: React.FC<EducareTabProps> = ({
   const [activeQuiz, setActiveQuiz] = useState<Quiz | null>(null);
   const [currentQuizQuestionIdx, setCurrentQuizQuestionIdx] = useState(0);
   const [quizAnswers, setQuizAnswers] = useState<Record<string, number>>({});
-  const [quizResult, setQuizResult] = useState<{ score: number; passed: boolean } | null>(null);
+  const [quizResult, setQuizResult] = useState<{
+    score: number;
+    passed: boolean;
+    weakChapters?: ChapterQuizPerformance[];
+  } | null>(null);
 
   // Available category options for filtering
   const educareCategories = useMemo(() => [
-    { id: 'all', label: 'All Modules' },
-    { id: 'accredited', label: 'Quality-Verified Courses' },
-    { id: 'short_term', label: 'Short-term (3-6m)' },
-    { id: 'long_term', label: 'Long-term (6-7y)' },
-    { id: 'free', label: 'Open Access ($0)' },
-    { id: 'premium', label: 'Educare Pro ($5-$10)' },
+    { id: 'all', label: 'All Courses' },
+    { id: 'accredited', label: 'Quality-Verified' },
+    { id: 'short_term', label: 'Short-Term (Free Lessons)' },
+    { id: 'long_term', label: 'Long-Term (R145 / Course)' },
+    { id: 'free', label: 'Free Short Courses (R0)' },
+    { id: 'premium', label: 'Long-Term Courses (R145)' },
   ], []);
 
   // AI Superagent state
@@ -460,19 +517,20 @@ export const EducareTab: React.FC<EducareTabProps> = ({
   const [aiMessages, setAiMessages] = useState<Array<{ sender: 'user' | 'agent'; text: string }>>([
     {
       sender: 'agent',
-      text: 'Greetings. I am your Educare Cognitive Architecture Superagent. Select a decision system, mental model, or negotiation scenario to deconstruct using first principles.',
+      text: 'Greetings. I am your Digital Educare Cognitive Tutoring Assistant. Select any decision framework, mental model, or self-paced lesson concept to deconstruct together.',
     },
   ]);
   const [isAiLoading, setIsAiLoading] = useState(false);
 
-  const isSubscribedToEducare = user.subscription_tier === 'educare_pro' || user.subscription_tier === 'all_access';
+  const isLongTermCourseLocked = (guide: StudyGuide) =>
+    guide.duration_type === 'long_term' && !unlockedLongCourseIds.includes(guide.id);
 
-  // Filter study guides based on category and search query (filtering by title or category)
+  // Filter & sort study guides based on category, search query, multi-select hub filters, and sort selection
   const filteredGuides = useMemo(() => {
-    return studyGuides.filter(guide => {
+    const baseFiltered = studyGuides.filter(guide => {
       // Category filter
-      if (selectedCategory === 'free' && guide.is_premium) return false;
-      if (selectedCategory === 'premium' && !guide.is_premium) return false;
+      if (selectedCategory === 'free' && guide.duration_type === 'long_term') return false;
+      if (selectedCategory === 'premium' && guide.duration_type !== 'long_term') return false;
       if (selectedCategory === 'accredited' && !guide.is_accredited) return false;
       if (selectedCategory === 'short_term' && guide.duration_type !== 'short_term') return false;
       if (selectedCategory === 'long_term' && guide.duration_type !== 'long_term') return false;
@@ -504,7 +562,15 @@ export const EducareTab: React.FC<EducareTabProps> = ({
 
       return true;
     });
-  }, [studyGuides, selectedCategory, searchQuery]);
+
+    return filterAndSortStudyGuides(
+      baseFiltered,
+      readingProgress,
+      externalFilters,
+      sortBy,
+      sortDirection
+    );
+  }, [studyGuides, selectedCategory, searchQuery, readingProgress, externalFilters, sortBy, sortDirection]);
 
   // Chart Data: Completion progress across short-term and long-term courses
   const completionStats = useMemo(() => {
@@ -521,8 +587,8 @@ export const EducareTab: React.FC<EducareTabProps> = ({
     };
 
     return [
-      { name: 'Short-term (3-6m)', progress: getAvgProgress(shortTerm), count: shortTerm.length, color: '#10b981' },
-      { name: 'Long-term (6-7y)', progress: getAvgProgress(longTerm), count: longTerm.length, color: '#6366f1' },
+      { name: 'Short-Term (Free)', progress: getAvgProgress(shortTerm), count: shortTerm.length, color: '#10b981' },
+      { name: 'Long-Term (R145)', progress: getAvgProgress(longTerm), count: longTerm.length, color: '#6366f1' },
     ];
   }, [studyGuides, readingProgress]);
 
@@ -553,10 +619,12 @@ export const EducareTab: React.FC<EducareTabProps> = ({
         reading_time: '45 min read',
         difficulty: 'Advanced',
         is_premium: false,
+        course_price_zar: 0,
+        pacing_mode: 'self_paced',
         is_accredited: true,
         accreditor_name: 'TTG - Tsoaela Training Ground Platform',
         duration_type: 'short_term',
-        duration_label: '3 Months',
+        duration_label: 'Self-Paced · Short Course (Free)',
         abstract: `Autonomous curriculum synthesizing frontier principles, formal invariants, and operational workflows for ${generatedTitle}.`,
         learning_outcomes: [
           `Deconstruct core theoretical foundations of ${generatedTitle}`,
@@ -609,8 +677,14 @@ export const EducareTab: React.FC<EducareTabProps> = ({
   };
 
   const handleOpenGuideInternal = (guide: StudyGuide) => {
-    if (guide.is_premium && !isSubscribedToEducare) {
-      onTriggerPaywall(guide.title, 'educare_pro');
+    if (isLongTermCourseLocked(guide)) {
+      pendingChapterIdxRef.current = null;
+      pendingLaunchQuizIdRef.current = null;
+      if (onUnlockLongCourse) {
+        onUnlockLongCourse(guide);
+      } else {
+        onTriggerPaywall(guide.title, 'educare_pro');
+      }
     } else {
       setActiveGuide(guide);
       const existing = readingProgress[guide.id];
@@ -619,6 +693,29 @@ export const EducareTab: React.FC<EducareTabProps> = ({
       setChapterNoteDrafts(existing?.chapterNotes ? { ...existing.chapterNotes } : {});
       setExpandedChapterNoteIdx(null);
       setSavedChapterNoteIdx(null);
+
+      const requestedChapter = pendingChapterIdxRef.current;
+      const requestedQuizId = pendingLaunchQuizIdRef.current;
+      pendingChapterIdxRef.current = null;
+      pendingLaunchQuizIdRef.current = null;
+
+      if (
+        typeof requestedChapter === 'number' &&
+        requestedChapter >= 0 &&
+        requestedChapter < guide.chapters.length
+      ) {
+        setHighlightedChapterIdx(requestedChapter);
+      }
+
+      if (requestedQuizId && guide.quizzes && guide.quizzes.length > 0) {
+        const matchedQuiz =
+          guide.quizzes.find((q) => q.id === requestedQuizId) ||
+          guide.quizzes[guide.quizzes.length - 1];
+        if (matchedQuiz) {
+          handleStartQuiz(matchedQuiz);
+        }
+      }
+
       onUpdateProgress(
         guide.id,
         -1,
@@ -666,11 +763,6 @@ export const EducareTab: React.FC<EducareTabProps> = ({
     e.preventDefault();
     if (!aiPrompt.trim()) return;
 
-    if (!isSubscribedToEducare) {
-      onTriggerPaywall('Educare AI Superagent', 'educare_pro');
-      return;
-    }
-
     const userText = aiPrompt;
     setAiMessages(prev => [...prev, { sender: 'user', text: userText }]);
     setAiPrompt('');
@@ -706,18 +798,55 @@ export const EducareTab: React.FC<EducareTabProps> = ({
 
   const handleSubmitQuiz = () => {
     if (!activeQuiz || !activeGuide) return;
-    
+
     let correctCount = 0;
-    activeQuiz.questions.forEach(q => {
-      if (quizAnswers[q.id] === q.correctAnswer) {
+    const totalChapters = Math.max(1, activeGuide.chapters.length);
+    const chapterStatsMap: Record<number, { correct: number; total: number }> = {};
+
+    activeQuiz.questions.forEach((q, qIdx) => {
+      const isCorrect = quizAnswers[q.id] === q.correctAnswer;
+      if (isCorrect) {
         correctCount++;
+      }
+      const mappedChapterIdx =
+        typeof q.chapterIdx === 'number'
+          ? Math.min(Math.max(0, totalChapters - 1), q.chapterIdx)
+          : qIdx % totalChapters;
+
+      if (!chapterStatsMap[mappedChapterIdx]) {
+        chapterStatsMap[mappedChapterIdx] = { correct: 0, total: 0 };
+      }
+      chapterStatsMap[mappedChapterIdx].total += 1;
+      if (isCorrect) {
+        chapterStatsMap[mappedChapterIdx].correct += 1;
       }
     });
 
+    const chapterBreakdown: ChapterQuizPerformance[] = Object.entries(chapterStatsMap)
+      .map(([idxStr, stat]) => {
+        const chIdx = Number(idxStr);
+        return {
+          chapterIdx: chIdx,
+          chapterTitle: activeGuide.chapters[chIdx]?.title || `Chapter ${chIdx + 1}`,
+          correct: stat.correct,
+          total: stat.total,
+          accuracyPct: Math.round((stat.correct / Math.max(1, stat.total)) * 100),
+        };
+      })
+      .sort((a, b) => a.accuracyPct - b.accuracyPct || a.chapterIdx - b.chapterIdx);
+
+    const weakChapterIndices = chapterBreakdown
+      .filter((c) => c.accuracyPct < activeQuiz.minScoreToPass)
+      .map((c) => c.chapterIdx);
+
     const score = Math.round((correctCount / activeQuiz.questions.length) * 100);
     const passed = score >= activeQuiz.minScoreToPass;
-    
-    setQuizResult({ score, passed });
+
+    setQuizResult({
+      score,
+      passed,
+      weakChapters: chapterBreakdown.filter((c) => c.accuracyPct < 100),
+    });
 
     onUpdateProgress(
       activeGuide.id,
@@ -735,6 +864,8 @@ export const EducareTab: React.FC<EducareTabProps> = ({
           passed,
           correctCount,
           totalQuestions: activeQuiz.questions.length,
+          weakChapterIndices,
+          chapterBreakdown,
         },
       }
     );
@@ -750,21 +881,23 @@ export const EducareTab: React.FC<EducareTabProps> = ({
       
       {/* Editorial Header */}
       <div className="border-b border-stone-200 dark:border-stone-800 pb-8">
-        <div className="flex items-center gap-2 text-xs text-stone-500 dark:text-stone-400 mb-2">
-          <span>TTG Educare Curriculum</span>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-stone-500 dark:text-stone-400 mb-2">
+          <span>TTG Digital Educare Tutoring</span>
           <span aria-hidden="true">·</span>
-          <span>Cognitive Systems & Leadership Syllabi</span>
+          <span>Self-Paced Lessons</span>
           <span aria-hidden="true">·</span>
-          <span className="font-mono tabular-nums">{CATALOG_STATS.curatedModules} Curated Modules</span>
+          <span className="font-semibold text-emerald-700 dark:text-emerald-400">Finish at Your Own Pace</span>
+          <span aria-hidden="true">·</span>
+          <span className="font-mono tabular-nums">{studyGuides.length} Courses Available</span>
         </div>
 
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-stone-900 dark:text-stone-100 text-balance">
-              Educare Systems & Study Guides
+              Digital Educare Tutoring &amp; Self-Paced Courses
             </h1>
             <p className="mt-2 text-stone-600 dark:text-stone-400 max-w-2xl text-sm sm:text-base">
-              Rigorous decision frameworks, behavioral game theory, and executive biometrics engineered for institutional operators.
+              Flexible digital tutoring built so you finish every course at your own pace. Short-term course lessons are 100% free (R0), and comprehensive long-term courses are R145 per course.
             </p>
           </div>
 
@@ -826,22 +959,17 @@ export const EducareTab: React.FC<EducareTabProps> = ({
               <span>Generate AI Course</span>
             </button>
 
-            {!isSubscribedToEducare && (
-              <div className="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-200/80 dark:border-amber-800/80 flex items-center gap-3 shrink-0">
-                <Lock className="w-4 h-4 text-amber-700 dark:text-amber-400 shrink-0" />
-                <div className="text-xs">
-                  <span className="font-semibold text-stone-900 dark:text-stone-100 block">Free Tier Preview Active</span>
-                  <span className="text-stone-500 dark:text-stone-400">Unlock Pro modules with Free Institutional Grant ($0.00)</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onTriggerPaywall('Educare Study Guides', 'educare_pro')}
-                  className="ml-2 px-3 py-1.5 text-xs font-semibold text-white dark:text-stone-900 bg-stone-900 dark:bg-stone-100 hover:bg-stone-800 dark:hover:bg-stone-200 rounded-lg whitespace-nowrap transition-colors"
-                >
-                  Claim Free Pro
-                </button>
+            <div className="px-3.5 py-2 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-200/90 dark:border-emerald-800/80 flex items-center gap-2.5 shrink-0">
+              <CheckCircle2 className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0" />
+              <div className="text-xs">
+                <span className="font-semibold text-stone-900 dark:text-stone-100 block">
+                  Short Courses: Free · Long-Term: R145
+                </span>
+                <span className="text-[11px] text-stone-600 dark:text-stone-400">
+                  Self-paced tutoring · Finish at your own pace
+                </span>
               </div>
-            )}
+            </div>
           </div>
         </div>
 
@@ -850,7 +978,7 @@ export const EducareTab: React.FC<EducareTabProps> = ({
           <SearchBar
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
-            placeholder="Filter study guides by title, category, field, or keywords..."
+            placeholder="Filter tutoring courses by title, category, field, or keywords..."
             selectedCategory={selectedCategory}
             onCategoryChange={setSelectedCategory}
             categories={educareCategories}
@@ -859,6 +987,7 @@ export const EducareTab: React.FC<EducareTabProps> = ({
             onResetFilters={() => {
               setSearchQuery('');
               setSelectedCategory('all');
+              onResetExternalFilters?.();
             }}
             stats={{
               curatedModules: CATALOG_STATS.curatedModules,
@@ -877,20 +1006,20 @@ export const EducareTab: React.FC<EducareTabProps> = ({
             <div>
               <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
                 <BarChart className="w-4 h-4 text-stone-400" />
-                Curriculum Mastery Progress
+                Self-Paced Tutoring Mastery
               </h3>
               <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-1">
-                Aggregated reading completion across short-term and long-term institutional modules.
+                Aggregated reading completion across free short-term and R145 long-term tutoring courses.
               </p>
             </div>
             <div className="flex items-center gap-4 text-[10px] font-mono font-bold uppercase tracking-wider">
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                <span className="text-stone-600 dark:text-stone-400">Short-term</span>
+                <span className="text-stone-600 dark:text-stone-400">Short-Term (Free)</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
-                <span className="text-stone-600 dark:text-stone-400">Long-term</span>
+                <span className="text-stone-600 dark:text-stone-400">Long-Term (R145)</span>
               </div>
             </div>
           </div>
@@ -1204,16 +1333,9 @@ export const EducareTab: React.FC<EducareTabProps> = ({
                 Immediate explanations for specific modules. Currently analyzing: <span className="font-semibold text-stone-900 dark:text-stone-100">{activeGuide ? activeGuide.title : 'Global Curriculum'}</span>
               </p>
             </div>
-            {!isSubscribedToEducare && (
-              <button
-                type="button"
-                onClick={() => onTriggerPaywall('AI Study Partner', 'educare_pro')}
-                className="px-4 py-2 text-xs font-semibold text-white dark:text-stone-900 bg-stone-900 dark:bg-stone-100 hover:bg-stone-800 dark:hover:bg-stone-200 rounded-lg flex items-center gap-2 shrink-0 transition-colors"
-              >
-                <Lock className="w-3.5 h-3.5 text-amber-400 dark:text-amber-600" />
-                <span>Unlock Partner</span>
-              </button>
-            )}
+            <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-3 py-1 rounded-full border border-emerald-200 dark:border-emerald-800 shrink-0">
+              Free Digital Tutoring Included
+            </span>
           </div>
           
           {/* Chat Interface (Simplified version of the superagent UI but context-specific) */}
@@ -1288,6 +1410,7 @@ export const EducareTab: React.FC<EducareTabProps> = ({
               onClick={() => {
                 setSearchQuery('');
                 setSelectedCategory('all');
+                onResetExternalFilters?.();
               }}
               className="px-3.5 py-1.5 text-xs font-medium text-stone-800 dark:text-stone-200 bg-stone-200 dark:bg-stone-800 hover:bg-stone-300 dark:hover:bg-stone-700 rounded-lg transition-colors"
             >
@@ -1298,11 +1421,14 @@ export const EducareTab: React.FC<EducareTabProps> = ({
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {filteredGuides.map((guide) => {
-            const isLocked = guide.is_premium && !isSubscribedToEducare;
+            const isLongTerm = guide.duration_type === 'long_term';
+            const isLocked = isLongTermCourseLocked(guide);
+            const coursePriceZar = guide.course_price_zar || 145;
             const progress = readingProgress[guide.id];
             const completedCount = progress?.completedChapters?.length || 0;
             const progressPercent = progress?.progressPercent || 0;
             const isCompleted = progressPercent >= 100 || progress?.isCompleted;
+            const nqfLevel = getStudyGuideNqfLevel(guide);
 
             return (
               <div
@@ -1325,36 +1451,40 @@ export const EducareTab: React.FC<EducareTabProps> = ({
                       )}
                       <span aria-hidden="true">·</span>
                       <span>{guide.reading_time}</span>
+                      <span aria-hidden="true">·</span>
+                      <span className="font-mono tabular-nums font-semibold text-stone-700 dark:text-stone-300">
+                        NQF Level {nqfLevel}
+                      </span>
                     </div>
 
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap justify-end">
                       {isCompleted ? (
                         <span className="text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
                           <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                           <span>Finished</span>
                         </span>
                       ) : progressPercent > 0 ? (
-                        <span className="text-[11px] font-semibold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800 flex items-center gap-1 font-mono">
+                        <span className="text-[11px] font-semibold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800 flex items-center gap-1 font-mono tabular-nums">
                           <Clock className="w-3 h-3 text-amber-600 dark:text-amber-400" />
                           <span>{progressPercent}% Done</span>
                         </span>
                       ) : null}
 
-                      {guide.is_premium ? (
-                        isSubscribedToEducare ? (
+                      {isLongTerm ? (
+                        !isLocked ? (
                           <span className="text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
                             <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                            <span>Unlocked</span>
+                            <span>Unlocked · Self-Paced</span>
                           </span>
                         ) : (
-                          <span className="text-[11px] font-semibold text-amber-900 dark:text-amber-200 bg-amber-100/90 dark:bg-amber-950/60 px-2 py-0.5 rounded border border-amber-300 dark:border-amber-800 flex items-center gap-1">
+                          <span className="text-[11px] font-semibold text-amber-900 dark:text-amber-200 bg-amber-100/90 dark:bg-amber-950/60 px-2 py-0.5 rounded border border-amber-300 dark:border-amber-800 flex items-center gap-1 font-mono tabular-nums">
                             <Lock className="w-3 h-3 text-amber-700 dark:text-amber-400" />
-                            <span>Educare Pro</span>
+                            <span>R{coursePriceZar} / Course · Self-Paced</span>
                           </span>
                         )
                       ) : (
-                        <span className="text-[11px] font-medium text-stone-600 dark:text-stone-400 bg-stone-100 dark:bg-stone-800 px-2 py-0.5 rounded">
-                          Open Access
+                        <span className="text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
+                          Free Lessons · Self-Paced
                         </span>
                       )}
                     </div>
@@ -1378,21 +1508,18 @@ export const EducareTab: React.FC<EducareTabProps> = ({
                   )}
 
                   {/* Reading Progress Indicator Bar */}
-                  <div className="mt-3.5 space-y-1">
-                    <div className="flex items-center justify-between text-[11px] text-stone-500 dark:text-stone-400">
-                      <span>Reading Process</span>
-                      <span className="font-mono tabular-nums font-medium">
-                        {completedCount}/{guide.chapters.length} Chapters ({progressPercent}%)
-                      </span>
-                    </div>
-                    <div className="w-full h-1.5 bg-stone-100 dark:bg-stone-800 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full transition-all duration-300 ${
-                          isCompleted ? 'bg-emerald-500' : 'bg-amber-500'
-                        }`}
-                        style={{ width: `${progressPercent}%` }}
-                      />
-                    </div>
+                  <div className="mt-3.5">
+                    <ReadingProgressIndicator
+                      guideId={guide.id}
+                      courseTitle={guide.title}
+                      completedCount={completedCount}
+                      totalCount={guide.chapters.length}
+                      progressPercent={progressPercent}
+                      isCompleted={Boolean(isCompleted)}
+                      variant="card"
+                      enableConfetti
+                      confettiVariant="contained"
+                    />
                   </div>
 
                   {/* Learning outcomes preview */}
@@ -1484,8 +1611,22 @@ export const EducareTab: React.FC<EducareTabProps> = ({
 
                     <button
                       type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setQrShareGuide(guide);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-stone-900 hover:bg-stone-50 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300 border border-stone-200 dark:border-stone-700 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                      title={`Generate shareable QR code for ${guide.title}`}
+                      aria-label={`Generate QR Code for ${guide.title}`}
+                    >
+                      <QrCode className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                      <span>Generate QR Code</span>
+                    </button>
+
+                    <button
+                      type="button"
                       onClick={() => setCertificateGuide(guide)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-[#052e16] hover:bg-[#064e3b] text-[#bef264] border border-[#84cc16]/60 transition-colors cursor-pointer"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-[#052e16] hover:bg-[#064e3b] text-[#bef264] border border-[#84cc16]/60 transition-colors cursor-pointer whitespace-nowrap shrink-0"
                       title={`View attached ${guide.category} certificate`}
                     >
                       <Award className="w-3.5 h-3.5 text-[#a3e635]" />
@@ -1525,11 +1666,15 @@ export const EducareTab: React.FC<EducareTabProps> = ({
                     {isLocked ? (
                       <button
                         type="button"
-                        onClick={() => onTriggerPaywall(guide.title, 'educare_pro')}
-                        className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white dark:text-stone-900 bg-stone-900 dark:bg-stone-100 hover:bg-stone-800 dark:hover:bg-stone-200 rounded-lg transition-colors"
+                        onClick={() =>
+                          onUnlockLongCourse
+                            ? onUnlockLongCourse(guide)
+                            : onTriggerPaywall(guide.title, 'educare_pro')
+                        }
+                        className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white dark:text-stone-900 bg-stone-900 dark:bg-stone-100 hover:bg-stone-800 dark:hover:bg-stone-200 rounded-lg transition-colors cursor-pointer font-mono tabular-nums"
                       >
                         <Lock className="w-3 h-3 text-amber-300 dark:text-amber-600" />
-                        <span>Unlock with Pro ($0)</span>
+                        <span>Unlock Course (R{coursePriceZar})</span>
                       </button>
                     ) : (
                       <button
@@ -1602,49 +1747,14 @@ export const EducareTab: React.FC<EducareTabProps> = ({
             </p>
           </div>
 
-          {!isSubscribedToEducare ? (
-            <button
-              type="button"
-              onClick={() => onTriggerPaywall('Educare AI Superagent', 'educare_pro')}
-              className="px-4 py-2 text-xs font-semibold text-white dark:text-stone-900 bg-stone-900 dark:bg-stone-100 hover:bg-stone-800 dark:hover:bg-stone-200 rounded-lg flex items-center gap-2 shrink-0 transition-colors"
-            >
-              <Lock className="w-3.5 h-3.5 text-amber-400 dark:text-amber-600" />
-              <span>Unlock AI Superagent with Educare Pro</span>
-            </button>
-          ) : (
-            <span className="text-xs font-medium text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 px-3 py-1 rounded-full border border-emerald-200 dark:border-emerald-800 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              <span>Pro Superagent Active</span>
-            </span>
-          )}
+          <span className="text-xs font-medium text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 px-3 py-1 rounded-full border border-emerald-200 dark:border-emerald-800 flex items-center gap-1.5 shrink-0">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <span>Self-Paced Tutoring Active</span>
+          </span>
         </div>
 
-        {/* Locked Overlay or Interactive Chat */}
-        {!isSubscribedToEducare ? (
-          <div className="relative mt-6 rounded-xl border border-dashed border-stone-300 dark:border-stone-700 p-8 text-center bg-stone-50/70 dark:bg-stone-900/40">
-            <div className="max-w-md mx-auto space-y-3">
-              <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 flex items-center justify-center mx-auto">
-                <Lock className="w-5 h-5" />
-              </div>
-              <h4 className="text-base font-bold text-stone-900 dark:text-stone-100">
-                AI Superagent Access Restricted
-              </h4>
-              <p className="text-xs text-stone-600 dark:text-stone-400">
-                The Educare AI Superagent is an exclusive institutional feature. Claim your complimentary Educare Pro grant ($0.00 / month) for instant access.
-              </p>
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={() => onTriggerPaywall('Educare AI Superagent', 'educare_pro')}
-                  className="px-5 py-2.5 text-xs font-semibold text-white dark:text-stone-900 bg-stone-900 dark:bg-stone-100 hover:bg-stone-800 dark:hover:bg-stone-200 rounded-lg shadow-sm transition-all"
-                >
-                  Activate Free Educare Pro ($0.00)
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="mt-6 space-y-4">
+        {/* Interactive Tutoring Chat */}
+        <div className="mt-6 space-y-4">
             {/* Conversation Log */}
             <div className="space-y-3 max-h-80 overflow-y-auto p-4 rounded-xl bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-xs">
               {aiMessages.map((msg, index) => (
@@ -1712,7 +1822,6 @@ export const EducareTab: React.FC<EducareTabProps> = ({
               </button>
             </form>
           </div>
-        )}
       </div>
 
       {/* Guide Detail Modal / Reader with Interactive Reading Process & Notes */}
@@ -1738,7 +1847,7 @@ export const EducareTab: React.FC<EducareTabProps> = ({
                 <div className="flex items-center justify-between">
                   <div>
                     <span className="text-[11px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">
-                      {activeGuide.category} · {activeGuide.reading_time}
+                      {activeGuide.category} · Self-Paced Tutoring · Finish at your own pace
                     </span>
                     <h3 className="text-xl font-bold text-stone-900 dark:text-stone-100 mt-0.5">{activeGuide.title}</h3>
                   </div>
@@ -1816,41 +1925,32 @@ export const EducareTab: React.FC<EducareTabProps> = ({
                   </div>
                 </div>
 
-                {/* Reading Process Progress Bar & Quick Controls */}
-                <div className="pt-2 border-t border-stone-200 dark:border-stone-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex-1 space-y-1">
-                    <div className="flex items-center justify-between text-xs text-stone-600 dark:text-stone-400">
-                      <span className="flex items-center gap-1.5 font-medium">
-                        <BookOpen className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                        <span>Reading Process</span>
-                      </span>
-                      <span className="font-mono tabular-nums font-semibold text-stone-900 dark:text-stone-100">
-                        {completedCount} of {totalCount} Chapters ({percent}%)
-                      </span>
-                    </div>
-                    <div className="w-full h-2 bg-stone-200 dark:bg-stone-800 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full transition-all duration-300 ${
-                          isAllDone ? 'bg-emerald-500' : 'bg-amber-500'
-                        }`}
-                        style={{ width: `${percent}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0 text-xs">
-                    {isAllDone && (
-                      <span className="text-emerald-700 dark:text-emerald-400 font-semibold flex items-center gap-1 text-[11px] bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
-                        <Award className="w-3 h-3" />
-                        <span>Syllabus Mastered</span>
-                      </span>
-                    )}
-                  </div>
-                </div>
+                {/* Reading Progress Bar, Markdown Notes Export & 100% Milestone Confetti */}
+                <ReadingProgressIndicator
+                  guideId={activeGuide.id}
+                  courseTitle={activeGuide.title}
+                  completedCount={completedCount}
+                  totalCount={totalCount}
+                  progressPercent={percent}
+                  isCompleted={Boolean(progress?.isCompleted || isAllDone)}
+                  variant="reader"
+                  enableConfetti
+                  confettiVariant="viewport"
+                  chapters={activeGuide.chapters}
+                  chapterNotes={progress?.chapterNotes}
+                  generalNotes={progress?.notes}
+                  completionLog={progress?.completionLog}
+                  studyGuides={studyGuides}
+                  allReadingProgress={readingProgress}
+                  learnerName={user.name}
+                />
               </div>
 
               {/* Reader Body with Chapters & Interactive Completion */}
-              <div className="p-5 sm:p-8 overflow-y-auto space-y-6 text-sm text-stone-700 dark:text-stone-300 leading-relaxed">
+              <div
+                ref={readerBodyRef}
+                className="p-5 sm:p-8 overflow-y-auto space-y-6 text-sm text-stone-700 dark:text-stone-300 leading-relaxed"
+              >
                 <div className="p-4 bg-amber-50/70 dark:bg-amber-950/40 rounded-xl border border-amber-200 dark:border-amber-800 text-xs text-stone-800 dark:text-stone-200">
                   <span className="font-semibold block mb-1">Executive Summary</span>
                   {activeGuide.abstract}
@@ -1872,12 +1972,16 @@ export const EducareTab: React.FC<EducareTabProps> = ({
                     const savedChapterNote = progress?.chapterNotes?.[idx] || '';
                     const isChapterNoteExpanded = expandedChapterNoteIdx === idx;
                     const draftNote = chapterNoteDrafts[idx] ?? savedChapterNote;
+                    const isFocusedChapter = highlightedChapterIdx === idx;
 
                     return (
                       <div 
                         key={idx} 
+                        data-chapter-index={idx}
                         className={`p-4 rounded-xl border transition-all space-y-3 ${
-                          isChapterDone
+                          isFocusedChapter
+                            ? 'border-amber-500 ring-2 ring-amber-400/50 bg-amber-50/50 dark:bg-amber-950/30'
+                            : isChapterDone
                             ? 'border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/30 dark:bg-emerald-950/20'
                             : 'border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900'
                         }`}
@@ -2146,8 +2250,8 @@ export const EducareTab: React.FC<EducareTabProps> = ({
 
               {/* Reader Footer */}
               <div className="p-4 bg-stone-50 dark:bg-stone-950 border-t border-stone-200 dark:border-stone-800 flex items-center justify-between">
-                <span className="text-xs text-stone-500 dark:text-stone-400 font-mono">
-                  Progress auto-saved · {completedCount}/{totalCount} Completed
+                <span className="text-xs text-stone-500 dark:text-stone-400 font-mono tabular-nums">
+                  Self-paced progress auto-saved · {completedCount}/{totalCount} Completed
                 </span>
                   <div className="flex items-center gap-2">
                     {activeGuide.quizzes && activeGuide.quizzes.length > 0 && (
@@ -2322,12 +2426,36 @@ export const EducareTab: React.FC<EducareTabProps> = ({
                     </button>
                   )}
                   {!quizResult.passed && (
-                    <button
-                      onClick={() => handleStartQuiz(activeQuiz)}
-                      className="w-full py-3 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-xl text-sm font-bold shadow-lg"
-                    >
-                      Retry Assessment
-                    </button>
+                    <>
+                      {quizResult.weakChapters && quizResult.weakChapters.length > 0 && (
+                        <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-left space-y-2 mb-1">
+                          <span className="text-[11px] font-bold text-amber-800 dark:text-amber-300 block">
+                            Recommended Chapters to Review ({quizResult.weakChapters.length})
+                          </span>
+                          <div className="flex flex-wrap gap-2">
+                            {quizResult.weakChapters.map((wc) => (
+                              <button
+                                key={wc.chapterIdx}
+                                type="button"
+                                onClick={() => {
+                                  handleCloseQuiz();
+                                  setHighlightedChapterIdx(wc.chapterIdx);
+                                }}
+                                className="px-3 py-1.5 rounded-lg bg-white dark:bg-stone-900 border border-amber-300 dark:border-amber-700 text-xs font-semibold text-stone-800 dark:text-stone-200 hover:bg-amber-100/70 dark:hover:bg-amber-900/50 transition-colors cursor-pointer"
+                              >
+                                Ch. {wc.chapterIdx + 1}: {wc.chapterTitle} ({wc.accuracyPct}%)
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <button
+                        onClick={() => handleStartQuiz(activeQuiz)}
+                        className="w-full py-3 bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 rounded-xl text-sm font-bold shadow-lg"
+                      >
+                        Retry Assessment
+                      </button>
+                    </>
                   )}
                   <button
                     onClick={handleCloseQuiz}
@@ -2904,6 +3032,12 @@ export const EducareTab: React.FC<EducareTabProps> = ({
         )}
         onSelectGuide={(nextGuide) => setBlueprintGuide(nextGuide)}
         onClose={() => setBlueprintGuide(null)}
+      />
+
+      {/* Share Course QR Code Modal */}
+      <CourseQrShareModal
+        guide={qrShareGuide}
+        onClose={() => setQrShareGuide(null)}
       />
     </div>
   );

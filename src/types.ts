@@ -1,3 +1,5 @@
+export type ThemeMode = 'system' | 'light' | 'dark';
+
 export type SubscriptionTier = 'free' | 'educare_pro' | 'research_pass' | 'all_access';
 
 export type PaymentStatus = 'Paid' | 'Pending' | 'Failed' | 'Refunded';
@@ -103,6 +105,7 @@ export interface QuizQuestion {
   text: string;
   options: string[];
   correctAnswer: number;
+  chapterIdx?: number;
 }
 
 export interface Quiz {
@@ -140,6 +143,8 @@ export interface StudyGuide {
   accreditor_name?: string;
   duration_type: 'short_term' | 'long_term';
   duration_label: string;
+  course_price_zar?: number;
+  pacing_mode?: 'self_paced';
   professional_level?: 'foundational' | 'intermediate' | 'professional';
   quizzes?: Quiz[];
   abstract: string;
@@ -173,6 +178,14 @@ export interface ResearchPaper {
   }[];
 }
 
+export interface ChapterQuizPerformance {
+  chapterIdx: number;
+  chapterTitle?: string;
+  correct: number;
+  total: number;
+  accuracyPct: number;
+}
+
 export interface QuizAttemptEntry {
   id: string;
   quizId: string;
@@ -183,6 +196,8 @@ export interface QuizAttemptEntry {
   correctCount: number;
   totalQuestions: number;
   attemptedAt: string;
+  weakChapterIndices?: number[];
+  chapterBreakdown?: ChapterQuizPerformance[];
 }
 
 export interface ReadingProgressUpdateOptions {
@@ -383,8 +398,80 @@ export interface MusicTrack {
   releaseDate: string;
   isrc?: string;
   format: 'WAV 24-bit 96kHz' | 'FLAC' | 'MP3 320kbps';
-  hasStems?: boolean;
+  hasMultitracks?: boolean;
   description: string;
+}
+
+export type MusicLicenseTier = 'Personal Master' | 'Multitrack + Master' | 'Commercial Sync';
+
+export type MusicAudioLayer = 'master' | 'melody' | 'bass' | 'percussion';
+
+export interface MusicCartItem {
+  trackId: string;
+  licenseTier: MusicLicenseTier;
+  unitPrice: number;
+}
+
+export interface PurchasedMusicRecord {
+  trackId: string;
+  licenseTier: MusicLicenseTier;
+  purchasedAt: string;
+  invoiceNumber: string;
+  pricePaid: number;
+}
+
+export type ArtPlatformId = 'music' | 'photography' | 'videography' | 'bookstore' | 'digital_art';
+
+export type PayoutMethodType =
+  | 'Stripe Connect Express'
+  | 'Bank Wire / ACH'
+  | 'PayPal Business'
+  | 'Instant EFT / Mobile Money';
+
+export interface CreatorPayoutAccount {
+  id: string;
+  accountHolderName: string;
+  method: PayoutMethodType;
+  institutionName: string;
+  routingOrSwiftCode: string;
+  accountNumberMasked: string;
+  payoutEmail: string;
+  currency: 'USD' | 'ZAR' | 'EUR' | 'GBP';
+  taxEntityType: 'Individual Creator' | 'Registered Studio / PTY';
+  status: 'Verified & Active';
+  createdAt: string;
+}
+
+export interface ServiceAgreementAcceptance {
+  accepted: boolean;
+  version: string;
+  acceptedBy: string;
+  acceptedAt: string;
+  signatureText: string;
+  feeThresholdSales: number;
+  feeRateAfterThreshold: number;
+}
+
+export interface CreatorStoreProfile {
+  id: string;
+  ownerUserId: string;
+  platform: ArtPlatformId;
+  storeName: string;
+  handle: string;
+  artistName: string;
+  tagline: string;
+  bio: string;
+  location: string;
+  website?: string;
+  specialty: string;
+  isStoreActive: boolean;
+  payoutAccount: CreatorPayoutAccount | null;
+  agreement: ServiceAgreementAcceptance | null;
+  completedSalesCount: number;
+  grossRevenue: number;
+  creatorNetEarnings: number;
+  siteOwnerServiceFeesPaid: number;
+  createdAt: string;
 }
 
 export interface PhotoItem {

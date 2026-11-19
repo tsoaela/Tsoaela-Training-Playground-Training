@@ -57,30 +57,30 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({
             />
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
               <Gift className="w-4 h-4" />
-              <span>TTG Institutional Grant Policy</span>
+              <span>TTG Digital Educare Tutoring System</span>
               <span aria-hidden="true">·</span>
-              <span>Zero Subscription Fees ($0.00)</span>
+              <span>Self-Paced Learning</span>
             </div>
           </div>
 
           <h2 id="paywall-title" className="text-2xl sm:text-3xl font-bold tracking-tight text-stone-900 dark:text-stone-100 text-balance">
-            {targetFeature ? `Unlock ${targetFeature} at $0` : 'Complimentary Institutional Access Granted'}
+            {targetFeature ? `Digital Educare Tutoring: ${targetFeature}` : 'Self-Paced Digital Educare Tutoring Access'}
           </h2>
           <p className="mt-2 text-sm sm:text-base text-stone-600 dark:text-stone-400 max-w-xl">
-            Subscription fees have been updated to $0. Activate full access to executive study guides, quantitative research whitepapers, reading progress tracking, and AI Superagents without any charge.
+            Short-term course lessons are 100% free for every learner. Long-term comprehensive courses unlock individually at R145 per course so you can learn and finish completely at your own pace.
           </p>
 
           <div className="mt-4 flex items-center gap-2 text-xs text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800 w-fit">
             <Check className="w-3.5 h-3.5" />
-            <span className="font-medium">No credit card charge · Instant activation · Official $0.00 receipt</span>
+            <span className="font-medium">Free short-course lessons · R145/course for long-term tracks · Finish at your own pace</span>
           </div>
         </div>
 
-        {/* Subscription Options */}
+        {/* Tutoring Options */}
         <div className="p-6 sm:p-8 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             
-            {/* Option 1: Educare Pro ($0) */}
+            {/* Option 1: Short-Term Tutoring Courses (Free) */}
             <div
               onClick={() => setSelectedPlan('educare_pro')}
               className={`relative rounded-xl p-5 border cursor-pointer transition-all ${
@@ -93,15 +93,15 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({
                 <div>
                   <div className="flex items-center gap-2">
                     <BookOpen className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
-                    <span className="font-semibold text-stone-900 dark:text-stone-100 text-base">Educare Pro</span>
+                    <span className="font-semibold text-stone-900 dark:text-stone-100 text-base">Short-Term Tutoring</span>
                   </div>
                   <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
-                    Complete cognitive & executive syllabi
+                    Open short courses &amp; guided lessons
                   </p>
                 </div>
                 <div className="text-right">
                   <div className="text-xl font-bold font-mono tabular-nums text-emerald-700 dark:text-emerald-400">
-                    $0.00
+                    FREE (R0)
                   </div>
                   <span className="text-[11px] text-stone-500 dark:text-stone-400">No subscription fees</span>
                 </div>
@@ -110,24 +110,24 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({
               <ul className="mt-4 space-y-2 text-xs text-stone-700 dark:text-stone-300 border-t border-stone-200/60 dark:border-stone-700/60 pt-3">
                 <li className="flex items-center gap-2">
                   <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                  <span>Full access to all Premium Executive Study Guides</span>
+                  <span>Full free access to all Short-Term Course lessons</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                  <span>Interactive Educare AI Study Assistant Superagent</span>
+                  <span>Interactive TAI Tutor &amp; Educare Study Assistant</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                  <span>Reading progress tracking & chapter completion logs</span>
+                  <span>Self-paced reading progress &amp; chapter notes</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                  <span>Personal study reminders & scheduling</span>
+                  <span>Finish any short course completely at your own pace</span>
                 </li>
               </ul>
             </div>
 
-            {/* Option 2: Research Pass ($0) */}
+            {/* Option 2: Long-Term Tutoring Courses (R145 per course) */}
             <div
               onClick={() => setSelectedPlan('research_pass')}
               className={`relative rounded-xl p-5 border cursor-pointer transition-all ${
@@ -140,42 +140,42 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({
                 <div>
                   <div className="flex items-center gap-2">
                     <Brain className="w-4 h-4 text-stone-800 dark:text-stone-300" />
-                    <span className="font-semibold text-stone-900 dark:text-stone-100 text-base">Research Pass</span>
+                    <span className="font-semibold text-stone-900 dark:text-stone-100 text-base">Long-Term Courses</span>
                   </div>
                   <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
-                    Institutional intelligence & data models
+                    In-depth mentored tracks per course
                   </p>
                 </div>
                 <div className="text-right">
-                  <div className="text-xl font-bold font-mono tabular-nums text-emerald-700 dark:text-emerald-400">
-                    $0.00
+                  <div className="text-xl font-bold font-mono tabular-nums text-stone-900 dark:text-stone-100">
+                    R145
                   </div>
-                  <span className="text-[11px] text-stone-500 dark:text-stone-400">No subscription fees</span>
+                  <span className="text-[11px] text-stone-500 dark:text-stone-400">One-time per course</span>
                 </div>
               </div>
 
               <ul className="mt-4 space-y-2 text-xs text-stone-700 dark:text-stone-300 border-t border-stone-200/60 dark:border-stone-700/60 pt-3">
                 <li className="flex items-center gap-2">
                   <Check className="w-3.5 h-3.5 text-stone-800 dark:text-stone-300 shrink-0" />
-                  <span>Full access to Institutional Quantitative Papers</span>
+                  <span>Pay R145 once per long-term course you choose</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="w-3.5 h-3.5 text-stone-800 dark:text-stone-300 shrink-0" />
-                  <span>Research Corner AI Superagent (Dossier Synthesis)</span>
+                  <span>Zero recurring monthly fees or cohort deadlines</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="w-3.5 h-3.5 text-stone-800 dark:text-stone-300 shrink-0" />
-                  <span>Quarterly benchmark datasets & sovereign compute models</span>
+                  <span>Complete workshops, quizzes &amp; capstone at your own pace</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="w-3.5 h-3.5 text-stone-800 dark:text-stone-300 shrink-0" />
-                  <span>Official tax receipts issued at $0.00</span>
+                  <span>Official completion certificate upon finishing</span>
                 </li>
               </ul>
             </div>
           </div>
 
-          {/* Option 3: All-Access Pass Banner ($0) */}
+          {/* Option 3: All-Access Tutoring Bundle Banner (R0) */}
           <div
             onClick={() => setSelectedPlan('all_access')}
             className={`p-4 rounded-xl border cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all ${
@@ -190,19 +190,19 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-stone-900 dark:text-stone-100">TTG All-Access Fellowship</span>
+                  <span className="text-sm font-semibold text-stone-900 dark:text-stone-100">Free Short-Course &amp; Research Pass</span>
                   <span className="text-[11px] text-emerald-800 dark:text-emerald-300 font-medium bg-emerald-100/80 dark:bg-emerald-950/70 px-1.5 py-0.5 rounded">
-                    Recommended · $0
+                    Free · R0.00
                   </span>
                 </div>
-                <p className="text-xs text-stone-500 dark:text-stone-400">Complete bundle with Educare Pro + Research Pass + Priority Retreat RSVP</p>
+                <p className="text-xs text-stone-500 dark:text-stone-400">Unlock all free short-term tutoring lessons, Research Corner papers &amp; self-paced progress tools</p>
               </div>
             </div>
             <div className="text-right shrink-0">
               <span className="text-lg font-bold font-mono tabular-nums text-emerald-700 dark:text-emerald-400">
-                $0.00
+                R0.00
               </span>
-              <span className="text-xs text-stone-500 dark:text-stone-400"> / month</span>
+              <span className="text-xs text-stone-500 dark:text-stone-400"> / free</span>
             </div>
           </div>
 
@@ -210,7 +210,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({
           <div className="pt-4 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-stone-100 dark:border-stone-800">
             <div className="flex items-center gap-2 text-xs text-stone-500 dark:text-stone-400">
               <Shield className="w-4 h-4 text-emerald-600" />
-              <span>Complimentary Institutional Grant · Zero Subscription Fees</span>
+              <span>Digital Educare Tutoring · Finish every course at your own pace</span>
             </div>
 
             <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -227,7 +227,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({
                 onClick={() => onTriggerStripeCheckout(selectedPlan)}
                 className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 text-xs font-semibold text-white dark:text-stone-900 bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-400 dark:hover:bg-emerald-300 active:scale-[0.98] rounded-lg shadow-xs transition-all cursor-pointer"
               >
-                <span>Activate Free Access ($0.00)</span>
+                <span>Activate Free Tutoring Access (R0.00)</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>

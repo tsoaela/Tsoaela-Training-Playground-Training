@@ -16,7 +16,8 @@ import {
   CourseModuleFeedback,
   AppNotification,
   OfflineAssignmentSubmission,
-  SavedAcademicProgram
+  SavedAcademicProgram,
+  ThemeMode
 } from './types';
 import { 
   INITIAL_USER, 
@@ -66,23 +67,57 @@ import { useNotifications } from './hooks/useNotifications';
 import { useBackgroundSync } from './hooks/useBackgroundSync';
 import { usePomodoroTimer } from './hooks/usePomodoroTimer';
 import { useOnlineStatus, cacheAllStudyGuidesLocally } from './utils/offlineStorage';
-import { AuthorDocument, MusicTrack, PhotoItem, VideoItem, BookItem, ApplicationCategory, ApplicationPrefillData } from './types';
+import { AuthorDocument, MusicTrack, MusicLicenseTier, PhotoItem, VideoItem, BookItem, ApplicationCategory, ApplicationPrefillData } from './types';
 import { CheckCircle2, ShieldCheck, Award, BookOpen, Video, X } from 'lucide-react';
 import { TTG_LOGO_URL } from './utils/pdfBranding';
+import { recordPlatformSaleForCreator } from './utils/creatorStoreSystem';
 
 export default function App() {
-  // Theme state with localStorage persistence
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+  // Persisted Theme Mode ('system' | 'light' | 'dark') with live OS scheme listener
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
     try {
-      const savedTheme = localStorage.getItem('ttg_theme');
-      if (savedTheme === 'dark' || savedTheme === 'light') return savedTheme;
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      const savedMode = localStorage.getItem('ttg_theme_mode');
+      if (savedMode === 'system' || savedMode === 'light' || savedMode === 'dark') {
+        return savedMode;
+      }
+      const legacyTheme = localStorage.getItem('ttg_theme');
+      if (legacyTheme === 'dark' || legacyTheme === 'light') {
+        return legacyTheme;
+      }
+      return 'system';
     } catch {
-      return 'light';
+      return 'system';
     }
   });
 
-  // Sync theme class to document element
+  const [systemPrefersDark, setSystemPrefersDark] = useState<boolean>(() => {
+    try {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      const handleChange = (event: MediaQueryListEvent) => {
+        setSystemPrefersDark(event.matches);
+      };
+      setSystemPrefersDark(mediaQuery.matches);
+      if (typeof mediaQuery.addEventListener === 'function') {
+        mediaQuery.addEventListener('change', handleChange);
+        return () => mediaQuery.removeEventListener('change', handleChange);
+      }
+    } catch {
+      // Ignore environments without matchMedia
+    }
+  }, []);
+
+  const theme: 'light' | 'dark' =
+    themeMode === 'system' ? (systemPrefersDark ? 'dark' : 'light') : themeMode;
+
+  // Sync resolved theme class and persist selected ThemeMode to localStorage
   useEffect(() => {
     try {
       if (theme === 'dark') {
@@ -90,20 +125,27 @@ export default function App() {
       } else {
         document.documentElement.classList.remove('dark');
       }
+      localStorage.setItem('ttg_theme_mode', themeMode);
       localStorage.setItem('ttg_theme', theme);
     } catch (e) {
       console.error(e);
     }
-  }, [theme]);
+  }, [theme, themeMode]);
 
-  const toggleTheme = () => {
+  const handleChangeThemeMode = (nextMode: ThemeMode) => {
     try {
       document.documentElement.classList.add('theme-transitioning');
       window.setTimeout(() => {
         document.documentElement.classList.remove('theme-transitioning');
       }, 420);
     } catch {}
-    setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
+    setThemeMode(nextMode);
+  };
+
+  const toggleTheme = () => {
+    const order: ThemeMode[] = ['system', 'light', 'dark'];
+    const nextIdx = (order.indexOf(themeMode) + 1) % order.length;
+    handleChangeThemeMode(order[nextIdx]);
   };
 
   // Load state from localStorage or initial mock data
@@ -153,9 +195,19 @@ export default function App() {
     const cleanedCertCategoryKey = /^(ai courses?( \(ai generated\))?)$/i.test(rawCertCategoryKey.trim())
       ? 'Frontier AI & Systems'
       : rawCertCategoryKey;
+    const isLongTerm = g.duration_type === 'long_term';
+    const coursePriceZar = isLongTerm ? (g.course_price_zar && g.course_price_zar > 0 ? g.course_price_zar : 145) : 0;
+    const normalizedDurationLabel = isLongTerm
+      ? 'Self-Paced · Long-Term Course (R145)'
+      : 'Self-Paced · Short Course (Free)';
+
     return {
       ...g,
       category: normalizedCategory,
+      is_premium: isLongTerm,
+      course_price_zar: coursePriceZar,
+      pacing_mode: 'self_paced',
+      duration_label: normalizedDurationLabel,
       ...(g.certificate
         ? {
             certificate: {
@@ -168,20 +220,42 @@ export default function App() {
     };
   };
 
-  // Dynamic Study Guides State (including Frontier AI & Systems)
+  // Dynamic Study Guides State (including Digital Educare Self-Paced Catalog)
   const [studyGuides, setStudyGuides] = useState<StudyGuide[]>(() => {
     try {
       const saved = localStorage.getItem('ttg_study_guides');
       if (!saved) return STUDY_GUIDES;
       const parsed: StudyGuide[] = JSON.parse(saved);
       if (!Array.isArray(parsed)) return STUDY_GUIDES;
-      return parsed
+      const normalizedParsed = parsed
         .filter((g) => !isRemovedSyntheticReasoningCourse(g))
         .map(normalizeStudyGuideBranding);
+      const existingIds = new Set(normalizedParsed.map((g) => g.id));
+      const missingCanonical = STUDY_GUIDES.filter((g) => !existingIds.has(g.id));
+      return [...normalizedParsed, ...missingCanonical];
     } catch {
       return STUDY_GUIDES;
     }
   });
+
+  // Individually unlocked Long-Term Tutoring Courses (R145 ZAR per course)
+  const [unlockedLongCourseIds, setUnlockedLongCourseIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('ttg_unlocked_long_courses');
+      const parsed = saved ? JSON.parse(saved) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('ttg_unlocked_long_courses', JSON.stringify(unlockedLongCourseIds));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [unlockedLongCourseIds]);
 
   // Reading Progress State (Prompt 5: reading process tracking)
   const [readingProgress, setReadingProgress] = useState<Record<string, ReadingProgress>>(() => {
@@ -263,9 +337,14 @@ export default function App() {
       const existingIds = new Set(parsed.map(r => r.id));
       const mergedExisting = parsed.map(rec => {
         const seedMatch = INITIAL_FACULTY_ENROLLMENTS.find(s => s.id === rec.id);
+        const existingReviews = Array.isArray(rec.peerReviews) ? rec.peerReviews : [];
+        const existingReviewIds = new Set(existingReviews.map(r => r.id));
+        const missingSeedReviews = (seedMatch?.peerReviews || []).filter(
+          sr => !existingReviewIds.has(sr.id)
+        );
         return {
           ...rec,
-          peerReviews: rec.peerReviews ?? seedMatch?.peerReviews ?? [],
+          peerReviews: [...existingReviews, ...missingSeedReviews],
           courseFeedback:
             rec.courseFeedback && rec.courseFeedback.length > 0
               ? rec.courseFeedback
@@ -727,8 +806,15 @@ export default function App() {
     setTimeout(() => setToastMessage(null), 5000);
   };
 
-  // Quick navigation targets from Global Search
-  const [targetStudyGuideId, setTargetStudyGuideId] = useState<string | null>(null);
+  // Quick navigation targets from Global Search or shared QR course deep-link (?course=<id>)
+  const [targetStudyGuideId, setTargetStudyGuideId] = useState<string | null>(() => {
+    try {
+      const courseParam = new URLSearchParams(window.location.search).get('course');
+      return courseParam && courseParam.trim() ? courseParam.trim() : null;
+    } catch {
+      return null;
+    }
+  });
   const [targetResearchPaperId, setTargetResearchPaperId] = useState<string | null>(null);
   const [targetRetreatEventId, setTargetRetreatEventId] = useState<string | null>(null);
 
@@ -744,35 +830,106 @@ export default function App() {
   };
 
   // Store Purchase Handlers with Auth Guards & Instant Receipt Tokens
-  const handlePurchaseTrack = (track: MusicTrack) => {
+  const handlePurchaseTrack = (
+    track: MusicTrack,
+    licenseTier: MusicLicenseTier = 'Personal Master',
+    priceOverride?: number,
+    onCompleted?: (invoiceNumber: string, finalAmount: number) => void
+  ) => {
+    const finalPrice = typeof priceOverride === 'number' ? priceOverride : track.price;
     requireAuth(() => {
+      const invoiceNumber = `INV-AUD-${Math.floor(1000 + Math.random() * 9000)}`;
+      const saleOutcome = recordPlatformSaleForCreator({
+        platform: 'music',
+        creatorName: track.artist,
+        creatorId: track.artistId,
+        grossAmount: finalPrice,
+      });
+      const feeNote = saleOutcome.split?.isPostThresholdFeeActive
+        ? ` · Includes 5% Site Service Fee ($${saleOutcome.split.siteOwnerServiceFee.toFixed(2)})`
+        : '';
       const newInvoice: InvoiceReceipt = {
         id: `inv_music_${Date.now()}`,
-        invoice_number: `INV-AUD-${Math.floor(1000 + Math.random() * 9000)}`,
+        invoice_number: invoiceNumber,
         date: new Date().toISOString().slice(0, 10),
-        description: `Track License: ${track.title} by ${track.artist}`,
-        amount: track.price,
+        description: `Music License (${licenseTier}): ${track.title} by ${track.artist}${feeNote}`,
+        amount: finalPrice,
         currency: 'USD',
         status: 'Paid',
         category: 'Subscription',
         payment_method: 'Stripe Instant Checkout',
         payment_intent_id: `pi_track_${Date.now()}`,
-        items: [{ description: `${track.title} · 24-bit 96kHz Master & Stems`, quantity: 1, unit_price: track.price }]
+        items: [{ description: `${track.title} · ${track.format} (${licenseTier})`, quantity: 1, unit_price: finalPrice }]
       };
       setInvoices(prev => [newInvoice, ...prev]);
-      setToastMessage(`Purchased "${track.title}" ($${track.price.toFixed(2)})! High-res WAV & stems token added to receipt.`);
+      onCompleted?.(invoiceNumber, finalPrice);
+      setToastMessage(`Purchased "${track.title}" (${licenseTier} · $${finalPrice.toFixed(2)})!${feeNote} High-res WAV & license certificate unlocked.`);
       setTimeout(() => setToastMessage(null), 5000);
     }, `Sign in or register to purchase and download "${track.title}" by ${track.artist}.`);
+  };
+
+  const handlePurchaseMusicCart = (
+    cartEntries: { track: MusicTrack; licenseTier: MusicLicenseTier; unitPrice: number }[],
+    onCompleted?: (invoiceNumber: string) => void
+  ) => {
+    if (cartEntries.length === 0) return;
+    const totalAmount = Number(cartEntries.reduce((sum, e) => sum + e.unitPrice, 0).toFixed(2));
+    requireAuth(() => {
+      const invoiceNumber = `INV-AUD-${Math.floor(1000 + Math.random() * 9000)}`;
+      let totalSiteFees = 0;
+      cartEntries.forEach((entry) => {
+        const res = recordPlatformSaleForCreator({
+          platform: 'music',
+          creatorName: entry.track.artist,
+          creatorId: entry.track.artistId,
+          grossAmount: entry.unitPrice,
+        });
+        if (res.split?.isPostThresholdFeeActive) {
+          totalSiteFees += res.split.siteOwnerServiceFee;
+        }
+      });
+      const feeNote = totalSiteFees > 0 ? ` · 5% Site Service Fee paid ($${totalSiteFees.toFixed(2)})` : '';
+      const newInvoice: InvoiceReceipt = {
+        id: `inv_music_cart_${Date.now()}`,
+        invoice_number: invoiceNumber,
+        date: new Date().toISOString().slice(0, 10),
+        description: `Music Store Order (${cartEntries.length} ${cartEntries.length === 1 ? 'release' : 'releases'})${feeNote}`,
+        amount: totalAmount,
+        currency: 'USD',
+        status: 'Paid',
+        category: 'Subscription',
+        payment_method: 'Stripe Instant Checkout',
+        payment_intent_id: `pi_music_bag_${Date.now()}`,
+        items: cartEntries.map(e => ({
+          description: `${e.track.title} (${e.track.artist}) · ${e.licenseTier}`,
+          quantity: 1,
+          unit_price: e.unitPrice,
+        }))
+      };
+      setInvoices(prev => [newInvoice, ...prev]);
+      onCompleted?.(invoiceNumber);
+      setToastMessage(`Order ${invoiceNumber} complete ($${totalAmount.toFixed(2)})!${feeNote} All ${cartEntries.length} WAV masters unlocked.`);
+      setTimeout(() => setToastMessage(null), 5000);
+    }, `Sign in or register to complete checkout for ${cartEntries.length} studio music releases.`);
   };
 
   const handlePurchasePhoto = (photo: PhotoItem, licenseType: 'Personal' | 'Commercial' | 'Extended') => {
     requireAuth(() => {
       const price = licenseType === 'Personal' ? photo.pricePersonal : licenseType === 'Commercial' ? photo.priceCommercial : photo.priceExtended;
+      const saleOutcome = recordPlatformSaleForCreator({
+        platform: 'photography',
+        creatorName: photo.photographer,
+        creatorId: photo.photographerId,
+        grossAmount: price,
+      });
+      const feeNote = saleOutcome.split?.isPostThresholdFeeActive
+        ? ` · Includes 5% Site Service Fee ($${saleOutcome.split.siteOwnerServiceFee.toFixed(2)})`
+        : '';
       const newInvoice: InvoiceReceipt = {
         id: `inv_photo_${Date.now()}`,
         invoice_number: `INV-PHO-${Math.floor(1000 + Math.random() * 9000)}`,
         date: new Date().toISOString().slice(0, 10),
-        description: `${licenseType} Photo License: ${photo.title}`,
+        description: `${licenseType} Photo License: ${photo.title}${feeNote}`,
         amount: price,
         currency: 'USD',
         status: 'Paid',
@@ -782,7 +939,7 @@ export default function App() {
         items: [{ description: `${photo.title} (${photo.megapixels}MP RAW + TIFF) · ${licenseType} License`, quantity: 1, unit_price: price }]
       };
       setInvoices(prev => [newInvoice, ...prev]);
-      setToastMessage(`Purchased ${licenseType} License for "${photo.title}" ($${price.toFixed(2)})! High-res RAW downloaded.`);
+      setToastMessage(`Purchased ${licenseType} License for "${photo.title}" ($${price.toFixed(2)})!${feeNote} High-res RAW downloaded.`);
       setTimeout(() => setToastMessage(null), 5000);
     }, `Sign in or register to purchase the ${licenseType} license for "${photo.title}".`);
   };
@@ -790,11 +947,20 @@ export default function App() {
   const handlePurchaseVideo = (video: VideoItem, licenseType: 'Standard' | 'Broadcast') => {
     requireAuth(() => {
       const price = licenseType === 'Standard' ? video.priceStandard : video.priceBroadcast;
+      const saleOutcome = recordPlatformSaleForCreator({
+        platform: 'videography',
+        creatorName: video.creator,
+        creatorId: video.creatorId,
+        grossAmount: price,
+      });
+      const feeNote = saleOutcome.split?.isPostThresholdFeeActive
+        ? ` · Includes 5% Site Service Fee ($${saleOutcome.split.siteOwnerServiceFee.toFixed(2)})`
+        : '';
       const newInvoice: InvoiceReceipt = {
         id: `inv_video_${Date.now()}`,
         invoice_number: `INV-VID-${Math.floor(1000 + Math.random() * 9000)}`,
         date: new Date().toISOString().slice(0, 10),
-        description: `${licenseType} Video License: ${video.title}`,
+        description: `${licenseType} Video License: ${video.title}${feeNote}`,
         amount: price,
         currency: 'USD',
         status: 'Paid',
@@ -804,7 +970,7 @@ export default function App() {
         items: [{ description: `${video.title} (${video.resolution} ${video.codec}) · ${licenseType} License`, quantity: 1, unit_price: price }]
       };
       setInvoices(prev => [newInvoice, ...prev]);
-      setToastMessage(`Purchased ${licenseType} License for "${video.title}" ($${price.toFixed(2)})! Master ProRes token granted.`);
+      setToastMessage(`Purchased ${licenseType} License for "${video.title}" ($${price.toFixed(2)})!${feeNote} Master ProRes token granted.`);
       setTimeout(() => setToastMessage(null), 5000);
     }, `Sign in or register to purchase the ${licenseType} license for "${video.title}".`);
   };
@@ -812,11 +978,20 @@ export default function App() {
   const handlePurchaseBook = (book: BookItem, format: 'eBook' | 'Print' | 'Audiobook') => {
     requireAuth(() => {
       const price = format === 'eBook' ? book.priceEbook : format === 'Print' ? book.pricePrint : (book.priceAudiobook || 14.99);
+      const saleOutcome = recordPlatformSaleForCreator({
+        platform: 'bookstore',
+        creatorName: book.author,
+        creatorId: book.authorId,
+        grossAmount: price,
+      });
+      const feeNote = saleOutcome.split?.isPostThresholdFeeActive
+        ? ` · Includes 5% Site Service Fee ($${saleOutcome.split.siteOwnerServiceFee.toFixed(2)})`
+        : '';
       const newInvoice: InvoiceReceipt = {
         id: `inv_book_${Date.now()}`,
         invoice_number: `INV-BOK-${Math.floor(1000 + Math.random() * 9000)}`,
         date: new Date().toISOString().slice(0, 10),
-        description: `${format} of "${book.title}" by ${book.author}`,
+        description: `${format} of "${book.title}" by ${book.author}${feeNote}`,
         amount: price,
         currency: 'USD',
         status: 'Paid',
@@ -826,7 +1001,7 @@ export default function App() {
         items: [{ description: `"${book.title}" · ${format} Edition (ISBN: ${book.isbn})`, quantity: 1, unit_price: price }]
       };
       setInvoices(prev => [newInvoice, ...prev]);
-      setToastMessage(`Purchased ${format} of "${book.title}" ($${price.toFixed(2)})! Complete manuscript unlocked.`);
+      setToastMessage(`Purchased ${format} of "${book.title}" ($${price.toFixed(2)})!${feeNote} Complete manuscript unlocked.`);
       setTimeout(() => setToastMessage(null), 5000);
     }, `Sign in or register to purchase "${book.title}".`);
   };
@@ -1272,6 +1447,12 @@ export default function App() {
         correctCount: submittedAttempt.correctCount,
         totalQuestions: submittedAttempt.totalQuestions,
         attemptedAt: nowIso,
+        ...(submittedAttempt.weakChapterIndices
+          ? { weakChapterIndices: submittedAttempt.weakChapterIndices }
+          : {}),
+        ...(submittedAttempt.chapterBreakdown
+          ? { chapterBreakdown: submittedAttempt.chapterBreakdown }
+          : {}),
       };
       newQuizHistory.push(attemptEntry);
       newQuizScores[submittedAttempt.quizId] = submittedAttempt.score;
@@ -1292,7 +1473,7 @@ export default function App() {
       progressPercent,
       lastReadDate: todayDate,
       lastAccessedAt: nowIso,
-      isCompleted: isCompleted || current.isCompleted,
+      isCompleted: chapterIdx >= 0 ? isCompleted : isCompleted || current.isCompleted,
       notes: notes !== undefined ? notes : current.notes,
       chapterNotes: existingChapterNotes,
       quizScores: newQuizScores,
@@ -1404,7 +1585,40 @@ export default function App() {
     }));
 
     setInvoices(prev => [receipt, ...prev]);
-    triggerToast(`🎉 Subscription confirmed via Stripe! You now have full access to ${newPlan.replace('_', ' ').toUpperCase()}.`);
+    triggerToast(`Tutoring access activated! Short-term courses are open for free self-paced learning.`);
+  };
+
+  // Long-Term Tutoring Course Unlock Success Handler (R145 ZAR per course)
+  const handleCoursePurchaseSuccess = (guide: StudyGuide, receipt: InvoiceReceipt) => {
+    setUnlockedLongCourseIds((prev) => (prev.includes(guide.id) ? prev : [...prev, guide.id]));
+    setInvoices((prev) => [receipt, ...prev]);
+    registerCourse(guide.id);
+    setEnrollments((prev) => {
+      const alreadyEnrolled = prev.some(
+        (e) =>
+          e.courseId === guide.id &&
+          (e.studentEmail.toLowerCase() === user.email.toLowerCase() ||
+            e.studentName.toLowerCase() === user.name.toLowerCase())
+      );
+      if (alreadyEnrolled) return prev;
+      const newRecord: EnrolledStudentRecord = {
+        id: `enr_${guide.id}_${Date.now()}`,
+        studentName: user.name,
+        studentEmail: user.email,
+        courseId: guide.id,
+        courseTitle: guide.title,
+        facultyName: guide.field || guide.category,
+        qualificationLevel: 'Self-Paced Tutoring Learner',
+        enrolledDate: new Date().toISOString().slice(0, 10),
+        progressPercent: readingProgress[guide.id]?.progressPercent || 0,
+        assignmentTitle: `${guide.title} Applied Assessment`,
+        assignmentStatus: 'Not Submitted',
+        peerReviews: [],
+      };
+      return [newRecord, ...prev];
+    });
+    const priceZar = guide.course_price_zar || 145;
+    triggerToast(`Unlocked "${guide.title}" (R${priceZar.toFixed(2)})! Self-paced lessons are now open — finish at your own pace.`);
   };
 
   // Retreat Booking Checkout Success Handler (Prompt 2)
@@ -1528,6 +1742,8 @@ export default function App() {
         userRole={userRole}
         onOpenPaywall={() => handleOpenPaywall()}
         theme={theme}
+        themeMode={themeMode}
+        onChangeThemeMode={handleChangeThemeMode}
         onToggleTheme={toggleTheme}
         onOpenReminders={() => handleOpenReminders()}
         activeRemindersCount={reminders.filter(r => r.isEnabled).length}
@@ -1632,6 +1848,14 @@ export default function App() {
             onClearRequestedAcademicCategory={() => setRequestedAcademicCategory(null)}
             onOpenStudentFeedback={handleOpenStudentFeedback}
             onActiveStudyContextChange={setActiveStudyContext}
+            unlockedLongCourseIds={unlockedLongCourseIds}
+            onUnlockLongCourse={(guide) =>
+              handleInitiateBookingCheckout({
+                type: 'course',
+                guide,
+                priceZar: guide.course_price_zar || 145,
+              })
+            }
           />
         )}
 
@@ -1641,6 +1865,7 @@ export default function App() {
             isAuthenticated={isAuthenticated}
             onRequireAuth={requireAuth}
             onPurchaseTrack={handlePurchaseTrack}
+            onPurchaseMusicCart={handlePurchaseMusicCart}
           />
         )}
 
@@ -1828,7 +2053,7 @@ export default function App() {
         recommendedPlan={paywallRecommendedPlan}
       />
 
-      {/* Stripe Checkout Modal (Prompt 1 Subscription & Prompt 2 Retreat Booking) */}
+      {/* Stripe Checkout Modal (Long-Term Course Unlocks R145 & Retreat Bookings) */}
       <StripeCheckoutModal
         isOpen={isStripeCheckoutOpen}
         checkoutData={checkoutData}
@@ -1838,6 +2063,7 @@ export default function App() {
         }}
         onSuccessSubscription={handleSubscriptionSuccess}
         onSuccessBooking={handleBookingSuccess}
+        onSuccessCourseUnlock={handleCoursePurchaseSuccess}
       />
 
       {/* Stripe Customer Portal Modal (Prompt 3) */}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Award, Download, Printer, X, CheckCircle2, Layers, ZoomIn, ZoomOut, Image as ImageIcon } from 'lucide-react';
+import { Award, Download, Printer, X, CheckCircle2, Layers, ZoomIn, ZoomOut, Image as ImageIcon, Lock } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { CourseCertificateSpec } from '../types';
 import { CourseCertificateCard } from './CourseCertificateCard';
@@ -38,6 +38,7 @@ export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
   if (!isOpen || !certificate) return null;
 
   const handleDownloadHighResPng = async () => {
+    if (!isEarned) return;
     setIsGeneratingPng(true);
     try {
       const canvas = document.createElement('canvas');
@@ -308,6 +309,7 @@ export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
   };
 
   const handleDownloadPdf = async () => {
+    if (!isEarned) return;
     setIsGeneratingPdf(true);
     try {
       const logoDataUrl = await loadLogoDataUrl();
@@ -557,15 +559,21 @@ export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
         <div className="px-5 py-4 border-b border-stone-200 dark:border-stone-800 bg-[#022c22] text-[#ecfccb] flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-[#064e3b] border border-[#84cc16]/60 text-[#bef264]">
-              <Award className="w-5 h-5" />
+              {isEarned ? <Award className="w-5 h-5" /> : <Lock className="w-5 h-5 text-[#eab308]" />}
             </div>
             <div>
               <div className="flex items-center gap-2 text-[11px] font-mono text-[#a3e635]">
                 <Layers className="w-3.5 h-3.5" />
-                <span>Certificate Preview · {certificate.categoryKey}</span>
+                <span>
+                  {isEarned
+                    ? `Verified Credential · ${certificate.categoryKey}`
+                    : `Locked Certification Template · ${certificate.categoryKey}`}
+                </span>
               </div>
               <h2 className="text-sm sm:text-base font-bold text-white">
-                Certificate Preview — {certificate.credentialTitle}
+                {isEarned
+                  ? `Certificate — ${certificate.credentialTitle}`
+                  : `Template Preview — ${certificate.credentialTitle}`}
               </h2>
             </div>
           </div>
@@ -583,31 +591,37 @@ export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
 
             <button
               type="button"
-              onClick={() => window.print()}
-              className="px-3 py-1.5 rounded-lg bg-[#064e3b] hover:bg-[#065f46] text-[#d9f99d] text-xs font-semibold border border-[#84cc16]/40 flex items-center gap-1.5 cursor-pointer transition-colors"
+              onClick={() => {
+                if (isEarned) window.print();
+              }}
+              disabled={!isEarned}
+              title={isEarned ? 'Print certificate' : 'Locked until 100% completion or 70%+ quiz score'}
+              className="px-3 py-1.5 rounded-lg bg-[#064e3b] hover:bg-[#065f46] text-[#d9f99d] text-xs font-semibold border border-[#84cc16]/40 flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-45 disabled:cursor-not-allowed"
             >
-              <Printer className="w-3.5 h-3.5" />
+              {isEarned ? <Printer className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
               <span className="hidden sm:inline">Print</span>
             </button>
 
             <button
               type="button"
               onClick={handleDownloadHighResPng}
-              disabled={isGeneratingPng}
-              className="px-3 py-1.5 rounded-lg bg-[#052e16] hover:bg-[#064e3b] text-[#bef264] text-xs font-bold border border-[#a3e635]/60 flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-60"
+              disabled={!isEarned || isGeneratingPng}
+              title={isEarned ? 'Download HD PNG' : 'Locked until course completion'}
+              className="px-3 py-1.5 rounded-lg bg-[#052e16] hover:bg-[#064e3b] text-[#bef264] text-xs font-bold border border-[#a3e635]/60 flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-45 disabled:cursor-not-allowed"
             >
-              <ImageIcon className="w-3.5 h-3.5" />
-              <span>{isGeneratingPng ? 'Rendering HD...' : 'Download HD PNG'}</span>
+              {isEarned ? <ImageIcon className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+              <span>{!isEarned ? 'HD PNG Locked' : isGeneratingPng ? 'Rendering HD...' : 'Download HD PNG'}</span>
             </button>
 
             <button
               type="button"
               onClick={handleDownloadPdf}
-              disabled={isGeneratingPdf}
-              className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-[#84cc16] to-[#ca8a04] hover:brightness-110 text-[#022c22] text-xs font-extrabold flex items-center gap-1.5 cursor-pointer shadow-sm transition-all disabled:opacity-60"
+              disabled={!isEarned || isGeneratingPdf}
+              title={isEarned ? 'Download Certificate PDF' : 'Locked until course completion'}
+              className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-[#84cc16] to-[#ca8a04] hover:brightness-110 text-[#022c22] text-xs font-extrabold flex items-center gap-1.5 cursor-pointer shadow-sm transition-all disabled:opacity-45 disabled:cursor-not-allowed"
             >
-              <Download className="w-3.5 h-3.5" />
-              <span>{isGeneratingPdf ? 'Exporting PDF...' : 'Download Certificate PDF'}</span>
+              {isEarned ? <Download className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+              <span>{!isEarned ? 'PDF Locked' : isGeneratingPdf ? 'Exporting PDF...' : 'Download Certificate PDF'}</span>
             </button>
 
             <button
@@ -620,6 +634,16 @@ export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Locked Template Notice */}
+        {!isEarned && (
+          <div className="px-5 py-2.5 bg-amber-50 dark:bg-amber-950/50 border-b border-amber-200 dark:border-amber-800/70 flex items-center gap-2.5 text-xs text-amber-900 dark:text-amber-200">
+            <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+            <span>
+              <strong>Preview Locked (Certification Template Only):</strong> You are viewing a sample certification template ({progressPercent}% completed). Complete 100% of course modules or pass an assessment (70%+) to unlock your personalized serial number, PNG, and PDF exports.
+            </span>
+          </div>
+        )}
 
         {/* Certificate Canvas Preview */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-stone-100 dark:bg-stone-950">
@@ -640,12 +664,26 @@ export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
         {/* Footer */}
         <div className="px-5 py-3 border-t border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 flex flex-wrap items-center justify-between gap-3 text-xs text-stone-500 dark:text-stone-400">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-[#65a30d]" />
+            {isEarned ? (
+              <CheckCircle2 className="w-4 h-4 text-[#65a30d]" />
+            ) : (
+              <Lock className="w-4 h-4 text-amber-500" />
+            )}
             <span>
-              <strong className="text-stone-800 dark:text-stone-200">Internal Completion Record</strong> · Platform-issued proof of self-paced study (not externally or statutorily accredited)
+              {isEarned ? (
+                <>
+                  <strong className="text-stone-800 dark:text-stone-200">Internal Completion Record</strong> · Platform-issued proof of self-paced study (not externally or statutorily accredited)
+                </>
+              ) : (
+                <>
+                  <strong className="text-stone-800 dark:text-stone-200">Template Mode Only</strong> · Personalized credential serial &amp; downloads remain locked until completion requirements are met
+                </>
+              )}
             </span>
           </div>
-          <span className="font-mono text-[11px] tabular-nums">{serialNumber}</span>
+          <span className="font-mono text-[11px] tabular-nums">
+            {isEarned ? serialNumber : 'TTG-TEMPLATE-LOCKED'}
+          </span>
         </div>
       </div>
     </div>

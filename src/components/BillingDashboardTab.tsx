@@ -173,21 +173,21 @@ export const BillingDashboardTab: React.FC<BillingDashboardTabProps> = ({
               <span aria-hidden="true">·</span>
               <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-400">
                 <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                {user.subscription_tier === 'free' ? 'Complimentary Member' : 'Active Institutional Fellow'}
+                {user.subscription_tier === 'free' ? 'Self-Paced Tutoring Learner' : 'Digital Educare Active Member'}
               </span>
             </div>
 
             <h2 className="text-2xl font-bold tracking-tight text-stone-900 dark:text-stone-100">
-              {user.subscription_tier === 'educare_pro' && 'Educare Pro Fellowship'}
-              {user.subscription_tier === 'research_pass' && 'Research Pass Fellowship'}
-              {user.subscription_tier === 'all_access' && 'TTG All-Access Fellowship'}
-              {user.subscription_tier === 'free' && 'Complimentary Access'}
+              {user.subscription_tier === 'educare_pro' && 'Digital Educare Short-Course Access'}
+              {user.subscription_tier === 'research_pass' && 'Research Corner Tutoring Access'}
+              {user.subscription_tier === 'all_access' && 'Digital Educare All-Access'}
+              {user.subscription_tier === 'free' && 'Digital Educare Tutoring Plan'}
             </h2>
 
             <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-400 mt-1">
               {user.subscription_tier === 'free' 
-                ? 'All subscriptions are sponsored with $0 fees. Upgrade freely to unlock premium modules and AI Superagents.' 
-                : `100% Free Sponsored Grant · Zero recurring fees · Next renewal: ${user.renewal_date}`}
+                ? 'All short-term course lessons are 100% free (R0). Long-term courses unlock individually for R145 per course — finish at your own pace.' 
+                : `Self-paced Digital Educare Tutoring · Short courses free · Long-term courses R145 each · Next cycle: ${user.renewal_date}`}
             </p>
           </div>
 
@@ -196,10 +196,10 @@ export const BillingDashboardTab: React.FC<BillingDashboardTabProps> = ({
               <button
                 type="button"
                 onClick={onOpenPaywall}
-                className="px-4 py-2 text-xs font-semibold text-white dark:text-stone-900 bg-stone-900 dark:bg-stone-100 hover:bg-stone-800 dark:hover:bg-stone-200 rounded-lg flex items-center gap-1.5 transition-colors"
+                className="px-4 py-2 text-xs font-semibold text-white dark:text-stone-900 bg-stone-900 dark:bg-stone-100 hover:bg-stone-800 dark:hover:bg-stone-200 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <Sparkles className="w-3.5 h-3.5 text-amber-400 dark:text-amber-600" />
-                <span>Claim Free Pro Grant ($0)</span>
+                <span>View Tutoring Plans</span>
               </button>
             ) : (
               <button
@@ -217,19 +217,19 @@ export const BillingDashboardTab: React.FC<BillingDashboardTabProps> = ({
         {/* Plan Details & Payment Method Summary */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6">
           
-          {/* Column 1: Pricing Cadence - ALL $0.00 */}
+          {/* Column 1: Tutoring Cadence */}
           <div className="space-y-1">
             <span className="text-[11px] uppercase tracking-wider text-stone-400 dark:text-stone-500 font-semibold block">
-              Subscription Rate
+              Digital Educare Tutoring
             </span>
             <div className="text-xl font-bold font-mono text-stone-900 dark:text-stone-100 tabular-nums">
-              $0.00
+              R0 / R145
               <span className="text-xs font-normal text-emerald-700 dark:text-emerald-400 font-sans ml-1">
-                (No subscription fees)
+                (Self-Paced)
               </span>
             </div>
             <p className="text-xs text-stone-500 dark:text-stone-400">
-              Sponsored Institutional Grant · 100% Free
+              Free Short-Term Courses · R145 per Long-Term Course
             </p>
           </div>
 

@@ -56,6 +56,7 @@ import {
   getCertificateForStudyGuide,
   resolveCertificateByCategory,
 } from '../data/certificatesData';
+import { MentorLeaderboard } from './MentorLeaderboard';
 
 interface FacultyPortalTabProps {
   user: UserProfile;
@@ -89,7 +90,7 @@ export const FacultyPortalTab: React.FC<FacultyPortalTabProps> = ({
   onGradeAssignment,
   onAddPeerReview,
 }) => {
-  const [activeSubView, setActiveSubView] = useState<'enrollment' | 'results' | 'feedback' | 'syllabus'>('enrollment');
+  const [activeSubView, setActiveSubView] = useState<'enrollment' | 'leaderboard' | 'results' | 'feedback' | 'syllabus'>('enrollment');
   const [feedbackFocusFilter, setFeedbackFocusFilter] = useState<'All' | 'Difficulty' | 'Clarity' | 'Both'>('All');
   const [selectedCourseId, setSelectedCourseId] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'Pending Grading' | 'Graded' | 'Not Submitted'>('all');
@@ -622,13 +623,26 @@ export const FacultyPortalTab: React.FC<FacultyPortalTabProps> = ({
           type="button"
           onClick={() => setActiveSubView('enrollment')}
           className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
-            activeSubView === 'enrollment' || !isInstructor
+            activeSubView === 'enrollment' || (!isInstructor && activeSubView !== 'leaderboard')
               ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 shadow-xs'
               : 'bg-white dark:bg-stone-900 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-800 hover:bg-stone-100 dark:hover:bg-stone-800'
           }`}
         >
           <Users className="w-3.5 h-3.5" />
           <span>{isInstructor ? 'Assignment Grading & Peer Review' : 'Assignment Submissions & Peer Review'}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveSubView('leaderboard')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+            activeSubView === 'leaderboard'
+              ? 'bg-[#052e16] text-[#bef264] border border-[#84cc16]/60 shadow-xs'
+              : 'bg-white dark:bg-stone-900 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-800 hover:bg-stone-100 dark:hover:bg-stone-800'
+          }`}
+        >
+          <Award className="w-3.5 h-3.5" />
+          <span>Mentor Leaderboard</span>
         </button>
 
         {isInstructor && (
@@ -675,8 +689,21 @@ export const FacultyPortalTab: React.FC<FacultyPortalTabProps> = ({
         )}
       </div>
 
+      {/* Sub-view 0: Dedicated Mentor Leaderboard */}
+      {activeSubView === 'leaderboard' && (
+        <MentorLeaderboard
+          enrollments={enrollments}
+          currentUser={user}
+          selectedCourseId={selectedCourseId}
+          onSelectStudentEnrollment={(id) => {
+            setSelectedPeerReviewId(id);
+            setActiveSubView('enrollment');
+          }}
+        />
+      )}
+
       {/* Sub-view 1: Student Enrollment, Assignment Grading & Peer Review */}
-      {(activeSubView === 'enrollment' || !isInstructor) && (
+      {(activeSubView === 'enrollment' || (!isInstructor && activeSubView !== 'leaderboard')) && (
         <div className="space-y-6">
           <div className="rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 p-6 space-y-5 shadow-xs">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1092,6 +1119,14 @@ export const FacultyPortalTab: React.FC<FacultyPortalTabProps> = ({
               </p>
             )}
           </div>
+
+          {/* Mentor Leaderboard Ranking Constructive Peer Contributors */}
+          <MentorLeaderboard
+            enrollments={enrollments}
+            currentUser={user}
+            selectedCourseId={selectedCourseId}
+            onSelectStudentEnrollment={(id) => setSelectedPeerReviewId(id)}
+          />
         </div>
       )}
 

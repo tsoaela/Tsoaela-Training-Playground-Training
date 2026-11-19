@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Video, 
   Play, 
@@ -20,8 +20,15 @@ import {
   VolumeX, 
   Maximize2 
 } from 'lucide-react';
-import { VideoItem, UserProfile } from '../types';
+import { CreatorStoreProfile, VideoItem, UserProfile } from '../types';
 import { INITIAL_VIDEOS } from '../data/storesData';
+import {
+  CREATOR_FREE_SALES_THRESHOLD,
+  getStoreForUserAndPlatform,
+} from '../utils/creatorStoreSystem';
+import { CreatorModalTab, CreatorProfileStoreModal } from './CreatorProfileStoreModal';
+import { CreatorStorefrontBar } from './CreatorStorefrontBar';
+import { CreatorEarningsDashboard } from './CreatorEarningsDashboard';
 
 interface VideographyStoreTabProps {
   user: UserProfile;
@@ -61,10 +68,25 @@ export const VideographyStoreTab: React.FC<VideographyStoreTabProps> = ({
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [selectedLicense, setSelectedLicense] = useState<'Standard' | 'Broadcast'>('Standard');
 
+  // Creator Storefront, Payment Account & Service Agreement State
+  const [creatorStore, setCreatorStore] = useState<CreatorStoreProfile | null>(() =>
+    getStoreForUserAndPlatform(user.id, 'videography')
+  );
+  const [isStoreModalOpen, setIsStoreModalOpen] = useState(false);
+  const [storeModalTab, setStoreModalTab] = useState<CreatorModalTab>('profile');
+  const [myStoreFilterActive, setMyStoreFilterActive] = useState(false);
+
+  useEffect(() => {
+    const syncStore = () => setCreatorStore(getStoreForUserAndPlatform(user.id, 'videography'));
+    syncStore();
+    window.addEventListener('ttg-creator-store-updated', syncStore);
+    return () => window.removeEventListener('ttg-creator-store-updated', syncStore);
+  }, [user.id]);
+
   // Videographer Upload Modal
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
-  const [newCreator, setNewCreator] = useState(user.name || '');
+  const [newCreator, setNewCreator] = useState(creatorStore?.artistName || user.name || '');
   const [newCategory, setNewCategory] = useState<VideoItem['category']>('Cinematic B-Roll');
   const [newResolution, setNewResolution] = useState<VideoItem['resolution']>('4K UHD (3840×2160)');
   const [newFps, setNewFps] = useState<number>(60);
@@ -91,7 +113,26 @@ export const VideographyStoreTab: React.FC<VideographyStoreTabProps> = ({
     return () => clearInterval(interval);
   }, [activeVideo, isVideoPlaying, playbackSpeed]);
 
+  const myStoreVideosCount = useMemo(() => {
+    if (!creatorStore) return 0;
+    const targetName = creatorStore.artistName.trim().toLowerCase();
+    return videos.filter(
+      (v) =>
+        v.creatorId === user.id ||
+        v.creatorId === creatorStore.id ||
+        v.creator.trim().toLowerCase() === targetName
+    ).length;
+  }, [videos, creatorStore, user.id]);
+
   const filteredVideos = videos.filter(v => {
+    if (myStoreFilterActive && creatorStore) {
+      const targetName = creatorStore.artistName.trim().toLowerCase();
+      const belongsToMe =
+        v.creatorId === user.id ||
+        v.creatorId === creatorStore.id ||
+        v.creator.trim().toLowerCase() === targetName;
+      if (!belongsToMe) return false;
+    }
     if (selectedCategory !== 'all' && v.category.toLowerCase() !== selectedCategory.toLowerCase()) {
       return false;
     }
@@ -102,8 +143,18 @@ export const VideographyStoreTab: React.FC<VideographyStoreTabProps> = ({
     return true;
   });
 
+  const handleOpenStoreModal = (tab: CreatorModalTab) => {
+    onRequireAuth(() => {
+      setStoreModalTab(tab);
+      setIsStoreModalOpen(true);
+    }, 'Sign in to create your Director Profile, link a Payment Account, and review the Storefront Service Agreement.');
+  };
+
   const handleOpenUploadModal = () => {
     onRequireAuth(() => {
+      if (creatorStore?.artistName) {
+        setNewCreator(creatorStore.artistName);
+      }
       setIsUploadModalOpen(true);
     }, 'Sign in or register as a Videographer to publish 4K / ProRes b-roll footage and documentary films.');
   };
@@ -115,7 +166,8 @@ export const VideographyStoreTab: React.FC<VideographyStoreTabProps> = ({
     const newVideo: VideoItem = {
       id: `video_${Date.now()}`,
       title: newTitle.trim(),
-      creator: newCreator.trim() || user.name || 'Anonymous Director',
+      creator: newCreator.trim() || creatorStore?.artistName || user.name || 'Anonymous Director',
+      creatorId: creatorStore?.id || user.id,
       duration: '0:50',
       durationSeconds: 50,
       resolution: newResolution,
@@ -187,7 +239,26 @@ export const VideographyStoreTab: React.FC<VideographyStoreTabProps> = ({
 
       {/* Main Catalog */}
       <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8 space-y-6">
-        
+        <CreatorStorefrontBar
+          platform="videography"
+          user={user}
+          store={creatorStore}
+          darkSurface
+          onOpenStoreModal={handleOpenStoreModal}
+          onUploadClick={handleOpenUploadModal}
+          myStoreFilterActive={myStoreFilterActive}
+          onToggleMyStoreFilter={() => setMyStoreFilterActive((v) => !v)}
+          myItemsCount={myStoreVideosCount}
+        />
+
+        <CreatorEarningsDashboard
+          platform="videography"
+          user={user}
+          store={creatorStore}
+          darkSurface
+          onOpenStoreModal={handleOpenStoreModal}
+        />
+
         {/* Filters */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
           <div className="flex items-center gap-2 overflow-x-auto pb-1">
@@ -245,7 +316,8 @@ export const VideographyStoreTab: React.FC<VideographyStoreTabProps> = ({
               >
                 <img 
                   src={video.thumbnailUrl} 
-                  alt={video.title} 
+                  alt={video.title}
+                  referrerPolicy="no-referrer"
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90 group-hover:opacity-100"
                 />
 
@@ -346,7 +418,8 @@ export const VideographyStoreTab: React.FC<VideographyStoreTabProps> = ({
             <div className="relative aspect-16/9 bg-black flex items-center justify-center overflow-hidden">
               <img 
                 src={activeVideo.thumbnailUrl} 
-                alt={activeVideo.title} 
+                alt={activeVideo.title}
+                referrerPolicy="no-referrer"
                 className="w-full h-full object-cover opacity-80"
               />
 
@@ -575,6 +648,44 @@ export const VideographyStoreTab: React.FC<VideographyStoreTabProps> = ({
                 />
               </div>
 
+              <div>
+                <label className="block text-xs font-medium text-stone-300 mb-1">Director / Creator Name</label>
+                <input
+                  type="text"
+                  value={newCreator}
+                  onChange={(e) => setNewCreator(e.target.value)}
+                  placeholder="Your director or studio name"
+                  className="w-full px-3 py-2 text-xs rounded-xl bg-white/5 border border-white/10 text-white focus:outline-none focus:border-rose-500"
+                  required
+                />
+              </div>
+
+              {(() => {
+                const salesSoFar = creatorStore?.completedSalesCount || 0;
+                const post50 = salesSoFar >= CREATOR_FREE_SALES_THRESHOLD;
+                const priceNum = parseFloat(newPriceStandard) || 29.99;
+                const netShare = post50 ? priceNum * 0.95 : priceNum;
+                return (
+                  <div className="p-3 bg-rose-950/35 border border-rose-700/50 rounded-xl text-xs text-rose-200 flex items-center justify-between gap-3">
+                    <div>
+                      <span className="font-bold block text-white">
+                        {post50
+                          ? 'Post-50 Sales Net Payout (95% Creator · 5% Site Service Fee)'
+                          : 'First 50 Sales Launch Payout (100% Net · 0% Site Fee)'}
+                      </span>
+                      <span className="text-[11px] text-rose-200/80">
+                        {post50
+                          ? `${salesSoFar} sales completed — 5% site fee paid to Site Owner.`
+                          : `${salesSoFar}/50 sales used — 5% site service fee starts after 50 sales.`}
+                      </span>
+                    </div>
+                    <span className="font-mono font-bold text-sm text-white shrink-0">
+                      ${netShare.toFixed(2)}
+                    </span>
+                  </div>
+                );
+              })()}
+
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
@@ -594,6 +705,18 @@ export const VideographyStoreTab: React.FC<VideographyStoreTabProps> = ({
           </div>
         </div>
       )}
+
+      {/* Videographer Artist Profile, Payment Account & Service Agreement Modal */}
+      <CreatorProfileStoreModal
+        isOpen={isStoreModalOpen}
+        onClose={() => setIsStoreModalOpen(false)}
+        platform="videography"
+        user={user}
+        existingStore={creatorStore}
+        initialTab={storeModalTab}
+        onStoreSaved={(saved) => setCreatorStore(saved)}
+        onProceedToUpload={handleOpenUploadModal}
+      />
 
     </div>
   );

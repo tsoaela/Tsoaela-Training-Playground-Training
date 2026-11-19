@@ -107,7 +107,7 @@ const CATEGORY_CONFIGS: CategoryConfig[] = [
     accentColor: 'text-emerald-600 dark:text-emerald-400',
     bgLight: 'bg-emerald-50 dark:bg-emerald-950/40',
     borderLight: 'border-emerald-200 dark:border-emerald-800/60',
-    description: 'Publish 24-bit 96kHz lossless masters, license audio stems, and distribute through our Spotify-style streaming and direct sales storefront.',
+    description: 'Publish 24-bit 96kHz lossless masters, license multitrack studio audio, and distribute through our Spotify-style streaming and direct sales storefront.',
     tracks: [
       { id: 'emerging_artist', label: 'Independent Emerging Producer', duration: 'Open Roster', degree: 'Verified Streaming Licensee' },
       { id: 'studio_master', label: 'Audio DSP & Spatial Audio Master', duration: 'Annual Guild', degree: 'Acoustic Engineering Guild Member' },

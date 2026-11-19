@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { X, Lock, CreditCard, ShieldCheck, CheckCircle2, ArrowRight, Loader2, Calendar, MapPin, Tag } from 'lucide-react';
-import { SubscriptionTier, RetreatEvent, Booking, InvoiceReceipt } from '../types';
+import { X, Lock, CreditCard, ShieldCheck, CheckCircle2, Loader2, Calendar, MapPin, Tag, BookOpen } from 'lucide-react';
+import { SubscriptionTier, RetreatEvent, Booking, InvoiceReceipt, StudyGuide } from '../types';
 
 export type CheckoutMode = 
   | { type: 'subscription'; plan: SubscriptionTier; billingCycle: 'monthly' | 'annual' }
-  | { type: 'retreat'; event: RetreatEvent; ticketType: 'Virtual Pass' | 'In-Person Ticket'; seats: number; attendeeName: string; attendeeEmail: string };
+  | { type: 'retreat'; event: RetreatEvent; ticketType: 'Virtual Pass' | 'In-Person Ticket'; seats: number; attendeeName: string; attendeeEmail: string }
+  | { type: 'course'; guide: StudyGuide; priceZar: number };
 
 interface StripeCheckoutModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface StripeCheckoutModalProps {
   onClose: () => void;
   onSuccessSubscription: (plan: SubscriptionTier, billingCycle: 'monthly' | 'annual', receipt: InvoiceReceipt) => void;
   onSuccessBooking: (booking: Booking, receipt: InvoiceReceipt) => void;
+  onSuccessCourseUnlock?: (guide: StudyGuide, receipt: InvoiceReceipt) => void;
 }
 
 export const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
@@ -20,13 +22,14 @@ export const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
   onClose,
   onSuccessSubscription,
   onSuccessBooking,
+  onSuccessCourseUnlock,
 }) => {
   const [cardNumber, setCardNumber] = useState('4242 4242 4242 4242');
   const [cardExp, setCardExp] = useState('11/28');
   const [cardCvc, setCardCvc] = useState('882');
   const [cardName, setCardName] = useState('Tsoaelat S.');
-  const [country, setCountry] = useState('United States');
-  const [postalCode, setPostalCode] = useState('94103');
+  const [country, setCountry] = useState('South Africa');
+  const [postalCode, setPostalCode] = useState('2000');
   const [promoCode, setPromoCode] = useState('');
   const [promoApplied, setPromoApplied] = useState(false);
   const [promoError, setPromoError] = useState('');
@@ -35,6 +38,11 @@ export const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
   const [confirmedId, setConfirmedId] = useState<string>('');
 
   if (!isOpen || !checkoutData) return null;
+
+  const isCourseCheckout = checkoutData.type === 'course';
+  const isZarCheckout = isCourseCheckout || checkoutData.type === 'subscription';
+  const currencySymbol = isZarCheckout ? 'R' : '$';
+  const currencyCode = isZarCheckout ? 'ZAR' : 'USD';
 
   // Calculate pricing
   let itemTitle = '';
@@ -45,21 +53,26 @@ export const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
 
   if (checkoutData.type === 'subscription') {
     if (checkoutData.plan === 'educare_pro') {
-      itemTitle = 'Educare Pro Membership';
-      itemSubtitle = '100% Free · Sponsored Institutional Grant · No Subscription Fees';
+      itemTitle = 'Digital Educare Short-Course Tutoring';
+      itemSubtitle = '100% Free Short-Term Lessons · Self-Paced Tutoring Access';
       basePrice = 0;
-      intervalLabel = ' ($0.00/mo free)';
+      intervalLabel = ' (Free · R0.00)';
     } else if (checkoutData.plan === 'research_pass') {
-      itemTitle = 'Research Pass Membership';
-      itemSubtitle = '100% Free · Institutional Research Bureau Grant · No Subscription Fees';
+      itemTitle = 'Research Corner Tutoring Access';
+      itemSubtitle = '100% Free Research Briefs & Synthesis · Self-Paced Access';
       basePrice = 0;
-      intervalLabel = ' ($0.00/mo free)';
+      intervalLabel = ' (Free · R0.00)';
     } else {
-      itemTitle = 'TTG All-Access Fellowship';
-      itemSubtitle = '100% Free · Full Institutional Grant · No Subscription Fees';
+      itemTitle = 'TTG Digital Educare Tutoring Pass';
+      itemSubtitle = 'Free Short-Term Courses · Self-Paced Tutoring Access';
       basePrice = 0;
-      intervalLabel = ' ($0.00/mo free)';
+      intervalLabel = ' (Free · R0.00)';
     }
+  } else if (checkoutData.type === 'course') {
+    itemTitle = checkoutData.guide.title;
+    itemSubtitle = `Long-Term Tutoring Course · Self-Paced (Finish at your own pace) · One-Time Course Fee`;
+    basePrice = checkoutData.priceZar || 145;
+    intervalLabel = ' (one-time per course)';
   } else {
     const isVirtual = checkoutData.ticketType === 'Virtual Pass';
     itemTitle = `${checkoutData.event.title}`;
@@ -73,8 +86,14 @@ export const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
     discountAmount = Math.round(basePrice * 0.15 * 100) / 100;
   }
 
-  const taxAmount = checkoutData.type === 'subscription' ? 0 : Math.round((basePrice - discountAmount) * 0.0825 * 100) / 100;
-  const totalAmount = checkoutData.type === 'subscription' ? 0 : Math.round((basePrice - discountAmount + taxAmount) * 100) / 100;
+  const taxAmount =
+    checkoutData.type === 'subscription' || checkoutData.type === 'course'
+      ? 0
+      : Math.round((basePrice - discountAmount) * 0.0825 * 100) / 100;
+  const totalAmount =
+    checkoutData.type === 'subscription'
+      ? 0
+      : Math.round((basePrice - discountAmount + taxAmount) * 100) / 100;
 
   const handleApplyPromo = (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,7 +110,7 @@ export const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
 
     setTimeout(() => {
       const paymentIntentId = checkoutData.type === 'subscription' 
-        ? `pi_grant_free_${Math.random().toString(36).substring(2, 8)}`
+        ? `pi_tutoring_free_${Math.random().toString(36).substring(2, 8)}`
         : `pi_3P${Math.random().toString(36).substring(2, 9)}TtG`;
       const invoiceNumber = `INV-2026-${Math.floor(1000 + Math.random() * 9000)}`;
       const currentDate = new Date().toISOString().split('T')[0];
@@ -101,16 +120,16 @@ export const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
           id: `inv_${Date.now()}`,
           invoice_number: invoiceNumber,
           date: currentDate,
-          description: `${itemTitle} ($0.00 · Free Grant)`,
+          description: `${itemTitle} (Free Short-Course Access)`,
           amount: 0.00,
-          currency: 'USD',
+          currency: 'ZAR',
           status: 'Paid',
           category: 'Subscription',
-          payment_method: 'Complimentary Grant ($0.00)',
+          payment_method: 'Free Short-Course Tutoring (R0.00)',
           payment_intent_id: paymentIntentId,
           items: [
             {
-              description: `${itemTitle} · $0.00 Sponsored Institutional Access`,
+              description: `${itemTitle} · Free Self-Paced Tutoring Access`,
               quantity: 1,
               unit_price: 0.00,
             },
@@ -123,7 +142,36 @@ export const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
           onSuccessSubscription(checkoutData.plan, checkoutData.billingCycle, newInvoice);
           onClose();
           setStatus('idle');
-        }, 1600);
+        }, 1400);
+
+      } else if (checkoutData.type === 'course') {
+        const newInvoice: InvoiceReceipt = {
+          id: `inv_course_${Date.now()}`,
+          invoice_number: invoiceNumber,
+          date: currentDate,
+          description: `Long-Term Tutoring Course: ${checkoutData.guide.title} (Self-Paced)`,
+          amount: totalAmount,
+          currency: 'ZAR',
+          status: 'Paid',
+          category: 'Subscription',
+          payment_method: `Visa •••• ${cardNumber.slice(-4) || '4242'}`,
+          payment_intent_id: paymentIntentId,
+          items: [
+            {
+              description: `${checkoutData.guide.title} · Long-Term Digital Educare Course (Finish at your own pace)`,
+              quantity: 1,
+              unit_price: totalAmount,
+            },
+          ],
+        };
+
+        setConfirmedId(invoiceNumber);
+        setStatus('success');
+        setTimeout(() => {
+          onSuccessCourseUnlock?.(checkoutData.guide, newInvoice);
+          onClose();
+          setStatus('idle');
+        }, 1400);
 
       } else {
         const bookingId = `bk_ttg_${Math.floor(10000 + Math.random() * 90000)}`;
@@ -173,7 +221,7 @@ export const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
           setStatus('idle');
         }, 1600);
       }
-    }, 1200);
+    }, 1000);
   };
 
   return (
@@ -209,7 +257,11 @@ export const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
             </div>
 
             <div className="text-xs uppercase tracking-wider text-amber-400/90 font-medium mb-1">
-              {checkoutData.type === 'subscription' ? 'Subscription Order' : 'Retreat Booking Order'}
+              {checkoutData.type === 'subscription'
+                ? 'Digital Educare Tutoring Access'
+                : checkoutData.type === 'course'
+                ? 'Long-Term Tutoring Course (R145)'
+                : 'Retreat Booking Order'}
             </div>
 
             <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
@@ -218,6 +270,20 @@ export const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
             <p className="text-xs text-stone-400 mt-1">
               {itemSubtitle}
             </p>
+
+            {/* If course, show self-paced guarantee */}
+            {checkoutData.type === 'course' && (
+              <div className="mt-4 pt-4 border-t border-stone-800 space-y-1.5 text-xs text-stone-300">
+                <div className="flex items-center gap-2">
+                  <BookOpen className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span>{checkoutData.guide.chapters.length} Guided Chapters · Self-Paced</span>
+                </div>
+                <div className="flex items-center gap-2 text-emerald-300">
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                  <span>No deadlines — finish course at your own pace</span>
+                </div>
+              </div>
+            )}
 
             {/* If retreat, show dates and location */}
             {checkoutData.type === 'retreat' && (
@@ -236,27 +302,27 @@ export const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
             {/* Price Breakdown */}
             <div className="mt-6 pt-6 border-t border-stone-800 space-y-2.5 text-xs text-stone-300">
               <div className="flex justify-between items-center">
-                <span>Subtotal</span>
-                <span className="font-mono tabular-nums">${basePrice.toFixed(2)}</span>
+                <span>Subtotal ({currencyCode})</span>
+                <span className="font-mono tabular-nums">{currencySymbol}{basePrice.toFixed(2)}</span>
               </div>
               
               {promoApplied && (
                 <div className="flex justify-between items-center text-emerald-400">
                   <span>Promotion (15% discount)</span>
-                  <span className="font-mono tabular-nums">-${discountAmount.toFixed(2)}</span>
+                  <span className="font-mono tabular-nums">-{currencySymbol}{discountAmount.toFixed(2)}</span>
                 </div>
               )}
 
               <div className="flex justify-between items-center text-stone-400">
-                <span>Estimated Tax (8.25%)</span>
-                <span className="font-mono tabular-nums">${taxAmount.toFixed(2)}</span>
+                <span>{checkoutData.type !== 'retreat' ? 'Platform Fee' : 'Estimated Tax (8.25%)'}</span>
+                <span className="font-mono tabular-nums">{currencySymbol}{taxAmount.toFixed(2)}</span>
               </div>
 
               <div className="pt-3 border-t border-stone-800 flex justify-between items-baseline">
                 <span className="text-sm font-semibold text-white">Total due now</span>
                 <div className="text-right">
                   <div className="text-2xl font-bold font-mono tabular-nums text-white">
-                    ${totalAmount.toFixed(2)}
+                    {currencySymbol}{totalAmount.toFixed(2)}
                   </div>
                   <span className="text-[11px] text-stone-500">{intervalLabel}</span>
                 </div>
@@ -415,42 +481,44 @@ export const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
                   </div>
                 </div>
 
-                {/* Promo Code section */}
-                {!promoApplied ? (
-                  <form onSubmit={handleApplyPromo} className="pt-1">
-                    <div className="flex gap-2">
-                      <div className="relative flex-1">
-                        <input
-                          type="text"
-                          value={promoCode}
-                          onChange={(e) => setPromoCode(e.target.value)}
-                          placeholder="Promo code (e.g. TTG2026)"
-                          className="w-full pl-8 pr-3 py-1.5 text-xs font-mono uppercase border border-stone-200 dark:border-stone-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-stone-900 dark:focus:ring-stone-400 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100"
-                        />
-                        <Tag className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-2" />
+                {/* Promo Code section (retreat bookings) */}
+                {checkoutData.type === 'retreat' && (
+                  !promoApplied ? (
+                    <form onSubmit={handleApplyPromo} className="pt-1">
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <input
+                            type="text"
+                            value={promoCode}
+                            onChange={(e) => setPromoCode(e.target.value)}
+                            placeholder="Promo code (e.g. TTG2026)"
+                            className="w-full pl-8 pr-3 py-1.5 text-xs font-mono uppercase border border-stone-200 dark:border-stone-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-stone-900 dark:focus:ring-stone-400 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-100"
+                          />
+                          <Tag className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-2" />
+                        </div>
+                        <button
+                          type="submit"
+                          className="px-3 py-1.5 text-xs font-medium text-stone-700 dark:text-stone-300 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 rounded-lg transition-colors"
+                        >
+                          Apply
+                        </button>
                       </div>
+                      {promoError && (
+                        <p className="text-[11px] text-red-600 dark:text-red-400 mt-1">{promoError}</p>
+                      )}
+                    </form>
+                  ) : (
+                    <div className="flex items-center justify-between text-xs text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                      <span>15% Founder Discount applied</span>
                       <button
-                        type="submit"
-                        className="px-3 py-1.5 text-xs font-medium text-stone-700 dark:text-stone-300 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 rounded-lg transition-colors"
+                        type="button"
+                        onClick={() => setPromoApplied(false)}
+                        className="text-[11px] underline text-emerald-800 dark:text-emerald-200"
                       >
-                        Apply
+                        Remove
                       </button>
                     </div>
-                    {promoError && (
-                      <p className="text-[11px] text-red-600 dark:text-red-400 mt-1">{promoError}</p>
-                    )}
-                  </form>
-                ) : (
-                  <div className="flex items-center justify-between text-xs text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800">
-                    <span>15% Founder Discount applied</span>
-                    <button
-                      type="button"
-                      onClick={() => setPromoApplied(false)}
-                      className="text-[11px] underline text-emerald-800 dark:text-emerald-200"
-                    >
-                      Remove
-                    </button>
-                  </div>
+                  )
                 )}
               </div>
 
@@ -471,8 +539,10 @@ export const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
                     <>
                       <Lock className="w-3.5 h-3.5" />
                       <span>
-                        {checkoutData.type === 'subscription' 
-                          ? `Subscribe · $${totalAmount.toFixed(2)}${intervalLabel}` 
+                        {checkoutData.type === 'subscription'
+                          ? 'Activate Free Tutoring Access (R0.00)'
+                          : checkoutData.type === 'course'
+                          ? `Pay R${totalAmount.toFixed(2)} & Unlock Course`
                           : `Pay $${totalAmount.toFixed(2)} & Book Seat`}
                       </span>
                     </>

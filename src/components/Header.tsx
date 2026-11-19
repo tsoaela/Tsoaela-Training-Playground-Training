@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { UserProfile, UserRole, StudyGuide, RetreatEvent, ResearchPaper, ReadingProgress, AppNotification } from '../types';
+import { UserProfile, UserRole, StudyGuide, RetreatEvent, ResearchPaper, ReadingProgress, AppNotification, ThemeMode } from '../types';
 import { 
   Sparkles, 
   Sun, 
   Moon, 
+  Monitor,
+  Check,
+  ChevronDown,
   Bell, 
   BellRing,
   Search, 
@@ -103,6 +106,8 @@ interface HeaderProps {
   userRole?: UserRole;
   onOpenPaywall: () => void;
   theme: 'light' | 'dark';
+  themeMode?: ThemeMode;
+  onChangeThemeMode?: (mode: ThemeMode) => void;
   onToggleTheme: () => void;
   onOpenReminders?: () => void;
   activeRemindersCount?: number;
@@ -139,6 +144,8 @@ export const Header: React.FC<HeaderProps> = ({
   userRole = 'student',
   onOpenPaywall,
   theme,
+  themeMode = theme,
+  onChangeThemeMode,
   onToggleTheme,
   onOpenReminders,
   activeRemindersCount = 0,
@@ -176,12 +183,14 @@ export const Header: React.FC<HeaderProps> = ({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [notifFilter, setNotifFilter] = useState<'all' | 'assignment_graded' | 'chapter_added' | 'study_group_started'>('all');
+  const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const mobileSearchContainerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const notifContainerRef = useRef<HTMLDivElement>(null);
+  const themeMenuContainerRef = useRef<HTMLDivElement>(null);
 
   const saveRecentSearch = (rawQuery: string) => {
     const trimmed = rawQuery.trim();
@@ -239,14 +248,16 @@ export const Header: React.FC<HeaderProps> = ({
       } else if (e.key === 'Escape' && isSearchOpen) {
         setIsSearchOpen(false);
         searchInputRef.current?.blur();
+      } else if (e.key === 'Escape' && isThemeMenuOpen) {
+        setIsThemeMenuOpen(false);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isSearchOpen]);
+  }, [isSearchOpen, isThemeMenuOpen]);
 
-  // Click outside listener to dismiss search & notification dropdowns
+  // Click outside listener to dismiss search, notification & theme mode dropdowns
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       const clickedDesktopSearch =
@@ -259,6 +270,9 @@ export const Header: React.FC<HeaderProps> = ({
       }
       if (notifContainerRef.current && !notifContainerRef.current.contains(e.target as Node)) {
         setIsNotifOpen(false);
+      }
+      if (themeMenuContainerRef.current && !themeMenuContainerRef.current.contains(e.target as Node)) {
+        setIsThemeMenuOpen(false);
       }
     };
 
@@ -958,60 +972,249 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             )}
 
-            {/* Animated Motion Theme Toggle Switch */}
-            <motion.button
-              type="button"
-              onClick={onToggleTheme}
-              whileHover={{ scale: 1.04 }}
-              whileTap={{ scale: 0.94 }}
-              className="relative flex items-center w-14 h-8 p-1 rounded-full bg-stone-200/90 dark:bg-stone-800 border border-stone-300/80 dark:border-stone-700 cursor-pointer transition-colors duration-300 shadow-inner overflow-hidden"
-              title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-              aria-label="Toggle theme"
-              aria-pressed={theme === 'dark'}
-            >
-              {/* Background subtle stars/sunlight tint */}
-              <div className="absolute inset-0 flex items-center justify-between px-2 pointer-events-none">
-                <Sun className="w-3 h-3 text-amber-500/70" />
-                <Moon className="w-3 h-3 text-indigo-400/70" />
+            {/* Theme Mode Persistence Indicator & Visual Preview Switcher */}
+            <div ref={themeMenuContainerRef} className="relative">
+              <div className="flex items-center rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-100/90 dark:bg-stone-800/90 p-0.5 shadow-2xs">
+                {/* Quick Cycle Mode Button */}
+                <button
+                  type="button"
+                  onClick={onToggleTheme}
+                  className="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-white dark:hover:bg-stone-700 transition-colors cursor-pointer whitespace-nowrap"
+                  title="Quick-cycle Theme Mode (System Default -> Light -> Dark)"
+                  aria-label={`Quick cycle theme mode, currently ${themeMode === 'system' ? `System Default (${theme})` : themeMode}`}
+                >
+                  {/* Miniature Visual Theme Preview Frame */}
+                  <span
+                    aria-hidden="true"
+                    className="relative w-6 h-4 rounded border border-stone-300 dark:border-stone-600 overflow-hidden shrink-0 flex"
+                  >
+                    {themeMode === 'system' ? (
+                      <>
+                        <span className="w-1/2 h-full bg-stone-50 flex flex-col justify-between p-0.5">
+                          <span className="w-full h-0.5 bg-amber-500 rounded-full" />
+                          <span className="w-2/3 h-0.5 bg-stone-400 rounded-full" />
+                        </span>
+                        <span className="w-1/2 h-full bg-stone-950 flex flex-col justify-between p-0.5">
+                          <span className="w-full h-0.5 bg-amber-400 rounded-full" />
+                          <span className="w-2/3 h-0.5 bg-stone-500 rounded-full" />
+                        </span>
+                      </>
+                    ) : themeMode === 'dark' ? (
+                      <span className="w-full h-full bg-stone-950 flex flex-col justify-between p-0.5">
+                        <span className="w-full h-0.5 bg-amber-400 rounded-full" />
+                        <span className="w-3/4 h-0.5 bg-stone-500 rounded-full" />
+                      </span>
+                    ) : (
+                      <span className="w-full h-full bg-stone-50 flex flex-col justify-between p-0.5">
+                        <span className="w-full h-0.5 bg-amber-500 rounded-full" />
+                        <span className="w-3/4 h-0.5 bg-stone-400 rounded-full" />
+                      </span>
+                    )}
+                  </span>
+
+                  {themeMode === 'system' ? (
+                    <Monitor className="w-3.5 h-3.5 text-stone-700 dark:text-stone-200 shrink-0" />
+                  ) : themeMode === 'dark' ? (
+                    <Moon className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  ) : (
+                    <Sun className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                  )}
+
+                  <span className="hidden xl:inline text-[11px] font-semibold text-stone-800 dark:text-stone-100 capitalize">
+                    {themeMode === 'system' ? 'System' : themeMode}
+                  </span>
+                  <span
+                    className="hidden sm:inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"
+                    title="Theme preference saved locally"
+                  />
+                </button>
+
+                {/* Open Theme Preview & Selector Popover */}
+                <button
+                  type="button"
+                  onClick={() => setIsThemeMenuOpen((prev) => !prev)}
+                  className="p-1 rounded-lg text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-100 hover:bg-white dark:hover:bg-stone-700 transition-colors cursor-pointer"
+                  title="Theme Mode preview & selection"
+                  aria-label="Open Theme Mode visual selector"
+                  aria-expanded={isThemeMenuOpen}
+                >
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isThemeMenuOpen ? 'rotate-180' : ''}`} />
+                </button>
               </div>
 
-              {/* Sliding spring thumb with rotating icon */}
-              <motion.div
-                layout
-                transition={{ type: 'spring', stiffness: 420, damping: 28 }}
-                className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center shadow-md ${
-                  theme === 'dark'
-                    ? 'ml-auto bg-stone-950 text-amber-300 ring-1 ring-amber-400/40'
-                    : 'mr-auto bg-white text-amber-500 ring-1 ring-amber-300/60'
-                }`}
-              >
-                <AnimatePresence mode="wait" initial={false}>
-                  {theme === 'dark' ? (
-                    <motion.span
-                      key="moon"
-                      initial={{ rotate: -90, opacity: 0, scale: 0.5 }}
-                      animate={{ rotate: 0, opacity: 1, scale: 1 }}
-                      exit={{ rotate: 90, opacity: 0, scale: 0.5 }}
-                      transition={{ duration: 0.22 }}
-                      className="flex items-center justify-center"
-                    >
-                      <Moon className="w-3.5 h-3.5" />
-                    </motion.span>
-                  ) : (
-                    <motion.span
-                      key="sun"
-                      initial={{ rotate: 90, opacity: 0, scale: 0.5 }}
-                      animate={{ rotate: 0, opacity: 1, scale: 1 }}
-                      exit={{ rotate: -90, opacity: 0, scale: 0.5 }}
-                      transition={{ duration: 0.22 }}
-                      className="flex items-center justify-center"
-                    >
-                      <Sun className="w-3.5 h-3.5" />
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </motion.div>
-            </motion.button>
+              <AnimatePresence>
+                {isThemeMenuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -8, scale: 0.97 }}
+                    transition={{ duration: 0.16 }}
+                    className="fixed sm:absolute left-4 right-4 sm:left-auto sm:right-0 top-16 sm:top-full sm:mt-2 sm:w-80 bg-white dark:bg-stone-900 rounded-2xl shadow-2xl border border-stone-200 dark:border-stone-800 overflow-hidden z-50"
+                  >
+                    {/* Header & Persistence Status */}
+                    <div className="px-4 py-3 border-b border-stone-100 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950/70 flex items-center justify-between gap-2">
+                      <div>
+                        <h4 className="text-xs font-bold text-stone-900 dark:text-stone-100">
+                          Theme Mode
+                        </h4>
+                        <p className="text-[10px] text-stone-500 dark:text-stone-400">
+                          {themeMode === 'system'
+                            ? `System Default · Resolved ${theme === 'dark' ? 'Dark' : 'Light'}`
+                            : `${themeMode === 'dark' ? 'Dark' : 'Light'} Mode active`}
+                        </p>
+                      </div>
+                      <span className="inline-flex items-center gap-1 text-[10px] font-mono font-semibold text-emerald-700 dark:text-emerald-400">
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>Persisted</span>
+                      </span>
+                    </div>
+
+                    {/* Visual Preview of Current Selection */}
+                    <div className="p-3.5 border-b border-stone-100 dark:border-stone-800 space-y-2">
+                      <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400">
+                        <span>Current Selection Preview</span>
+                        <span>{theme === 'dark' ? 'Obsidian Canvas' : 'Alabaster Canvas'}</span>
+                      </div>
+
+                      <div
+                        className={`rounded-xl border p-2.5 transition-colors ${
+                          theme === 'dark'
+                            ? 'bg-stone-950 border-stone-800 text-stone-100'
+                            : 'bg-stone-50 border-stone-200 text-stone-900'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between pb-2 mb-2 border-b border-current/10">
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-amber-500" />
+                            <span className="text-[10px] font-bold tracking-tight">
+                              TTG Learning Studio
+                            </span>
+                          </div>
+                          <span className="text-[9px] font-mono opacity-70 capitalize">
+                            {themeMode}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          <div
+                            className={`col-span-2 rounded-lg p-2 space-y-1 border ${
+                              theme === 'dark'
+                                ? 'bg-stone-900 border-stone-800'
+                                : 'bg-white border-stone-200'
+                            }`}
+                          >
+                            <div className="h-1.5 w-3/4 rounded bg-current opacity-80" />
+                            <div className="h-1 w-full rounded bg-current opacity-30" />
+                            <div className="h-1 w-2/3 rounded bg-amber-500/80" />
+                          </div>
+                          <div
+                            className={`rounded-lg p-2 flex flex-col justify-between border ${
+                              theme === 'dark'
+                                ? 'bg-stone-900 border-stone-800'
+                                : 'bg-white border-stone-200'
+                            }`}
+                          >
+                            <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                            <div className="h-1 w-full rounded bg-current opacity-40" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 3-Way Theme Mode Selector */}
+                    <div className="p-2 space-y-1">
+                      {(
+                        [
+                          {
+                            mode: 'system' as const,
+                            label: 'System Default',
+                            desc: `Follows OS preference (currently ${theme})`,
+                            Icon: Monitor,
+                          },
+                          {
+                            mode: 'light' as const,
+                            label: 'Light Mode',
+                            desc: 'High-contrast alabaster study surface',
+                            Icon: Sun,
+                          },
+                          {
+                            mode: 'dark' as const,
+                            label: 'Dark Mode',
+                            desc: 'Low-glare obsidian focus environment',
+                            Icon: Moon,
+                          },
+                        ]
+                      ).map(({ mode, label, desc, Icon }) => {
+                        const isActive = themeMode === mode;
+                        return (
+                          <button
+                            key={mode}
+                            type="button"
+                            onClick={() => {
+                              if (onChangeThemeMode) {
+                                onChangeThemeMode(mode);
+                              } else {
+                                onToggleTheme();
+                              }
+                              setIsThemeMenuOpen(false);
+                            }}
+                            className={`w-full text-left px-2.5 py-2 rounded-xl flex items-center justify-between gap-2.5 transition-colors cursor-pointer border ${
+                              isActive
+                                ? 'bg-amber-50/80 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800'
+                                : 'bg-transparent border-transparent hover:bg-stone-100 dark:hover:bg-stone-800/70'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              {/* Per-option Mini Swatch */}
+                              <span
+                                aria-hidden="true"
+                                className="w-8 h-6 rounded-md border border-stone-300 dark:border-stone-700 overflow-hidden shrink-0 flex"
+                              >
+                                {mode === 'system' ? (
+                                  <>
+                                    <span className="w-1/2 h-full bg-stone-50 p-1 flex flex-col justify-between">
+                                      <span className="h-1 w-full bg-amber-500 rounded-sm" />
+                                      <span className="h-1 w-2/3 bg-stone-300 rounded-sm" />
+                                    </span>
+                                    <span className="w-1/2 h-full bg-stone-950 p-1 flex flex-col justify-between">
+                                      <span className="h-1 w-full bg-amber-400 rounded-sm" />
+                                      <span className="h-1 w-2/3 bg-stone-600 rounded-sm" />
+                                    </span>
+                                  </>
+                                ) : mode === 'light' ? (
+                                  <span className="w-full h-full bg-stone-50 p-1 flex flex-col justify-between">
+                                    <span className="h-1 w-full bg-amber-500 rounded-sm" />
+                                    <span className="h-1 w-3/4 bg-stone-300 rounded-sm" />
+                                  </span>
+                                ) : (
+                                  <span className="w-full h-full bg-stone-950 p-1 flex flex-col justify-between">
+                                    <span className="h-1 w-full bg-amber-400 rounded-sm" />
+                                    <span className="h-1 w-3/4 bg-stone-600 rounded-sm" />
+                                  </span>
+                                )}
+                              </span>
+
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5 text-xs font-bold text-stone-900 dark:text-stone-100">
+                                  <Icon className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                                  <span>{label}</span>
+                                </div>
+                                <p className="text-[10px] text-stone-500 dark:text-stone-400 truncate">
+                                  {desc}
+                                </p>
+                              </div>
+                            </div>
+
+                            {isActive && (
+                              <Check className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
 
             {/* Authentication / User Profile */}
             {isAuthenticated ? (
@@ -1227,7 +1430,7 @@ export const Header: React.FC<HeaderProps> = ({
                 className="flex px-2.5 py-1.5 text-xs font-semibold text-stone-700 dark:text-stone-300 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 rounded-xl transition-all whitespace-nowrap items-center gap-1.5 cursor-pointer"
               >
                 <Sparkles className="w-3 h-3 text-amber-500" />
-                <span>Grant ($0)</span>
+                <span>Tutoring Plans</span>
               </button>
             )}
           </div>
@@ -1524,9 +1727,45 @@ export const Header: React.FC<HeaderProps> = ({
                   className="flex items-center justify-center gap-1.5 px-3 py-2.5 font-semibold rounded-xl bg-stone-100 dark:bg-stone-800 text-stone-800 dark:text-stone-200 col-span-2"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Claim Institutional Grant ($0)</span>
+                  <span>Digital Educare Tutoring (Free Short Courses)</span>
                 </button>
               )}
+            </div>
+
+            {/* Mobile Theme Mode Switcher */}
+            <div className="p-2 rounded-xl bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 space-y-1.5">
+              <div className="flex items-center justify-between text-[11px] px-1">
+                <span className="font-bold text-stone-700 dark:text-stone-300">Theme Mode</span>
+                <span className="font-mono text-[10px] text-emerald-700 dark:text-emerald-400">
+                  Saved ({themeMode})
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5">
+                {(
+                  [
+                    { mode: 'system' as const, label: 'System', Icon: Monitor },
+                    { mode: 'light' as const, label: 'Light', Icon: Sun },
+                    { mode: 'dark' as const, label: 'Dark', Icon: Moon },
+                  ]
+                ).map(({ mode, label, Icon }) => {
+                  const active = themeMode === mode;
+                  return (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => onChangeThemeMode?.(mode)}
+                      className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 border cursor-pointer ${
+                        active
+                          ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 border-stone-900 dark:border-stone-100'
+                          : 'bg-white dark:bg-stone-900 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-700'
+                      }`}
+                    >
+                      <Icon className="w-3 h-3" />
+                      <span>{label}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {isAuthenticated && onLogout && (

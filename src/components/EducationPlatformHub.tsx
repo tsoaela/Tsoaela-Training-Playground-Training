@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   BookOpen, 
   FileText, 
@@ -13,7 +13,8 @@ import {
   ChevronUp,
   Award,
   ArrowDown,
-  ShieldCheck
+  ShieldCheck,
+  GitBranch
 } from 'lucide-react';
 import {
   ACADEMIC_CATEGORY_FILTERS,
@@ -47,8 +48,20 @@ import { CommunityFeedTab } from './CommunityFeedTab';
 import { LearningVelocityPanel } from './LearningVelocityPanel';
 import { CourseLeaderboardWidget } from './CourseLeaderboardWidget';
 import { CareerRoadmapPanel } from './CareerRoadmapPanel';
+import { StudyRoadmap } from './StudyRoadmap';
 import { PomodoroStudyTimer } from './PomodoroStudyTimer';
 import { AccreditationWorkflowSection } from './AccreditationWorkflowSection';
+import { NextBestStepBanner } from './NextBestStepBanner';
+import { PriorityReviewSection } from './PriorityReviewSection';
+import { CatalogFilterSortBar } from './CatalogFilterSortBar';
+import {
+  CatalogMultiFilterState,
+  CatalogSortBy,
+  CatalogSortDirection,
+  EMPTY_CATALOG_FILTERS,
+  getResearchPaperNqfLevel,
+  getStudyGuideNqfLevel,
+} from '../utils/catalogOrganization';
 import { CheckoutMode } from './StripeCheckoutModal';
 import { TTG_LOGO_URL } from '../utils/pdfBranding';
 
@@ -122,6 +135,8 @@ interface EducationPlatformHubProps {
   onClearRequestedAcademicCategory?: () => void;
   onOpenStudentFeedback?: (courseId?: string, moduleIndex?: number) => void;
   onActiveStudyContextChange?: (context: { courseTitle?: string; chapterTitle?: string } | null) => void;
+  unlockedLongCourseIds?: string[];
+  onUnlockLongCourse?: (guide: StudyGuide) => void;
 }
 
 export const EducationPlatformHub: React.FC<EducationPlatformHubProps> = ({
@@ -172,12 +187,49 @@ export const EducationPlatformHub: React.FC<EducationPlatformHubProps> = ({
   onClearRequestedAcademicCategory,
   onOpenStudentFeedback,
   onActiveStudyContextChange,
+  unlockedLongCourseIds = [],
+  onUnlockLongCourse,
 }) => {
   const [subTab, setSubTab] = useState<EducationSubTab>(initialSubTab);
   const [selectedAcademicCategory, setSelectedAcademicCategory] = useState<'all' | AcademicCategoryKey>('all');
   const [leaderboardGuideId, setLeaderboardGuideId] = useState<string>(studyGuides[0]?.id || '');
   const [roadmapTargetGuideId, setRoadmapTargetGuideId] = useState<string | null>(null);
-  const [activeInsightPanel, setActiveInsightPanel] = useState<'none' | 'velocity' | 'leaderboard' | 'roadmap' | 'workflow'>('none');
+  const [bannerAction, setBannerAction] = useState<{
+    guideId: string;
+    chapterIdx?: number;
+    launchQuizId?: string;
+  } | null>(null);
+  const [activeInsightPanel, setActiveInsightPanel] = useState<'none' | 'study_roadmap' | 'velocity' | 'leaderboard' | 'roadmap' | 'workflow'>('study_roadmap');
+  const [educareFilters, setEducareFilters] = useState<CatalogMultiFilterState>(EMPTY_CATALOG_FILTERS);
+  const [researchFilters, setResearchFilters] = useState<CatalogMultiFilterState>(EMPTY_CATALOG_FILTERS);
+  const [catalogSortBy, setCatalogSortBy] = useState<CatalogSortBy>('recommended');
+  const [catalogSortDirection, setCatalogSortDirection] = useState<CatalogSortDirection>('desc');
+
+  const educareFilterMetadata = useMemo(() => {
+    const nqfSet = new Set<number>();
+    const catSet = new Set<string>();
+    studyGuides.forEach((g) => {
+      nqfSet.add(getStudyGuideNqfLevel(g));
+      if (g.category) catSet.add(g.category);
+    });
+    return {
+      nqfLevels: Array.from(nqfSet).sort((a, b) => a - b),
+      categories: Array.from(catSet).sort((a, b) => a.localeCompare(b)),
+    };
+  }, [studyGuides]);
+
+  const researchFilterMetadata = useMemo(() => {
+    const nqfSet = new Set<number>();
+    const catSet = new Set<string>();
+    researchPapers.forEach((p) => {
+      nqfSet.add(getResearchPaperNqfLevel(p));
+      if (p.category) catSet.add(p.category);
+    });
+    return {
+      nqfLevels: Array.from(nqfSet).sort((a, b) => a - b),
+      categories: Array.from(catSet).sort((a, b) => a.localeCompare(b)),
+    };
+  }, [researchPapers]);
 
   const handleSelectAcademicCategory = (
     category: 'all' | AcademicCategoryKey,
@@ -324,16 +376,17 @@ export const EducationPlatformHub: React.FC<EducationPlatformHubProps> = ({
               />
               <div>
                 <h2 className="text-sm font-bold tracking-tight text-stone-900 dark:text-stone-100">
-                  TTG Education Platform
+                  TTG Digital Educare Tutoring Hub
                 </h2>
                 <p className="text-[11px] text-stone-500 dark:text-stone-400">
-                  Compiled Institutional Learning Center: Educare, Research, Digital World, Careers & Retreats
+                  Self-Paced Tutoring System: Free Short Courses, R145 Long-Term Courses, Research, Digital World &amp; Retreats
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-1.5 flex-wrap">
               {[
+                { id: 'study_roadmap' as const, label: 'Study Roadmap', icon: GitBranch },
                 { id: 'velocity' as const, label: 'Learning Velocity', icon: BarChart3 },
                 { id: 'leaderboard' as const, label: 'Course Leaderboards', icon: Trophy },
                 { id: 'roadmap' as const, label: 'Career Roadmap', icon: Map },
@@ -420,6 +473,38 @@ export const EducationPlatformHub: React.FC<EducationPlatformHubProps> = ({
         onOpenActivityDashboard={onOpenActivityDashboard}
       />
 
+      {/* Personalized Next Best Step Banner */}
+      <NextBestStepBanner
+        studyGuides={studyGuides}
+        readingProgress={readingProgress}
+        onOpenChapterForReview={(guideId, chapterIdx) => {
+          setBannerAction({ guideId, chapterIdx });
+          setSubTab('educare');
+        }}
+        onTakeFinalQuiz={(guideId, quizId) => {
+          setBannerAction({ guideId, launchQuizId: quizId });
+          setSubTab('educare');
+        }}
+        onOpenGuide={(guideId) => {
+          setBannerAction({ guideId });
+          setSubTab('educare');
+        }}
+      />
+
+      {/* Weak Chapter Priority Review Cards (analyzed from Quiz History weakChapterIndices) */}
+      <PriorityReviewSection
+        studyGuides={studyGuides}
+        readingProgress={readingProgress}
+        onOpenChapterForReview={(guideId, chapterIdx) => {
+          setBannerAction({ guideId, chapterIdx });
+          setSubTab('educare');
+        }}
+        onRetakeQuiz={(guideId, quizId) => {
+          setBannerAction({ guideId, launchQuizId: quizId });
+          setSubTab('educare');
+        }}
+      />
+
       {/* Expandable Hub Insights Drawer (keeps study workspace uncluttered) */}
       {activeInsightPanel !== 'none' && (
         <div className="space-y-2">
@@ -433,6 +518,22 @@ export const EducationPlatformHub: React.FC<EducationPlatformHubProps> = ({
               <span>Minimize Panel</span>
             </button>
           </div>
+
+          {activeInsightPanel === 'study_roadmap' && (
+            <StudyRoadmap
+              user={user}
+              studyGuides={studyGuides}
+              readingProgress={readingProgress}
+              enrollments={enrollments}
+              unlockedLongCourseIds={unlockedLongCourseIds}
+              onOpenGuide={(guideId) => {
+                setRoadmapTargetGuideId(guideId);
+                setSubTab('educare');
+              }}
+              onUnlockLongCourse={onUnlockLongCourse}
+              onEnrollInCourse={onEnrollInCourse}
+            />
+          )}
 
           {activeInsightPanel === 'velocity' && (
             <LearningVelocityPanel
@@ -523,6 +624,40 @@ export const EducationPlatformHub: React.FC<EducationPlatformHubProps> = ({
         </div>
       )}
 
+      {/* Multi-Select Filter & Sorting Organizer for Study Guides & Research Catalog */}
+      {(subTab === 'educare' || subTab === 'research') && (
+        <CatalogFilterSortBar
+          mode={subTab}
+          filters={subTab === 'educare' ? educareFilters : researchFilters}
+          onFiltersChange={(next) =>
+            subTab === 'educare' ? setEducareFilters(next) : setResearchFilters(next)
+          }
+          sortBy={catalogSortBy}
+          onSortByChange={setCatalogSortBy}
+          sortDirection={catalogSortDirection}
+          onSortDirectionChange={setCatalogSortDirection}
+          availableNqfLevels={
+            subTab === 'educare'
+              ? educareFilterMetadata.nqfLevels
+              : researchFilterMetadata.nqfLevels
+          }
+          availableCategories={
+            subTab === 'educare'
+              ? educareFilterMetadata.categories
+              : researchFilterMetadata.categories
+          }
+          onResetAll={() => {
+            if (subTab === 'educare') {
+              setEducareFilters(EMPTY_CATALOG_FILTERS);
+            } else {
+              setResearchFilters(EMPTY_CATALOG_FILTERS);
+            }
+            setCatalogSortBy('recommended');
+            setCatalogSortDirection('desc');
+          }}
+        />
+      )}
+
       {/* Render Selected Educational Module */}
       <div className="animate-fade-in">
         {subTab === 'educare' && (
@@ -536,10 +671,13 @@ export const EducationPlatformHub: React.FC<EducationPlatformHubProps> = ({
               onTriggerPaywall={onTriggerPaywall}
               onAddStudyGuide={onAddStudyGuide}
               onRemoveStudyGuide={onRemoveStudyGuide}
-              targetGuideId={targetStudyGuideId || roadmapTargetGuideId || undefined}
+              targetGuideId={targetStudyGuideId || roadmapTargetGuideId || bannerAction?.guideId || undefined}
+              targetChapterIdx={bannerAction?.chapterIdx ?? null}
+              targetLaunchQuizId={bannerAction?.launchQuizId ?? null}
               onClearTargetGuide={() => {
                 onClearTargetGuide?.();
                 setRoadmapTargetGuideId(null);
+                setBannerAction(null);
               }}
               onOpenExportReport={onOpenExportReport}
               onOpenAcademicPrompts={onOpenAcademicPrompts}
@@ -565,6 +703,16 @@ export const EducationPlatformHub: React.FC<EducationPlatformHubProps> = ({
               onOpenSavedProgramsProfile={onOpenSavedProgramsProfile}
               onOpenStudentFeedback={onOpenStudentFeedback}
               onActiveStudyContextChange={onActiveStudyContextChange}
+              unlockedLongCourseIds={unlockedLongCourseIds}
+              onUnlockLongCourse={onUnlockLongCourse}
+              externalFilters={educareFilters}
+              sortBy={catalogSortBy}
+              sortDirection={catalogSortDirection}
+              onResetExternalFilters={() => {
+                setEducareFilters(EMPTY_CATALOG_FILTERS);
+                setCatalogSortBy('recommended');
+                setCatalogSortDirection('desc');
+              }}
             />
 
             {activeInsightPanel !== 'workflow' && (
@@ -599,6 +747,14 @@ export const EducationPlatformHub: React.FC<EducationPlatformHubProps> = ({
             onTriggerPaywall={onTriggerPaywall}
             targetPaperId={targetResearchPaperId || undefined}
             onClearTargetPaper={onClearTargetPaper}
+            externalFilters={researchFilters}
+            sortBy={catalogSortBy}
+            sortDirection={catalogSortDirection}
+            onResetExternalFilters={() => {
+              setResearchFilters(EMPTY_CATALOG_FILTERS);
+              setCatalogSortBy('recommended');
+              setCatalogSortDirection('desc');
+            }}
           />
         )}
 

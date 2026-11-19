@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Camera, 
   Download, 
@@ -15,8 +15,15 @@ import {
   Info, 
   Maximize2 
 } from 'lucide-react';
-import { PhotoItem, UserProfile } from '../types';
+import { CreatorStoreProfile, PhotoItem, UserProfile } from '../types';
 import { INITIAL_PHOTOS } from '../data/storesData';
+import {
+  CREATOR_FREE_SALES_THRESHOLD,
+  getStoreForUserAndPlatform,
+} from '../utils/creatorStoreSystem';
+import { CreatorModalTab, CreatorProfileStoreModal } from './CreatorProfileStoreModal';
+import { CreatorStorefrontBar } from './CreatorStorefrontBar';
+import { CreatorEarningsDashboard } from './CreatorEarningsDashboard';
 
 interface PhotographyStoreTabProps {
   user: UserProfile;
@@ -54,10 +61,25 @@ export const PhotographyStoreTab: React.FC<PhotographyStoreTabProps> = ({
   const [selectedLicense, setSelectedLicense] = useState<'Personal' | 'Commercial' | 'Extended'>('Personal');
   const [likedPhotoIds, setLikedPhotoIds] = useState<Set<string>>(new Set(['photo_01']));
 
+  // Creator Storefront, Payment Account & Service Agreement State
+  const [creatorStore, setCreatorStore] = useState<CreatorStoreProfile | null>(() =>
+    getStoreForUserAndPlatform(user.id, 'photography')
+  );
+  const [isStoreModalOpen, setIsStoreModalOpen] = useState(false);
+  const [storeModalTab, setStoreModalTab] = useState<CreatorModalTab>('profile');
+  const [myStoreFilterActive, setMyStoreFilterActive] = useState(false);
+
+  useEffect(() => {
+    const syncStore = () => setCreatorStore(getStoreForUserAndPlatform(user.id, 'photography'));
+    syncStore();
+    window.addEventListener('ttg-creator-store-updated', syncStore);
+    return () => window.removeEventListener('ttg-creator-store-updated', syncStore);
+  }, [user.id]);
+
   // Photographer Upload Modal
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
-  const [newPhotographer, setNewPhotographer] = useState(user.name || '');
+  const [newPhotographer, setNewPhotographer] = useState(creatorStore?.artistName || user.name || '');
   const [newCategory, setNewCategory] = useState<PhotoItem['category']>('Landscape');
   const [newImageUrl, setNewImageUrl] = useState('');
   const [newCamera, setNewCamera] = useState('Sony A7R V');
@@ -65,7 +87,26 @@ export const PhotographyStoreTab: React.FC<PhotographyStoreTabProps> = ({
   const [newPricePersonal, setNewPricePersonal] = useState('9.99');
   const [newPriceCommercial, setNewPriceCommercial] = useState('29.99');
 
+  const myStorePhotosCount = useMemo(() => {
+    if (!creatorStore) return 0;
+    const targetName = creatorStore.artistName.trim().toLowerCase();
+    return photos.filter(
+      (p) =>
+        p.photographerId === user.id ||
+        p.photographerId === creatorStore.id ||
+        p.photographer.trim().toLowerCase() === targetName
+    ).length;
+  }, [photos, creatorStore, user.id]);
+
   const filteredPhotos = photos.filter(p => {
+    if (myStoreFilterActive && creatorStore) {
+      const targetName = creatorStore.artistName.trim().toLowerCase();
+      const belongsToMe =
+        p.photographerId === user.id ||
+        p.photographerId === creatorStore.id ||
+        p.photographer.trim().toLowerCase() === targetName;
+      if (!belongsToMe) return false;
+    }
     if (selectedCategory !== 'all' && p.category.toLowerCase() !== selectedCategory.toLowerCase()) {
       return false;
     }
@@ -85,8 +126,18 @@ export const PhotographyStoreTab: React.FC<PhotographyStoreTabProps> = ({
     });
   };
 
+  const handleOpenStoreModal = (tab: CreatorModalTab) => {
+    onRequireAuth(() => {
+      setStoreModalTab(tab);
+      setIsStoreModalOpen(true);
+    }, 'Sign in to create your Photographer Profile, link a Payment Account, and review the Storefront Service Agreement.');
+  };
+
   const handleOpenUploadModal = () => {
     onRequireAuth(() => {
+      if (creatorStore?.artistName) {
+        setNewPhotographer(creatorStore.artistName);
+      }
       setIsUploadModalOpen(true);
     }, 'Sign in or register as a Photographer to showcase and sell fine-art photography prints and commercial licenses.');
   };
@@ -98,7 +149,8 @@ export const PhotographyStoreTab: React.FC<PhotographyStoreTabProps> = ({
     const newPhoto: PhotoItem = {
       id: `photo_${Date.now()}`,
       title: newTitle.trim(),
-      photographer: newPhotographer.trim() || user.name || 'Anonymous Artist',
+      photographer: newPhotographer.trim() || creatorStore?.artistName || user.name || 'Anonymous Artist',
+      photographerId: creatorStore?.id || user.id,
       category: newCategory,
       imageUrl: newImageUrl.trim(),
       resolution: '8256 × 5504 (45 MP)',
@@ -167,7 +219,24 @@ export const PhotographyStoreTab: React.FC<PhotographyStoreTabProps> = ({
 
       {/* Main Body */}
       <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8 space-y-6">
-        
+        <CreatorStorefrontBar
+          platform="photography"
+          user={user}
+          store={creatorStore}
+          onOpenStoreModal={handleOpenStoreModal}
+          onUploadClick={handleOpenUploadModal}
+          myStoreFilterActive={myStoreFilterActive}
+          onToggleMyStoreFilter={() => setMyStoreFilterActive((v) => !v)}
+          myItemsCount={myStorePhotosCount}
+        />
+
+        <CreatorEarningsDashboard
+          platform="photography"
+          user={user}
+          store={creatorStore}
+          onOpenStoreModal={handleOpenStoreModal}
+        />
+
         {/* Filter & Search Bar */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
           <div className="flex items-center gap-2 overflow-x-auto pb-1">
@@ -225,6 +294,7 @@ export const PhotographyStoreTab: React.FC<PhotographyStoreTabProps> = ({
                   <img 
                     src={photo.imageUrl} 
                     alt={photo.title}
+                    referrerPolicy="no-referrer"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
                   />
 
@@ -308,6 +378,7 @@ export const PhotographyStoreTab: React.FC<PhotographyStoreTabProps> = ({
               <img 
                 src={activePhoto.imageUrl} 
                 alt={activePhoto.title}
+                referrerPolicy="no-referrer"
                 className="max-h-[75vh] w-auto object-contain rounded-lg shadow-2xl" 
               />
               <div className="absolute bottom-6 left-6 px-3 py-1.5 rounded-lg bg-black/70 backdrop-blur-md text-[11px] font-mono text-white flex items-center gap-3">
@@ -559,6 +630,46 @@ export const PhotographyStoreTab: React.FC<PhotographyStoreTabProps> = ({
                 </div>
               </div>
 
+              <div>
+                <label className="block text-xs font-medium text-stone-700 dark:text-stone-300 mb-1">
+                  Photographer / Store Artist Name
+                </label>
+                <input
+                  type="text"
+                  value={newPhotographer}
+                  onChange={(e) => setNewPhotographer(e.target.value)}
+                  placeholder="Your artist or studio name"
+                  className="w-full px-3 py-2 text-xs rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 focus:outline-none focus:border-amber-500"
+                  required
+                />
+              </div>
+
+              {(() => {
+                const salesSoFar = creatorStore?.completedSalesCount || 0;
+                const post50 = salesSoFar >= CREATOR_FREE_SALES_THRESHOLD;
+                const priceNum = parseFloat(newPricePersonal) || 9.99;
+                const netShare = post50 ? priceNum * 0.95 : priceNum;
+                return (
+                  <div className="p-3 bg-amber-50 dark:bg-amber-950/35 border border-amber-200 dark:border-amber-800 rounded-xl text-xs flex items-center justify-between gap-3">
+                    <div>
+                      <span className="font-bold block text-stone-900 dark:text-white">
+                        {post50
+                          ? 'Post-50 Sales Net Payout (95% Creator · 5% Site Service Fee)'
+                          : 'First 50 Sales Launch Payout (100% Net · 0% Site Fee)'}
+                      </span>
+                      <span className="text-[11px] text-stone-600 dark:text-stone-300">
+                        {post50
+                          ? `${salesSoFar} sales completed — 5% site fee paid to Site Owner.`
+                          : `${salesSoFar}/50 sales used — 5% site service fee starts after 50 sales.`}
+                      </span>
+                    </div>
+                    <span className="font-mono font-bold text-sm text-amber-700 dark:text-amber-300 shrink-0">
+                      ${netShare.toFixed(2)}
+                    </span>
+                  </div>
+                );
+              })()}
+
               <div className="flex justify-end gap-3 pt-3">
                 <button
                   type="button"
@@ -578,6 +689,18 @@ export const PhotographyStoreTab: React.FC<PhotographyStoreTabProps> = ({
           </div>
         </div>
       )}
+
+      {/* Photographer Artist Profile, Payment Account & Service Agreement Modal */}
+      <CreatorProfileStoreModal
+        isOpen={isStoreModalOpen}
+        onClose={() => setIsStoreModalOpen(false)}
+        platform="photography"
+        user={user}
+        existingStore={creatorStore}
+        initialTab={storeModalTab}
+        onStoreSaved={(saved) => setCreatorStore(saved)}
+        onProceedToUpload={handleOpenUploadModal}
+      />
 
     </div>
   );

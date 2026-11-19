@@ -128,7 +128,7 @@ export function usePomodoroTimer(
     setStats(prev => ({
       syncedFocusMinutes: prev.syncedFocusMinutes + safeMinutes,
       completedSessions: prev.completedSessions + 1,
-      logs: [newLog, ...prev.logs].slice(0, 15),
+      logs: [newLog, ...prev.logs].slice(0, 500),
     }));
     onFocusSyncedRef.current?.(safeMinutes, guideTitle);
   }, []);

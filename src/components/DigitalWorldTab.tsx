@@ -5,7 +5,9 @@ import {
   EducationLesson, 
   BroadcastTelemetry, 
   UserProfile, 
-  ReadingProgress 
+  ReadingProgress,
+  CreatorStoreProfile,
+  ArtMediaType
 } from '../types';
 import { 
   ART_MEDIA_STREAMS, 
@@ -17,6 +19,12 @@ import {
   formatCertificateSerial,
   getCertificateForEducationCourse,
 } from '../data/certificatesData';
+import {
+  CREATOR_FREE_SALES_THRESHOLD,
+  getStoreForUserAndPlatform,
+} from '../utils/creatorStoreSystem';
+import { CreatorModalTab, CreatorProfileStoreModal } from './CreatorProfileStoreModal';
+import { CreatorStorefrontBar } from './CreatorStorefrontBar';
 import { 
   Play, 
   Pause, 
@@ -49,7 +57,8 @@ import {
   Grid, 
   Activity, 
   Eye, 
-  ExternalLink 
+  ExternalLink,
+  Upload
 } from 'lucide-react';
 
 interface DigitalWorldTabProps {
@@ -73,6 +82,110 @@ export const DigitalWorldTab: React.FC<DigitalWorldTabProps> = ({
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCourseDomain, setSelectedCourseDomain] = useState<string>('all');
+
+  // Creator Storefront, Payment Account, Service Agreement & Uploaded Art Streams
+  const [creatorStore, setCreatorStore] = useState<CreatorStoreProfile | null>(() =>
+    getStoreForUserAndPlatform(user.id, 'digital_art')
+  );
+  const [isStoreModalOpen, setIsStoreModalOpen] = useState(false);
+  const [storeModalTab, setStoreModalTab] = useState<CreatorModalTab>('profile');
+  const [myStoreFilterActive, setMyStoreFilterActive] = useState(false);
+
+  const [customStreams, setCustomStreams] = useState<MediaStreamItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('ttg_digital_world_custom_streams');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('ttg_digital_world_custom_streams', JSON.stringify(customStreams));
+    } catch {
+      // ignore storage restrictions
+    }
+  }, [customStreams]);
+
+  useEffect(() => {
+    const syncStore = () => setCreatorStore(getStoreForUserAndPlatform(user.id, 'digital_art'));
+    syncStore();
+    window.addEventListener('ttg-creator-store-updated', syncStore);
+    return () => window.removeEventListener('ttg-creator-store-updated', syncStore);
+  }, [user.id]);
+
+  const allArtStreams = useMemo(
+    () => [...customStreams, ...ART_MEDIA_STREAMS],
+    [customStreams]
+  );
+
+  // Upload Art Stream Modal state
+  const [isUploadStreamModalOpen, setIsUploadStreamModalOpen] = useState(false);
+  const [uploadStreamType, setUploadStreamType] = useState<ArtMediaType>('music');
+  const [uploadTitle, setUploadTitle] = useState('');
+  const [uploadArtist, setUploadArtist] = useState(creatorStore?.artistName || user.name || '');
+  const [uploadStyle, setUploadStyle] = useState('Ambient Spatial DSP');
+  const [uploadDesc, setUploadDesc] = useState('');
+  const [uploadFreqHz, setUploadFreqHz] = useState('432');
+  const [uploadDimensions, setUploadDimensions] = useState('12m × 6m Architectural Wall');
+
+  const myStoreStreamsCount = useMemo(() => {
+    if (!creatorStore) return 0;
+    const targetName = creatorStore.artistName.trim().toLowerCase();
+    return customStreams.filter(
+      (s) => s.artist.trim().toLowerCase() === targetName || s.artist.trim().toLowerCase() === (user.name || '').trim().toLowerCase()
+    ).length;
+  }, [customStreams, creatorStore, user.name]);
+
+  const handleOpenStoreModal = (tab: CreatorModalTab) => {
+    setStoreModalTab(tab);
+    setIsStoreModalOpen(true);
+  };
+
+  const handleOpenUploadStreamModal = () => {
+    if (subTab === 'visuals' || subTab === 'mural' || subTab === 'music') {
+      setUploadStreamType(subTab);
+    }
+    if (creatorStore?.artistName) {
+      setUploadArtist(creatorStore.artistName);
+    }
+    setIsUploadStreamModalOpen(true);
+  };
+
+  const handleSubmitArtStream = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!uploadTitle.trim() || !uploadArtist.trim()) return;
+
+    const newItem: MediaStreamItem = {
+      id: `stream_custom_${Date.now()}`,
+      title: uploadTitle.trim(),
+      artist: uploadArtist.trim(),
+      mediaType: uploadStreamType,
+      genreOrStyle: uploadStyle.trim() || 'Contemporary Digital Art',
+      durationOrStreamStatus: uploadStreamType === 'music' ? 'Creator Stream · 24-bit' : 'Creator Edition',
+      loudnessLUFS: uploadStreamType === 'music' ? -14.0 : undefined,
+      sampleRate: uploadStreamType === 'music' ? '48 kHz / 24-bit' : undefined,
+      resolution: uploadStreamType === 'music' ? undefined : '4K Master Digital',
+      fps: uploadStreamType === 'visuals' ? 60 : undefined,
+      location: uploadStreamType === 'mural' ? 'TTG Creator Storefront Gallery' : undefined,
+      dimensions: uploadStreamType === 'mural' ? uploadDimensions.trim() || '12m × 6m' : undefined,
+      description: uploadDesc.trim() || 'Original multimedia creation published via TTG Digital World Storefront.',
+      curatorNotes: 'Published by verified creator storefront.',
+      tags: ['Creator Store', uploadStreamType.toUpperCase()],
+      audioFrequencyHz: uploadStreamType === 'music' ? (parseInt(uploadFreqHz, 10) || 432) : undefined,
+    };
+
+    setCustomStreams((prev) => [newItem, ...prev]);
+    if (uploadStreamType === 'music') setActiveMusicStream(newItem);
+    else if (uploadStreamType === 'visuals') setActiveVisualStream(newItem);
+    else setActiveMuralStream(newItem);
+
+    setSubTab(uploadStreamType);
+    setIsUploadStreamModalOpen(false);
+    setUploadTitle('');
+    setUploadDesc('');
+  };
 
   // Active Media Streams
   const [activeMusicStream, setActiveMusicStream] = useState<MediaStreamItem>(ART_MEDIA_STREAMS[0]);
@@ -508,7 +621,7 @@ export const DigitalWorldTab: React.FC<DigitalWorldTabProps> = ({
           <span aria-hidden="true">·</span>
           <span>Art Media Platforms & Broadcast Academies</span>
           <span aria-hidden="true">·</span>
-          <span className="font-mono text-emerald-700 dark:text-emerald-400 font-semibold">$0 Institutional Grant</span>
+          <span className="font-mono text-emerald-700 dark:text-emerald-400 font-semibold">Digital Educare Tutoring · Free Short Lessons</span>
         </div>
 
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -597,6 +710,20 @@ export const DigitalWorldTab: React.FC<DigitalWorldTabProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Creator Artist Profile, Storefront, Payment Account & Service Agreement Bar for Art Media */}
+      {(subTab === 'music' || subTab === 'visuals' || subTab === 'mural') && (
+        <CreatorStorefrontBar
+          platform="digital_art"
+          user={user}
+          store={creatorStore}
+          onOpenStoreModal={handleOpenStoreModal}
+          onUploadClick={handleOpenUploadStreamModal}
+          myStoreFilterActive={myStoreFilterActive}
+          onToggleMyStoreFilter={() => setMyStoreFilterActive((v) => !v)}
+          myItemsCount={myStoreStreamsCount}
+        />
+      )}
 
       {/* ======================================================== */}
       {/* 1. MUSIC STREAMING & AUDIO DSP LABORATORY               */}
@@ -782,11 +909,18 @@ export const DigitalWorldTab: React.FC<DigitalWorldTabProps> = ({
           {/* Music Streams Catalog */}
           <div className="space-y-4">
             <h3 className="text-xl font-bold text-stone-900 dark:text-stone-100">
-              Curated Audio & Acoustic Stems
+              Curated Audio & Studio Submixes
             </h3>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {ART_MEDIA_STREAMS.filter(s => s.mediaType === 'music').map((stream) => {
+              {allArtStreams
+                .filter(s => s.mediaType === 'music')
+                .filter(s => {
+                  if (!myStoreFilterActive || !creatorStore) return true;
+                  const target = creatorStore.artistName.trim().toLowerCase();
+                  return s.artist.trim().toLowerCase() === target || s.id.startsWith('stream_custom_');
+                })
+                .map((stream) => {
                 const isActive = activeMusicStream.id === stream.id;
 
                 return (
@@ -986,7 +1120,14 @@ export const DigitalWorldTab: React.FC<DigitalWorldTabProps> = ({
             </h3>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {ART_MEDIA_STREAMS.filter(s => s.mediaType === 'visuals').map((stream) => (
+              {allArtStreams
+                .filter(s => s.mediaType === 'visuals')
+                .filter(s => {
+                  if (!myStoreFilterActive || !creatorStore) return true;
+                  const target = creatorStore.artistName.trim().toLowerCase();
+                  return s.artist.trim().toLowerCase() === target || s.id.startsWith('stream_custom_');
+                })
+                .map((stream) => (
                 <div
                   key={stream.id}
                   onClick={() => setActiveVisualStream(stream)}
@@ -1166,7 +1307,14 @@ export const DigitalWorldTab: React.FC<DigitalWorldTabProps> = ({
             </h3>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {ART_MEDIA_STREAMS.filter(s => s.mediaType === 'mural').map((stream) => (
+              {allArtStreams
+                .filter(s => s.mediaType === 'mural')
+                .filter(s => {
+                  if (!myStoreFilterActive || !creatorStore) return true;
+                  const target = creatorStore.artistName.trim().toLowerCase();
+                  return s.artist.trim().toLowerCase() === target || s.id.startsWith('stream_custom_');
+                })
+                .map((stream) => (
                 <div
                   key={stream.id}
                   onClick={() => setActiveMuralStream(stream)}
@@ -1780,7 +1928,7 @@ export const DigitalWorldTab: React.FC<DigitalWorldTabProps> = ({
               {/* Reader Footer */}
               <div className="p-4 bg-stone-50 dark:bg-stone-950 border-t border-stone-200 dark:border-stone-800 flex items-center justify-between">
                 <span className="text-xs text-stone-500 font-mono">
-                  Syllabus Progress Synchronized · Institutional Grant ($0)
+                  Self-Paced Tutoring Progress Synchronized · Finish at your own pace
                 </span>
                 <button
                   type="button"
@@ -1882,6 +2030,152 @@ export const DigitalWorldTab: React.FC<DigitalWorldTabProps> = ({
           />
         );
       })()}
+
+      {/* Upload Art Stream to Storefront Modal */}
+      {isUploadStreamModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+          <div className="relative w-full max-w-lg bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 border-b border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-950">
+              <h3 className="text-sm font-bold flex items-center gap-2 text-stone-900 dark:text-stone-100">
+                <Upload className="w-4 h-4 text-emerald-600" />
+                <span>Upload Art Work / Stream to Online Storefront</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsUploadStreamModalOpen(false)}
+                className="text-stone-400 hover:text-stone-700 dark:hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitArtStream} className="p-6 space-y-4 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold mb-1 text-stone-700 dark:text-stone-300">Art Medium</label>
+                  <select
+                    value={uploadStreamType}
+                    onChange={(e) => setUploadStreamType(e.target.value as ArtMediaType)}
+                    className="w-full px-3 py-2 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700"
+                  >
+                    <option value="music">Music &amp; Audio DSP</option>
+                    <option value="visuals">Visuals &amp; Motion Art</option>
+                    <option value="mural">Mural &amp; Spatial Canvas</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-semibold mb-1 text-stone-700 dark:text-stone-300">Artist Name *</label>
+                  <input
+                    type="text"
+                    value={uploadArtist}
+                    onChange={(e) => setUploadArtist(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1 text-stone-700 dark:text-stone-300">Work / Stream Title *</label>
+                <input
+                  type="text"
+                  value={uploadTitle}
+                  onChange={(e) => setUploadTitle(e.target.value)}
+                  placeholder="e.g. Harmonic Solstice IV"
+                  className="w-full px-3 py-2 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold mb-1 text-stone-700 dark:text-stone-300">Style / Genre</label>
+                  <input
+                    type="text"
+                    value={uploadStyle}
+                    onChange={(e) => setUploadStyle(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700"
+                  />
+                </div>
+                {uploadStreamType === 'music' ? (
+                  <div>
+                    <label className="block font-semibold mb-1 text-stone-700 dark:text-stone-300">Tuning (Hz)</label>
+                    <input
+                      type="number"
+                      value={uploadFreqHz}
+                      onChange={(e) => setUploadFreqHz(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 font-mono"
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block font-semibold mb-1 text-stone-700 dark:text-stone-300">Dimensions / Spec</label>
+                    <input
+                      type="text"
+                      value={uploadDimensions}
+                      onChange={(e) => setUploadDimensions(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 font-mono"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1 text-stone-700 dark:text-stone-300">Curatorial Description</label>
+                <textarea
+                  value={uploadDesc}
+                  onChange={(e) => setUploadDesc(e.target.value)}
+                  rows={2}
+                  placeholder="Describe your composition, shader parameters, or mural technique..."
+                  className="w-full px-3 py-2 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 resize-none"
+                />
+              </div>
+
+              {(() => {
+                const salesSoFar = creatorStore?.completedSalesCount || 0;
+                const post50 = salesSoFar >= CREATOR_FREE_SALES_THRESHOLD;
+                return (
+                  <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/35 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200">
+                    <span className="font-bold block">
+                      {post50
+                        ? 'Post-50 Sales Tier: 95% Creator Payout · 5% Site Owner Service Fee'
+                        : `Zero-Fee Launch Tier: 100% Creator Payout (${salesSoFar}/50 sales · 5% fee starts after 50 sales)`}
+                    </span>
+                  </div>
+                );
+              })()}
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsUploadStreamModalOpen(false)}
+                  className="px-4 py-2 text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow cursor-pointer"
+                >
+                  Publish to Store
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Digital Art Artist Profile, Payment Account & Service Agreement Modal */}
+      <CreatorProfileStoreModal
+        isOpen={isStoreModalOpen}
+        onClose={() => setIsStoreModalOpen(false)}
+        platform="digital_art"
+        user={user}
+        existingStore={creatorStore}
+        initialTab={storeModalTab}
+        onStoreSaved={(saved) => setCreatorStore(saved)}
+        onProceedToUpload={handleOpenUploadStreamModal}
+      />
 
     </div>
   );

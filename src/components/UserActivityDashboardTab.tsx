@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { 
   BarChart, 
   Bar, 
@@ -36,7 +36,14 @@ import {
   Gauge,
   MessageSquarePlus,
   History,
-  FileEdit
+  FileEdit,
+  Download,
+  FileText,
+  FileCode2,
+  FileSpreadsheet,
+  ChevronDown,
+  Timer,
+  Trophy
 } from 'lucide-react';
 import {
   UserProfile,
@@ -49,14 +56,27 @@ import {
 } from '../types';
 import { AcademicCategoryKey } from '../data/academicCatalog';
 import { AchievementBadgesSection } from './AchievementBadgesSection';
+import {
+  AchievementUnlockedOverlay,
+  MilestoneAchievementItem,
+} from './AchievementUnlockedOverlay';
 import { UserProfileCertificatesSection } from './UserProfileCertificatesSection';
 import { ProfileEditCard } from './ProfileEditCard';
 import { CourseProgressChart } from './CourseProgressChart';
+import { WeeklyPomodoroTrendChart } from './WeeklyPomodoroTrendChart';
 import { SavedProgramsSection } from './SavedProgramsSection';
 import { MilestoneProgressSection } from './MilestoneProgressSection';
 import { PeerInteractionMap } from './PeerInteractionMap';
 import { FocusAiPanel } from './FocusAiPanel';
 import { KnowledgeGraphSection } from './KnowledgeGraphSection';
+import {
+  exportLearningRecordJson,
+  exportLearningRecordPdf,
+} from '../utils/learningRecordExport';
+import {
+  exportPomodoroLogsCsv,
+  summarizePomodoroLogs,
+} from '../utils/pomodoroCsvExport';
 
 interface UserActivityDashboardTabProps {
   user: UserProfile;
@@ -108,6 +128,20 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
   const [timeframe, setTimeframe] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
   const [velocityFilter, setVelocityFilter] = useState<'all' | 'active'>('all');
   const [focusAiEnabled, setFocusAiEnabled] = useState<boolean>(false);
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState<boolean>(false);
+  const [isExportingPdf, setIsExportingPdf] = useState<boolean>(false);
+  const [exportNotice, setExportNotice] = useState<string | null>(null);
+  const [isAchievementOverlayOpen, setIsAchievementOverlayOpen] = useState<boolean>(false);
+  const [acknowledgedMilestoneIds, setAcknowledgedMilestoneIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('ttg_acknowledged_milestones_v1');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return Array.isArray(parsed) ? parsed : [];
+      }
+    } catch {}
+    return [];
+  });
 
   // Compute live student telemetry
   const completedGuides = useMemo(() => {
@@ -218,6 +252,154 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
     () => parseFloat((syncedFocusMinutes / 60).toFixed(2)),
     [syncedFocusMinutes]
   );
+
+  const pomodoroSummary = useMemo(
+    () => summarizePomodoroLogs(pomodoroLogs, syncedFocusMinutes),
+    [pomodoroLogs, syncedFocusMinutes]
+  );
+
+  // Evaluate student milestone achievements (10 Consecutive Days, Top 1% Quiz Scorer, etc.)
+  const consecutiveStudyDays = 18;
+  const bestQuizScore = useMemo(() => {
+    let peak = allScores.length > 0 ? Math.max(...allScores) : 0;
+    Object.values(readingProgress).forEach((p) => {
+      p.quizHistory?.forEach((attempt) => {
+        if (attempt.score > peak) peak = attempt.score;
+      });
+    });
+    const emailLower = user.email.trim().toLowerCase();
+    const nameLower = user.name.trim().toLowerCase();
+    enrollments.forEach((rec) => {
+      if (
+        (rec.studentEmail.trim().toLowerCase() === emailLower ||
+          rec.studentName.trim().toLowerCase() === nameLower) &&
+        typeof rec.testScore === 'number'
+      ) {
+        if (rec.testScore > peak) peak = rec.testScore;
+      }
+    });
+    return peak;
+  }, [allScores, readingProgress, enrollments, user.email, user.name]);
+
+  const unlockedMilestones = useMemo<MilestoneAchievementItem[]>(() => {
+    const earned: MilestoneAchievementItem[] = [];
+
+    if (consecutiveStudyDays >= 10) {
+      earned.push({
+        id: 'milestone_10_consecutive_days',
+        title: '10 Consecutive Days of Study',
+        subtitle: 'Sustained Daily Consistency Milestone',
+        description:
+          'Awarded for maintaining an unbroken study streak of 10 or more consecutive days across Digital Educare chapters and focus sessions.',
+        metricValue: `${consecutiveStudyDays} Day Streak`,
+        tierLabel: 'Epic',
+        icon: 'flame',
+        unlockedAtLabel: 'Active Streak Verified',
+      });
+    }
+
+    if (bestQuizScore >= 95 || averageQuizScore >= 95) {
+      const topScore = Math.max(bestQuizScore, averageQuizScore);
+      earned.push({
+        id: 'milestone_top_1_percent_scorer',
+        title: 'Top 1% Quiz Scorer',
+        subtitle: 'Elite Assessment Distinction',
+        description:
+          'Achieved a 95%+ benchmark score on accredited curriculum assessments, placing your mastery in the top 1% cohort.',
+        metricValue: `${topScore}% Peak Score`,
+        tierLabel: 'Legendary',
+        icon: 'trophy',
+        unlockedAtLabel: 'Honors Tier',
+      });
+    }
+
+    if (totalStudyHours >= 50 || syncedFocusMinutes >= 150) {
+      earned.push({
+        id: 'milestone_deep_work_hours',
+        title: '50+ Hours Deep Study Mastery',
+        subtitle: 'Cumulative Focus Hours Milestone',
+        description:
+          'Surpassed 50 cumulative study hours across structured study guides and synced Pomodoro deep-focus intervals.',
+        metricValue: `${totalStudyHours.toFixed(1)}h Logged`,
+        tierLabel: 'Honors',
+        icon: 'timer',
+        unlockedAtLabel: 'Telemetry Verified',
+      });
+    }
+
+    if (completedGuides.length >= 1) {
+      earned.push({
+        id: 'milestone_syllabus_completion',
+        title: 'Syllabus Mastery Milestone',
+        subtitle: '100% Course Completion',
+        description:
+          'Completed every chapter and assessment requirement for an accredited TTG study guide.',
+        metricValue: `${completedGuides.length} Course${completedGuides.length === 1 ? '' : 's'} Mastered`,
+        tierLabel: 'Epic',
+        icon: 'graduation',
+        unlockedAtLabel: 'Credential Earned',
+      });
+    }
+
+    return earned;
+  }, [
+    consecutiveStudyDays,
+    bestQuizScore,
+    averageQuizScore,
+    totalStudyHours,
+    syncedFocusMinutes,
+    completedGuides.length,
+  ]);
+
+  const unacknowledgedMilestones = useMemo(
+    () =>
+      unlockedMilestones.filter(
+        (m) => !acknowledgedMilestoneIds.includes(m.id)
+      ),
+    [unlockedMilestones, acknowledgedMilestoneIds]
+  );
+
+  // Automatically surface Achievement Unlocked overlay when new milestones are earned
+  useEffect(() => {
+    if (unacknowledgedMilestones.length > 0) {
+      setIsAchievementOverlayOpen(true);
+    }
+  }, [unacknowledgedMilestones.length]);
+
+  const handleAcknowledgeMilestones = useCallback((ids: string[]) => {
+    setAcknowledgedMilestoneIds((prev) => {
+      const merged = Array.from(new Set([...prev, ...ids]));
+      try {
+        localStorage.setItem(
+          'ttg_acknowledged_milestones_v1',
+          JSON.stringify(merged)
+        );
+      } catch {}
+      return merged;
+    });
+  }, []);
+
+  const overlayMilestones =
+    unacknowledgedMilestones.length > 0
+      ? unacknowledgedMilestones
+      : unlockedMilestones;
+
+  const handleExportPomodoroCsv = () => {
+    const result = exportPomodoroLogsCsv({
+      user,
+      pomodoroLogs,
+      studyGuides,
+      syncedFocusMinutes,
+      completedPomodoroSessions,
+      totalStudyHours,
+    });
+    setExportNotice(
+      `Exported ${result.exportedRowsCount} Pomodoro log${
+        result.exportedRowsCount === 1 ? '' : 's'
+      } (${result.totalFocusHours.toFixed(2)} focus hrs) to ${result.filename}.`
+    );
+    window.setTimeout(() => setExportNotice(null), 4500);
+  };
 
   // Daily Study Time Data (Bar/Area Chart)
   const dailyStudyData = useMemo(() => {
@@ -405,29 +587,151 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
             </p>
           </div>
 
-          {/* Timeframe Filter Buttons */}
-          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-stone-100 dark:bg-stone-800/80 border border-stone-200 dark:border-stone-700 shrink-0">
-            {[
-              { id: '7d', label: '7 Days' },
-              { id: '30d', label: '30 Days' },
-              { id: '90d', label: '90 Days' },
-              { id: 'all', label: 'All Time' },
-            ].map(t => (
+          {/* Header Controls: Milestone Replay + Export My Learning Record + Timeframe Filter */}
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
+            {unlockedMilestones.length > 0 && (
               <button
-                key={t.id}
                 type="button"
-                onClick={() => setTimeframe(t.id as any)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                  timeframe === t.id
-                    ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 shadow-xs'
-                    : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
-                }`}
+                onClick={() => setIsAchievementOverlayOpen(true)}
+                className="px-3.5 py-2 rounded-xl border border-amber-300 dark:border-amber-700/70 bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-300 text-xs font-bold inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer whitespace-nowrap"
               >
-                {t.label}
+                <Trophy className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                <span>Milestones Unlocked ({unlockedMilestones.length})</span>
               </button>
-            ))}
+            )}
+
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsExportMenuOpen((prev) => !prev)}
+                disabled={isExportingPdf}
+                className="px-4 py-2 rounded-xl bg-[#052e16] hover:bg-[#064e3b] text-[#bef264] border border-[#84cc16]/60 text-xs font-bold inline-flex items-center gap-2 shadow-xs transition-colors cursor-pointer whitespace-nowrap disabled:opacity-60"
+              >
+                <Download className="w-3.5 h-3.5 text-[#a3e635]" />
+                <span>{isExportingPdf ? 'Generating PDF…' : 'Export My Learning Record'}</span>
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isExportMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {isExportMenuOpen && (
+                <div className="absolute right-0 mt-2 w-64 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 shadow-xl z-30 p-1.5 space-y-1 text-xs">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setIsExportMenuOpen(false);
+                      setIsExportingPdf(true);
+                      try {
+                        await exportLearningRecordPdf({
+                          user,
+                          studyGuides,
+                          readingProgress,
+                          enrollments,
+                          totalStudyHours,
+                          averageQuizScore,
+                          syncedFocusMinutes,
+                          completedPomodoroSessions,
+                        });
+                        setExportNotice('Formatted PDF learning record downloaded.');
+                        setTimeout(() => setExportNotice(null), 4000);
+                      } finally {
+                        setIsExportingPdf(false);
+                      }
+                    }}
+                    className="w-full px-3 py-2 rounded-lg text-left hover:bg-stone-100 dark:hover:bg-stone-800 flex items-start gap-2.5 cursor-pointer transition-colors"
+                  >
+                    <FileText className="w-4 h-4 text-[#65a30d] dark:text-[#a3e635] shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-stone-900 dark:text-stone-100 block">
+                        Formatted PDF (.pdf)
+                      </span>
+                      <span className="text-[11px] text-stone-500 dark:text-stone-400">
+                        Progress, badges &amp; certificates dossier
+                      </span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsExportMenuOpen(false);
+                      exportLearningRecordJson({
+                        user,
+                        studyGuides,
+                        readingProgress,
+                        enrollments,
+                        totalStudyHours,
+                        averageQuizScore,
+                        syncedFocusMinutes,
+                        completedPomodoroSessions,
+                      });
+                      setExportNotice('Structured JSON learning record downloaded.');
+                      setTimeout(() => setExportNotice(null), 4000);
+                    }}
+                    className="w-full px-3 py-2 rounded-lg text-left hover:bg-stone-100 dark:hover:bg-stone-800 flex items-start gap-2.5 cursor-pointer transition-colors"
+                  >
+                    <FileCode2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold text-stone-900 dark:text-stone-100 block">
+                          Structured JSON (.json)
+                        </span>
+                        <span className="text-[11px] text-stone-500 dark:text-stone-400">
+                          Complete machine-readable history
+                        </span>
+                      </div>
+                    </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsExportMenuOpen(false);
+                      handleExportPomodoroCsv();
+                    }}
+                    className="w-full px-3 py-2 rounded-lg text-left hover:bg-stone-100 dark:hover:bg-stone-800 flex items-start gap-2.5 cursor-pointer transition-colors"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-stone-900 dark:text-stone-100 block">
+                        Pomodoro Focus Logs (.csv)
+                      </span>
+                      <span className="text-[11px] text-stone-500 dark:text-stone-400">
+                        Study hours &amp; completed focus sessions
+                      </span>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Timeframe Filter Buttons */}
+            <div className="flex items-center gap-1.5 p-1 rounded-xl bg-stone-100 dark:bg-stone-800/80 border border-stone-200 dark:border-stone-700 shrink-0">
+              {[
+                { id: '7d', label: '7 Days' },
+                { id: '30d', label: '30 Days' },
+                { id: '90d', label: '90 Days' },
+                { id: 'all', label: 'All Time' },
+              ].map(t => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setTimeframe(t.id as any)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    timeframe === t.id
+                      ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 shadow-xs'
+                      : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
+
+        {exportNotice && (
+          <div className="mt-4 px-3.5 py-2.5 rounded-xl bg-[#052e16]/10 dark:bg-[#052e16]/60 border border-[#84cc16]/50 text-xs font-semibold text-[#052e16] dark:text-[#bef264] inline-flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-[#65a30d] dark:text-[#a3e635]" />
+            <span>{exportNotice}</span>
+          </div>
+        )}
       </div>
 
       {/* Focus AI Mode Toggle & Gemini Study Priority Recommendations */}
@@ -784,11 +1088,16 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
           </div>
           <div>
             <div className="text-2xl sm:text-3xl font-extrabold font-mono tracking-tight text-amber-600 dark:text-amber-400">
-              18 Days
+              {consecutiveStudyDays} Days
             </div>
-            <span className="text-[11px] text-stone-500 dark:text-stone-400 mt-1 block">
-              Top 5% consistency rank
-            </span>
+            <button
+              type="button"
+              onClick={() => setIsAchievementOverlayOpen(true)}
+              className="text-[11px] text-amber-700 dark:text-amber-400 font-semibold hover:underline mt-1 inline-flex items-center gap-1 cursor-pointer"
+            >
+              <Trophy className="w-3 h-3" />
+              <span>10+ Day Milestone Unlocked</span>
+            </button>
           </div>
         </div>
 
@@ -812,6 +1121,12 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
 
       </div>
 
+      {/* 7-Day Daily Pomodoro Study Hours Consistency Trend Chart (Recharts) */}
+      <WeeklyPomodoroTrendChart
+        pomodoroLogs={pomodoroLogs}
+        syncedFocusMinutes={syncedFocusMinutes}
+      />
+
       {/* 30-Day Weekly Learning Time & Completed Chapters Chart */}
       <CourseProgressChart
         readingProgress={readingProgress}
@@ -819,6 +1134,152 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
         syncedFocusMinutes={syncedFocusMinutes}
         pomodoroLogs={pomodoroLogs}
       />
+
+      {/* Pomodoro Focus Session Logs & CSV Study Hours Report */}
+      <section
+        aria-labelledby="pomodoro-logs-heading"
+        className="p-6 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xs space-y-5"
+      >
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-stone-100 dark:border-stone-800 pb-4">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 mb-1">
+              <Timer className="w-4 h-4" />
+              <span>Pomodoro Study Tracker · Time Ledger</span>
+            </div>
+            <h2
+              id="pomodoro-logs-heading"
+              className="text-lg sm:text-xl font-bold tracking-tight text-stone-900 dark:text-stone-100"
+            >
+              Pomodoro Focus Session Logs
+            </h2>
+            <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+              Review synced focus intervals by study guide and download a timestamped CSV report to audit your total study hours.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleExportPomodoroCsv}
+            className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white text-xs font-semibold inline-flex items-center gap-2 shadow-xs transition-colors cursor-pointer whitespace-nowrap shrink-0 self-start md:self-auto"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span>Download CSV</span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+          <div className="p-3.5 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950/60">
+            <span className="text-stone-500 dark:text-stone-400 block">
+              Logged Focus Sessions
+            </span>
+            <span className="text-xl font-extrabold font-mono tabular-nums text-stone-900 dark:text-stone-100 mt-1 block">
+              {Math.max(pomodoroSummary.focusSessionsCount, completedPomodoroSessions)}
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950/60">
+            <span className="text-stone-500 dark:text-stone-400 block">
+              Pomodoro Focus Minutes
+            </span>
+            <span className="text-xl font-extrabold font-mono tabular-nums text-emerald-700 dark:text-emerald-400 mt-1 block">
+              {pomodoroSummary.effectiveFocusMinutes} min
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950/60">
+            <span className="text-stone-500 dark:text-stone-400 block">
+              Pomodoro Focus Hours
+            </span>
+            <span className="text-xl font-extrabold font-mono tabular-nums text-blue-600 dark:text-blue-400 mt-1 block">
+              {pomodoroSummary.effectiveFocusHours.toFixed(2)} hrs
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950/60">
+            <span className="text-stone-500 dark:text-stone-400 block">
+              Total Platform Study Hours
+            </span>
+            <span className="text-xl font-extrabold font-mono tabular-nums text-purple-600 dark:text-purple-400 mt-1 block">
+              {totalStudyHours.toFixed(1)} hrs
+            </span>
+          </div>
+        </div>
+
+        {pomodoroLogs.length === 0 ? (
+          <div className="p-5 rounded-xl border border-dashed border-stone-300 dark:border-stone-700 bg-stone-50/50 dark:bg-stone-950/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-stone-800 dark:text-stone-200">
+                No individual Pomodoro intervals logged in this browser session yet
+              </p>
+              <p className="text-xs text-stone-500 dark:text-stone-400">
+                Complete or sync a focus interval in the Digital Educare Pomodoro timer to record course-level entries. You can still export the CSV summary anytime.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleExportPomodoroCsv}
+              className="px-3.5 py-2 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 hover:bg-stone-100 dark:hover:bg-stone-800 text-xs font-semibold text-stone-800 dark:text-stone-200 inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Download CSV</span>
+            </button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto border border-stone-200 dark:border-stone-800 rounded-xl">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-stone-50 dark:bg-stone-950/70 text-stone-500 dark:text-stone-400 border-b border-stone-200 dark:border-stone-800">
+                <tr>
+                  <th className="py-2.5 px-3 font-semibold">Date &amp; Time</th>
+                  <th className="py-2.5 px-3 font-semibold">Study Guide / Course</th>
+                  <th className="py-2.5 px-3 font-semibold">Phase</th>
+                  <th className="py-2.5 px-3 font-semibold text-right">Duration</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
+                {pomodoroLogs.slice(0, 6).map((log) => {
+                  const dt = new Date(log.completedAt);
+                  const dateLabel = Number.isNaN(dt.getTime())
+                    ? log.completedAt
+                    : dt.toLocaleString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      });
+                  return (
+                    <tr
+                      key={log.id}
+                      className="hover:bg-stone-50/80 dark:hover:bg-stone-800/40 transition-colors"
+                    >
+                      <td className="py-2.5 px-3 font-mono tabular-nums text-stone-600 dark:text-stone-300 whitespace-nowrap">
+                        {dateLabel}
+                      </td>
+                      <td className="py-2.5 px-3 font-medium text-stone-900 dark:text-stone-100">
+                        {log.guideTitle || 'Independent Study Session'}
+                      </td>
+                      <td className="py-2.5 px-3 text-stone-600 dark:text-stone-400 whitespace-nowrap">
+                        {log.phase === 'focus'
+                          ? 'Focus Session'
+                          : log.phase === 'short_break'
+                          ? 'Short Break'
+                          : 'Long Break'}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono tabular-nums font-semibold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
+                        {log.durationMinutes} min ({(log.durationMinutes / 60).toFixed(2)}h)
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {pomodoroLogs.length > 6 && (
+              <div className="px-3 py-2 bg-stone-50/70 dark:bg-stone-950/60 border-t border-stone-200 dark:border-stone-800 text-[11px] text-stone-500 dark:text-stone-400 font-mono">
+                Showing latest 6 of {pomodoroLogs.length} logged sessions · All {pomodoroLogs.length} rows are included in the CSV export.
+              </div>
+            )}
+          </div>
+        )}
+      </section>
 
       {/* Reading Velocity Graph: User Average Time per Chapter vs Recommended Course Pace */}
       <section
@@ -1338,15 +1799,17 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
       </div>
 
       {/* Dynamic Achievement Badges Showcase */}
-      <AchievementBadgesSection
-        readingProgress={readingProgress}
-        studyGuides={studyGuides}
-        onNavigateToCourse={onNavigateToCourse}
-        userName={user.name}
-        userEmail={user.email}
-        enrollments={enrollments}
-        onOpenFacultyPortal={onOpenFacultyPortal}
-      />
+      <div id="achievement-badges-section">
+        <AchievementBadgesSection
+          readingProgress={readingProgress}
+          studyGuides={studyGuides}
+          onNavigateToCourse={onNavigateToCourse}
+          userName={user.name}
+          userEmail={user.email}
+          enrollments={enrollments}
+          onOpenFacultyPortal={onOpenFacultyPortal}
+        />
+      </div>
 
       {/* Branded Course Completion Certificates & Preview Modal */}
       <UserProfileCertificatesSection
@@ -1354,6 +1817,20 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
         studyGuides={studyGuides}
         readingProgress={readingProgress}
         onNavigateToCourse={onNavigateToCourse}
+      />
+
+      {/* Animated Milestone 'Achievement Unlocked' Overlay */}
+      <AchievementUnlockedOverlay
+        isOpen={isAchievementOverlayOpen}
+        milestones={overlayMilestones}
+        learnerName={user.name}
+        onClose={() => setIsAchievementOverlayOpen(false)}
+        onAcknowledgeAll={handleAcknowledgeMilestones}
+        onViewBadgesSection={() => {
+          document
+            .getElementById('achievement-badges-section')
+            ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }}
       />
 
     </div>

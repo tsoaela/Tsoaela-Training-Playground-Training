@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Award, CheckCircle2, Layers, X, ArrowUpRight } from 'lucide-react';
+import { Award, CheckCircle2, Layers, X, ArrowUpRight, Lock } from 'lucide-react';
 import {
   CourseCertificateSpec,
   EducationCourse,
@@ -189,7 +189,8 @@ export const CourseCertificatesGalleryModal: React.FC<CourseCertificatesGalleryM
                       onClick={() => setActivePreviewItem(item)}
                       className="px-3 py-1.5 rounded-lg bg-[#052e16] hover:bg-[#064e3b] text-[#bef264] border border-[#84cc16]/60 text-xs font-bold flex items-center gap-1 shrink-0 cursor-pointer transition-colors"
                     >
-                      <span>Open &amp; PDF</span>
+                      {!item.isEarned && <Lock className="w-3 h-3 text-[#eab308]" />}
+                      <span>{item.isEarned ? 'Open & PDF' : 'Template Preview'}</span>
                       <ArrowUpRight className="w-3.5 h-3.5" />
                     </button>
                   </div>

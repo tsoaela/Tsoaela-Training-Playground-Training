@@ -1,4 +1,25 @@
 import { MusicTrack, PhotoItem, VideoItem, BookItem } from '../types';
+import coverCognitiveHorizon from '../assets/images/album_cognitive_horizon_1794847488769.jpg';
+import coverSovereignPulse from '../assets/images/album_sovereign_pulse_1794847488821.jpg';
+import coverElysianCanopy from '../assets/images/album_elysian_canopy_1794847489820.jpg';
+import coverSyntheticAurora from '../assets/images/album_synthetic_aurora_1794847489925.jpg';
+import coverZeroLatency from '../assets/images/album_zero_latency_1794847489668.jpg';
+
+export const MUSIC_COVER_ART_MAP: Record<string, string> = {
+  track_01: coverCognitiveHorizon,
+  track_02: coverSovereignPulse,
+  track_03: coverElysianCanopy,
+  track_04: coverSyntheticAurora,
+  track_05: coverZeroLatency,
+};
+
+export const MUSIC_COVER_PRESETS: { id: string; label: string; url: string }[] = [
+  { id: 'modular', label: 'Analog Oscilloscope', url: coverCognitiveHorizon },
+  { id: 'monolith', label: 'Basalt Resonance', url: coverSovereignPulse },
+  { id: 'acoustic', label: 'Felted Piano', url: coverElysianCanopy },
+  { id: 'prism', label: 'Refracted Prism', url: coverSyntheticAurora },
+  { id: 'brass', label: 'Acoustic Chamber', url: coverZeroLatency },
+];
 
 export const INITIAL_MUSIC_TRACKS: MusicTrack[] = [
   {
@@ -7,7 +28,7 @@ export const INITIAL_MUSIC_TRACKS: MusicTrack[] = [
     artist: 'Aether Resonance',
     artistId: 'artist_aether',
     album: 'Neural Architectures Vol. 1',
-    coverUrl: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&q=80&w=600',
+    coverUrl: coverCognitiveHorizon,
     duration: '4:18',
     durationSeconds: 258,
     genre: 'Ambient Electronic / Modular',
@@ -19,7 +40,7 @@ export const INITIAL_MUSIC_TRACKS: MusicTrack[] = [
     releaseDate: '2026-09-12',
     isrc: 'TTG-M-2026-00192',
     format: 'WAV 24-bit 96kHz',
-    hasStems: true,
+    hasMultitracks: true,
     description: 'Analog synthesis recorded through tape delays and warm vintage transformers. Designed for intense focus blocks and flow state.'
   },
   {
@@ -28,7 +49,7 @@ export const INITIAL_MUSIC_TRACKS: MusicTrack[] = [
     artist: 'Kaelen Vance',
     artistId: 'artist_kaelen',
     album: 'Sub-Zero Harmonics',
-    coverUrl: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&q=80&w=600',
+    coverUrl: coverSovereignPulse,
     duration: '5:42',
     durationSeconds: 342,
     genre: 'Deep Techno & Minimal',
@@ -40,7 +61,7 @@ export const INITIAL_MUSIC_TRACKS: MusicTrack[] = [
     releaseDate: '2026-10-04',
     isrc: 'TTG-M-2026-00341',
     format: 'WAV 24-bit 96kHz',
-    hasStems: true,
+    hasMultitracks: true,
     description: 'Polyrhythmic industrial percussion underpinned by sustained sub-bass frequencies calibrated at 432Hz.'
   },
   {
@@ -49,7 +70,7 @@ export const INITIAL_MUSIC_TRACKS: MusicTrack[] = [
     artist: 'Mira Solis',
     artistId: 'artist_mira',
     album: 'Botanical Frequencies',
-    coverUrl: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&q=80&w=600',
+    coverUrl: coverElysianCanopy,
     duration: '3:35',
     durationSeconds: 215,
     genre: 'Neoclassical Acoustic & Piano',
@@ -61,7 +82,7 @@ export const INITIAL_MUSIC_TRACKS: MusicTrack[] = [
     releaseDate: '2026-08-20',
     isrc: 'TTG-M-2026-00104',
     format: 'FLAC',
-    hasStems: false,
+    hasMultitracks: false,
     description: 'Felted grand piano overlaid with delicate bowed cello and organic field recordings captured in Mount Rainier rainforest.'
   },
   {
@@ -70,7 +91,7 @@ export const INITIAL_MUSIC_TRACKS: MusicTrack[] = [
     artist: 'Orbit 9',
     artistId: 'artist_orbit',
     album: 'Ionized Ionosphere',
-    coverUrl: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?auto=format&fit=crop&q=80&w=600',
+    coverUrl: coverSyntheticAurora,
     duration: '6:12',
     durationSeconds: 372,
     genre: 'Cybernetic Synthwave',
@@ -82,7 +103,7 @@ export const INITIAL_MUSIC_TRACKS: MusicTrack[] = [
     releaseDate: '2026-11-01',
     isrc: 'TTG-M-2026-00512',
     format: 'WAV 24-bit 96kHz',
-    hasStems: true,
+    hasMultitracks: true,
     description: 'Arpeggiated Prophet-6 synthesizers layered over punchy acoustic-sampled drum machines and space echo reverb.'
   },
   {
@@ -91,7 +112,7 @@ export const INITIAL_MUSIC_TRACKS: MusicTrack[] = [
     artist: 'Vector State',
     artistId: 'artist_vector',
     album: 'Distributed Swarms OST',
-    coverUrl: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&q=80&w=600',
+    coverUrl: coverZeroLatency,
     duration: '4:50',
     durationSeconds: 290,
     genre: 'Cinematic Score',
@@ -103,7 +124,7 @@ export const INITIAL_MUSIC_TRACKS: MusicTrack[] = [
     releaseDate: '2026-10-18',
     isrc: 'TTG-M-2026-00489',
     format: 'WAV 24-bit 96kHz',
-    hasStems: true,
+    hasMultitracks: true,
     description: 'Aggressive hybrid orchestral brass, glitch rhythms, and sub-octave distortion constructed for high-stakes simulations.'
   }
 ];

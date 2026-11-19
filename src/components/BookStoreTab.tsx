@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   BookOpen, 
   Download, 
@@ -20,9 +20,16 @@ import {
   Layers,
   GraduationCap
 } from 'lucide-react';
-import { BookItem, UserProfile } from '../types';
+import { BookItem, CreatorStoreProfile, UserProfile } from '../types';
 import { INITIAL_BOOKS } from '../data/storesData';
 import { ACADEMIC_FACULTIES } from '../data/academicCatalog';
+import {
+  CREATOR_FREE_SALES_THRESHOLD,
+  getStoreForUserAndPlatform,
+} from '../utils/creatorStoreSystem';
+import { CreatorModalTab, CreatorProfileStoreModal } from './CreatorProfileStoreModal';
+import { CreatorStorefrontBar } from './CreatorStorefrontBar';
+import { CreatorEarningsDashboard } from './CreatorEarningsDashboard';
 
 interface BookStoreTabProps {
   user: UserProfile;
@@ -68,10 +75,25 @@ export const BookStoreTab: React.FC<BookStoreTabProps> = ({
   const [readerTheme, setReaderTheme] = useState<'day' | 'sepia' | 'night'>('sepia');
   const [readerFontSize, setReaderFontSize] = useState<number>(16);
 
+  // Creator Storefront, Payment Account & Service Agreement State
+  const [creatorStore, setCreatorStore] = useState<CreatorStoreProfile | null>(() =>
+    getStoreForUserAndPlatform(user.id, 'bookstore')
+  );
+  const [isStoreModalOpen, setIsStoreModalOpen] = useState(false);
+  const [storeModalTab, setStoreModalTab] = useState<CreatorModalTab>('profile');
+  const [myStoreFilterActive, setMyStoreFilterActive] = useState(false);
+
+  useEffect(() => {
+    const syncStore = () => setCreatorStore(getStoreForUserAndPlatform(user.id, 'bookstore'));
+    syncStore();
+    window.addEventListener('ttg-creator-store-updated', syncStore);
+    return () => window.removeEventListener('ttg-creator-store-updated', syncStore);
+  }, [user.id]);
+
   // Author Publishing Modal State
   const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
-  const [newAuthor, setNewAuthor] = useState(user.name || '');
+  const [newAuthor, setNewAuthor] = useState(creatorStore?.artistName || user.name || '');
   const [newGenre, setNewGenre] = useState<BookItem['genre']>('Cognitive Science');
   const [newFaculty, setNewFaculty] = useState<string>(ACADEMIC_FACULTIES[0].name);
   const [newCoverUrl, setNewCoverUrl] = useState('');
@@ -81,9 +103,18 @@ export const BookStoreTab: React.FC<BookStoreTabProps> = ({
   const [newPricePrint, setNewPricePrint] = useState('24.99');
   const [newSampleText, setNewSampleText] = useState('');
 
+  const handleOpenStoreModal = (tab: CreatorModalTab) => {
+    onRequireAuth(() => {
+      setStoreModalTab(tab);
+      setIsStoreModalOpen(true);
+    }, 'Sign in to create your Author Profile, link a Payment Account, and review the Storefront Service Agreement.');
+  };
 
   const handleOpenPublishModal = () => {
     onRequireAuth(() => {
+      if (creatorStore?.artistName) {
+        setNewAuthor(creatorStore.artistName);
+      }
       setIsPublishModalOpen(true);
     }, 'Sign in or register as an Author to publish e-books, paperbacks, and monetize your research.');
   };
@@ -98,7 +129,7 @@ export const BookStoreTab: React.FC<BookStoreTabProps> = ({
       id: `book_${Date.now()}`,
       title: newTitle.trim(),
       author: newAuthor.trim(),
-      authorId: user.id,
+      authorId: creatorStore?.id || user.id,
       genre: newGenre,
       faculty: matchedFaculty.name,
       courseCode: `${matchedFaculty.codePrefix}-${Math.floor(100 + Math.random() * 499)}`,
@@ -147,7 +178,27 @@ export const BookStoreTab: React.FC<BookStoreTabProps> = ({
     { id: 'speculative fiction', label: 'Arts & Speculative' }
   ];
 
+  const myStoreBooksCount = useMemo(() => {
+    if (!creatorStore) return 0;
+    const targetName = creatorStore.artistName.trim().toLowerCase();
+    return books.filter(
+      (b) =>
+        b.authorId === user.id ||
+        b.authorId === creatorStore.id ||
+        b.author.trim().toLowerCase() === targetName
+    ).length;
+  }, [books, creatorStore, user.id]);
+
   const filteredBooks = books.filter(b => {
+    if (myStoreFilterActive && creatorStore) {
+      const targetName = creatorStore.artistName.trim().toLowerCase();
+      const belongsToMe =
+        b.authorId === user.id ||
+        b.authorId === creatorStore.id ||
+        b.author.trim().toLowerCase() === targetName;
+      if (!belongsToMe) return false;
+    }
+
     if (activeViewMode === 'faculty_library' && selectedFaculty !== 'all') {
       if (b.faculty !== selectedFaculty) return false;
     } else if (activeViewMode === 'all' && selectedGenre !== 'all') {
@@ -226,7 +277,24 @@ export const BookStoreTab: React.FC<BookStoreTabProps> = ({
 
       {/* Main Catalog View */}
       <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8 space-y-6">
-        
+        <CreatorStorefrontBar
+          platform="bookstore"
+          user={user}
+          store={creatorStore}
+          onOpenStoreModal={handleOpenStoreModal}
+          onUploadClick={handleOpenPublishModal}
+          myStoreFilterActive={myStoreFilterActive}
+          onToggleMyStoreFilter={() => setMyStoreFilterActive((v) => !v)}
+          myItemsCount={myStoreBooksCount}
+        />
+
+        <CreatorEarningsDashboard
+          platform="bookstore"
+          user={user}
+          store={creatorStore}
+          onOpenStoreModal={handleOpenStoreModal}
+        />
+
         {/* Search & Filters */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
           <div className="flex items-center gap-2 overflow-x-auto pb-1">
@@ -299,7 +367,8 @@ export const BookStoreTab: React.FC<BookStoreTabProps> = ({
                 >
                   <img 
                     src={book.coverUrl} 
-                    alt={book.title} 
+                    alt={book.title}
+                    referrerPolicy="no-referrer"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                   <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -669,12 +738,31 @@ export const BookStoreTab: React.FC<BookStoreTabProps> = ({
                 />
               </div>
 
-              <div className="p-3 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 rounded-xl text-xs flex justify-between items-center text-purple-900 dark:text-purple-200">
-                <span>Author Direct Royalty (90% Net):</span>
-                <span className="font-mono font-bold text-sm">
-                  ${((parseFloat(newPriceEbook) || 7.99) * 0.9).toFixed(2)} / eBook sale
-                </span>
-              </div>
+              {(() => {
+                const salesSoFar = creatorStore?.completedSalesCount || 0;
+                const post50 = salesSoFar >= CREATOR_FREE_SALES_THRESHOLD;
+                const priceNum = parseFloat(newPriceEbook) || 7.99;
+                const netShare = post50 ? priceNum * 0.95 : priceNum;
+                return (
+                  <div className="p-3 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 rounded-xl text-xs flex justify-between items-center gap-3 text-purple-900 dark:text-purple-200">
+                    <div>
+                      <span className="font-bold block">
+                        {post50
+                          ? 'Post-50 Sales Net Payout (95% Author · 5% Site Service Fee)'
+                          : 'First 50 Sales Launch Payout (100% Net · 0% Site Fee)'}
+                      </span>
+                      <span className="text-[11px] opacity-80">
+                        {post50
+                          ? `${salesSoFar} sales completed — 5% site fee paid to Site Owner.`
+                          : `${salesSoFar}/50 sales used — 5% site service fee starts after 50 sales.`}
+                      </span>
+                    </div>
+                    <span className="font-mono font-bold text-sm shrink-0">
+                      ${netShare.toFixed(2)} / eBook
+                    </span>
+                  </div>
+                );
+              })()}
 
               <div className="flex justify-end gap-3 pt-2">
                 <button
@@ -695,6 +783,18 @@ export const BookStoreTab: React.FC<BookStoreTabProps> = ({
           </div>
         </div>
       )}
+
+      {/* Author Profile, Online Storefront, Payment Account & Service Agreement Modal */}
+      <CreatorProfileStoreModal
+        isOpen={isStoreModalOpen}
+        onClose={() => setIsStoreModalOpen(false)}
+        platform="bookstore"
+        user={user}
+        existingStore={creatorStore}
+        initialTab={storeModalTab}
+        onStoreSaved={(saved) => setCreatorStore(saved)}
+        onProceedToUpload={handleOpenPublishModal}
+      />
 
     </div>
   );

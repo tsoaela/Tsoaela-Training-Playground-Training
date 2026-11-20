@@ -59,6 +59,12 @@ import {
   PomodoroPhase,
 } from '../types';
 import { DeepWorkPanel } from './DeepWorkPanel';
+import { DeepWorkAmbienceSoundboard } from './DeepWorkAmbienceSoundboard';
+import { DeepWorkAmbienceController } from '../hooks/useDeepWorkAmbience';
+import { DeepWorkHeatmapD3 } from './DeepWorkHeatmapD3';
+import { WeeklyFocusChallenge } from './WeeklyFocusChallenge';
+import { DeepWorkMarathonChallenge } from './DeepWorkMarathonChallenge';
+import { DeepWorkMonthlySubjectSummary } from './DeepWorkMonthlySubjectSummary';
 import { DailyStudyGoalRingCard } from './DailyStudyGoalRingCard';
 import { useDailyStudyGoal } from '../hooks/useDailyStudyGoal';
 import { RealtimeStudyBanner } from './RealtimeStudyBanner';
@@ -131,6 +137,7 @@ interface UserActivityDashboardTabProps {
     totalPhaseSeconds: number;
     onStartPause?: () => void;
   };
+  deepWorkAmbience?: DeepWorkAmbienceController;
 }
 
 export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> = ({
@@ -162,6 +169,7 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
   onAppealSerial,
   deepWork,
   pomodoroLive,
+  deepWorkAmbience,
 }) => {
   const {
     dailyGoalHours,
@@ -816,6 +824,17 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
         />
       )}
 
+      {/* Deep Work Ambience Soundboard (White Noise & Lofi Beats, auto-pauses when study ends) */}
+      {deepWorkAmbience && (
+        <DeepWorkAmbienceSoundboard
+          ambience={deepWorkAmbience}
+          isStudySessionActive={Boolean(
+            deepWork?.state.isActive ||
+              (pomodoroLive?.isRunning && pomodoroLive.phase === 'focus')
+          )}
+        />
+      )}
+
       {/* Daily Study Hour Goal & Real-Time Progress Ring (Pomodoro + Deep Work) */}
       <DailyStudyGoalRingCard
         metrics={dailyGoalMetrics}
@@ -828,6 +847,39 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
             : undefined
         }
         onTogglePomodoro={pomodoroLive?.onStartPause}
+      />
+
+      {/* D3 30-Day Deep Work Heatmap & Peak Productivity Analysis */}
+      <DeepWorkHeatmapD3
+        deepWorkState={deepWork?.state}
+        pomodoroLogs={pomodoroLogs}
+        studyGuides={studyGuides}
+        onNavigateToCourse={onNavigateToCourse}
+        onStartDeepWork={deepWork?.onStartDeepWork}
+      />
+
+      {/* Weekly Focus Challenge & Digital Badge Rewards */}
+      <WeeklyFocusChallenge
+        deepWorkState={deepWork?.state}
+        learnerName={user.name}
+        isDeepWorkActive={Boolean(deepWork?.state.isActive)}
+        onStartDeepWork={deepWork?.onStartDeepWork}
+      />
+
+      {/* Deep Work Marathon (3-Hour Focus Block -> Master of Focus Digital Badge) */}
+      <DeepWorkMarathonChallenge
+        deepWorkState={deepWork?.state}
+        learnerName={user.name}
+        isDeepWorkActive={Boolean(deepWork?.state.isActive)}
+        onStartDeepWork={deepWork?.onStartDeepWork}
+      />
+
+      {/* Monthly Completed Deep Work Subject Time vs. Average Focus Intensity Summary */}
+      <DeepWorkMonthlySubjectSummary
+        deepWorkState={deepWork?.state}
+        studyGuides={studyGuides}
+        onNavigateToCourse={onNavigateToCourse}
+        onStartDeepWork={deepWork?.onStartDeepWork}
       />
 
       {/* Focus AI Mode Toggle & Gemini Study Priority Recommendations (muted during Deep Work) */}

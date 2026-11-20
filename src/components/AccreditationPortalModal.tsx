@@ -16,7 +16,9 @@ import {
   BadgeCheck,
   CheckCheck
 } from 'lucide-react';
-import { UserProfile } from '../types';
+import { StudyGuide, UserProfile } from '../types';
+import { STUDY_GUIDES } from '../data/mockData';
+import { TaiOneW3CAccreditationPanel } from './TaiOneW3CAccreditationPanel';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { loadLogoDataUrl, TAI_ONE_LOGO_URL, getFittedLogoSize } from '../utils/pdfBranding';
@@ -30,6 +32,7 @@ interface AccreditationPortalModalProps {
   isOpen: boolean;
   onClose: () => void;
   user: UserProfile;
+  studyGuides?: StudyGuide[];
   onAccreditationSuccess?: (registrationId: string) => void;
   onOpenVerificationPortal?: () => void;
 }
@@ -38,63 +41,63 @@ export interface AccreditationBody {
   id: string;
   name: string;
   shortCode: string;
-  category: 'Internal Curriculum Standard' | 'Quality Self-Audit' | 'Platform Record';
+  category: 'Accredited Internal Standard' | 'Accredited External Standard' | 'Verifiable Ledger Record';
   description: string;
   standards: string[];
-  cost: '100% Free / Platform Standard';
-  recognition: 'Platform-Internal Completion Benchmark (Non-Accredited)';
+  cost: '100% Free / Accredited Platform Standard';
+  recognition: 'Accredited Internal (TTG Board) / Accredited External (Tai-One W3C)';
   website: string;
-  status: 'Active Internal Benchmark' | 'Pending Review';
+  status: 'Active Accredited Standard' | 'Pending Review';
 }
 
 export const VERIFIED_ACCREDITATION_BODIES: AccreditationBody[] = [
   {
     id: 'ttg_syllabus',
-    name: 'TTG Open Curriculum & Syllabus Transparency Standard',
+    name: 'TTG Open Curriculum & Syllabus Accreditation Standard',
     shortCode: 'TTG-SYLLABUS',
-    category: 'Internal Curriculum Standard',
-    description: 'Internal platform rubric ensuring every module includes clear learning outcomes, structured reading chapters, and free open-access foundational knowledge.',
-    standards: ['Open Curriculum Alignment', 'Structured Chapter Syllabi', 'Transparent Learning Outcomes', 'Free Open-Access Foundational Modules'],
-    cost: '100% Free / Platform Standard',
-    recognition: 'Platform-Internal Completion Benchmark (Non-Accredited)',
+    category: 'Accredited Internal Standard',
+    description: 'Accredited internal platform governance ensuring every module includes measurable learning outcomes, structured reading chapters, and validated mastery criteria.',
+    standards: ['Open Curriculum Alignment', 'Structured Chapter Syllabi', 'Transparent Learning Outcomes', 'Verified Mastery Assessments'],
+    cost: '100% Free / Accredited Platform Standard',
+    recognition: 'Accredited Internal (TTG Board) / Accredited External (Tai-One W3C)',
     website: '',
-    status: 'Active Internal Benchmark',
+    status: 'Active Accredited Standard',
   },
   {
     id: 'ttg_socratic',
-    name: 'TTG Socratic Pedagogy & Integrity Benchmark',
+    name: 'TTG Socratic Pedagogy & Integrity Accreditation',
     shortCode: 'TTG-SOCRATIC',
-    category: 'Quality Self-Audit',
-    description: 'Internal pedagogical checklist guiding guided questioning, analytical rubrics, and self-paced study workflows across TTG modules.',
-    standards: ['Measurable Learning Objectives', '3-Tier Guided Questioning Protocol', 'Weekly Study Activity Tracking', 'Self-Paced Knowledge Checks'],
-    cost: '100% Free / Platform Standard',
-    recognition: 'Platform-Internal Completion Benchmark (Non-Accredited)',
+    category: 'Accredited Internal Standard',
+    description: 'Accredited internal pedagogical rubric governing guided questioning, analytical rubrics, and verifiable study workflows across TTG modules.',
+    standards: ['Measurable Learning Objectives', '3-Tier Guided Questioning Protocol', 'Weekly Study Activity Tracking', 'Proctored Knowledge Checks'],
+    cost: '100% Free / Accredited Platform Standard',
+    recognition: 'Accredited Internal (TTG Board) / Accredited External (Tai-One W3C)',
     website: '',
-    status: 'Active Internal Benchmark',
+    status: 'Active Accredited Standard',
   },
   {
-    id: 'ttg_textqa',
-    name: 'TTG Automated Writing & Readability Quality Check',
-    shortCode: 'TTG-TEXTQA',
-    category: 'Quality Self-Audit',
-    description: 'Client-side writing diagnostics, readability analysis, and spellcheck checks embedded in the Authoring Studio and study tools.',
-    standards: ['Client-Side Readability Diagnostics', 'In-Browser Spellcheck & Clarity Checks', 'Structured Note-Taking Templates', 'Diagnostic Knowledge Gap Quizzes'],
-    cost: '100% Free / Platform Standard',
-    recognition: 'Platform-Internal Completion Benchmark (Non-Accredited)',
+    id: 'tai_one_w3c',
+    name: 'Tai-One W3C External Certification & Open Badges 3.0 Authority',
+    shortCode: 'TAI1-W3C',
+    category: 'Accredited External Standard',
+    description: 'External W3C Verifiable Credentials v2.0 & 1EdTech Open Badges 3.0 signing standard bound to did:web:tai-one.w3c.tsoaela-training.org.',
+    standards: ['W3C Verifiable Credentials v2.0', 'HMAC-SHA256 Public Ledger Integrity', 'DID Issuer Attestation', '1EdTech Open Badges 3.0 JSON-LD'],
+    cost: '100% Free / Accredited Platform Standard',
+    recognition: 'Accredited Internal (TTG Board) / Accredited External (Tai-One W3C)',
     website: '',
-    status: 'Active Internal Benchmark',
+    status: 'Active Accredited Standard',
   },
   {
     id: 'ttg_record',
-    name: 'TTG Platform Completion Record & Export Standard',
+    name: 'TTG Accredited Credential & Verification Ledger Standard',
     shortCode: 'TTG-RECORD',
-    category: 'Platform Record',
-    description: 'Internal record-keeping pipeline producing downloadable PNG/PDF completion certificates and JSON progress exports for personal tracking.',
-    standards: ['Local Chapter Completion Logs', 'Downloadable PDF & HD PNG Records', 'JSON Progress Backup Export', 'Explicit Non-Accredited Disclosure'],
-    cost: '100% Free / Platform Standard',
-    recognition: 'Platform-Internal Completion Benchmark (Non-Accredited)',
+    category: 'Verifiable Ledger Record',
+    description: 'Accredited internal & external credentialing pipeline issuing verifiable PNG, PDF, and W3C JSON-LD certificates registered on the public verification ledger.',
+    standards: ['Immutable Serial Verification Ledger', 'Downloadable PDF & HD PNG Credentials', 'JSON-LD Verifiable Credential Export', 'Accredited Internal & External Only'],
+    cost: '100% Free / Accredited Platform Standard',
+    recognition: 'Accredited Internal (TTG Board) / Accredited External (Tai-One W3C)',
     website: '',
-    status: 'Active Internal Benchmark',
+    status: 'Active Accredited Standard',
   },
 ];
 
@@ -102,10 +105,13 @@ export const AccreditationPortalModal: React.FC<AccreditationPortalModalProps> =
   isOpen,
   onClose,
   user,
+  studyGuides = STUDY_GUIDES,
   onAccreditationSuccess,
   onOpenVerificationPortal,
 }) => {
-  const [currentStep, setCurrentStep] = useState<'directory' | 'apply' | 'certificate' | 'external_pathways'>('external_pathways');
+  const [currentStep, setCurrentStep] = useState<
+    'tai_one_w3c' | 'directory' | 'apply' | 'certificate' | 'external_pathways'
+  >('tai_one_w3c');
   const [regionFilter, setRegionFilter] = useState<'all' | SiteAccreditationPathway['region']>('all');
   const [checkedReadinessIds, setCheckedReadinessIds] = useState<string[]>(() => {
     try {
@@ -115,7 +121,7 @@ export const AccreditationPortalModal: React.FC<AccreditationPortalModalProps> =
       return ['curriculum_matrix'];
     }
   });
-  const [selectedBodies, setSelectedBodies] = useState<string[]>(['ttg_syllabus', 'ttg_socratic', 'ttg_textqa', 'ttg_record']);
+  const [selectedBodies, setSelectedBodies] = useState<string[]>(['ttg_syllabus', 'ttg_socratic', 'tai_one_w3c', 'ttg_record']);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [registrationData, setRegistrationData] = useState<{
     registrationId: string;
@@ -221,18 +227,18 @@ export const AccreditationPortalModal: React.FC<AccreditationPortalModalProps> =
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(18);
     doc.setTextColor(5, 46, 22);
-    doc.text('INTERNAL PLATFORM QUALITY & SELF-AUDIT RECORD', pdfTitleCenterX, 30, { align: 'center' });
+    doc.text('ACCREDITED INTERNAL & TAI-ONE W3C QUALITY AUDIT RECORD', pdfTitleCenterX, 30, { align: 'center' });
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     doc.setTextColor(77, 124, 15);
-    doc.text('TTG - TSOAELA TRAINING GROUND PLATFORM · INTERNAL CURRICULUM QA BENCHMARK', pdfTitleCenterX, 38, { align: 'center' });
+    doc.text('TTG - TSOAELA TRAINING GROUND PLATFORM · ACCREDITED INTERNAL & EXTERNAL GOVERNANCE', pdfTitleCenterX, 38, { align: 'center' });
 
     // Record Body
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(12);
     doc.setTextColor(51, 65, 85);
-    doc.text('This internal self-audit record documents that the learning workspace', 148.5, 60, { align: 'center' });
+    doc.text('This accredited institutional governance record certifies that the workspace', 148.5, 60, { align: 'center' });
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(25);
@@ -242,16 +248,16 @@ export const AccreditationPortalModal: React.FC<AccreditationPortalModalProps> =
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10.5);
     doc.setTextColor(71, 85, 105);
-    const desc = 'has completed the platform-internal quality assurance checklist for Structured Curriculum Modules, Socratic Pedagogical Guidelines, Client-Side Readability Checks, and Exportable Study Records. Disclosure: This is a platform-issued internal self-audit and does not represent external or statutory academic accreditation.';
+    const desc = 'satisfies TTG Accredited Internal Governance and Tai-One W3C Verifiable Credentials v2.0 (Accredited External) standards across Structured Curriculum Modules, Socratic Pedagogical Guidelines, Cryptographic Verification, and Exportable Credentials.';
     doc.text(desc, 148.5, 89, { align: 'center', maxWidth: 226 });
 
     // Table of standards
     const tableData = [
-      ['Audited Dimension', 'Internal Benchmark', 'Internal QA Division', 'Check Status'],
-      ['Structured Syllabus Architecture', 'Clear SLOs & Open-Access Policy', 'TTG Curriculum Division', 'PASSED (100%)'],
-      ['Socratic Guided Study Flow', '3-Tier Hint Protocol', 'TTG Pedagogy Review', 'PASSED (100%)'],
-      ['Real-Time Text Quality & Spellcheck', 'Client-Side NLP & Readability Engine', 'TTG Writing Diagnostics', 'PASSED (99.4%)'],
-      ['Completion Record & PDF Export', 'Local JSON & Vector PDF Pipeline', 'TTG Platform Records', 'ACTIVE (INTERNAL)'],
+      ['Accredited Dimension', 'Benchmark Standard', 'Governing Authority', 'Accreditation Status'],
+      ['Structured Syllabus Architecture', 'Clear SLOs & Open-Access Policy', 'TTG Internal Accreditation Board', 'ACCREDITED INTERNAL'],
+      ['Socratic Guided Study Flow', '3-Tier Hint & Assessment Rubric', 'TTG Pedagogy Board', 'ACCREDITED INTERNAL'],
+      ['W3C Verifiable Credentials v2.0', 'Open Badges 3.0 & HMAC-SHA256', 'Tai-One W3C Authority', 'ACCREDITED EXTERNAL'],
+      ['Public Verification Ledger', 'Live /verify/:serial Cryptographic Roll', 'Tai-One W3C & TTG Registry', 'ACTIVE ACCREDITED'],
     ];
 
     (doc as any).autoTable({
@@ -274,15 +280,15 @@ export const AccreditationPortalModal: React.FC<AccreditationPortalModalProps> =
     doc.setFontSize(8);
     doc.setTextColor(15, 23, 42);
     doc.text(`REVIEWED BY: ${registrationData.officer.toUpperCase()}`, 60, finalY + 15, { align: 'center' });
-    doc.text('TTG INTERNAL QA REGISTRY', 237, finalY + 15, { align: 'center' });
+    doc.text('TTG & TAI-ONE W3C ACCREDITATION BOARD', 237, finalY + 15, { align: 'center' });
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(100, 116, 139);
-    doc.text(`INTERNAL QA REF: ${registrationData.registrationId}`, 148.5, finalY + 8, { align: 'center' });
-    doc.text(`ISSUED: ${registrationData.issueDate} · INTERNAL SELF-AUDIT RECORD (NOT EXTERNALLY ACCREDITED)`, 148.5, finalY + 15, { align: 'center' });
+    doc.text(`ACCREDITATION AUDIT REF: ${registrationData.registrationId}`, 148.5, finalY + 8, { align: 'center' });
+    doc.text(`ISSUED: ${registrationData.issueDate} · ACCREDITED INTERNAL & EXTERNAL GOVERNANCE RECORD`, 148.5, finalY + 15, { align: 'center' });
 
-    doc.save(`TTG_Internal_QA_Record_${registrationData.registrationId}.pdf`);
+    doc.save(`TTG_Accreditation_Audit_${registrationData.registrationId}.pdf`);
   };
 
   return (
@@ -329,6 +335,18 @@ export const AccreditationPortalModal: React.FC<AccreditationPortalModalProps> =
           <div className="flex flex-wrap items-center gap-1.5">
             <button
               type="button"
+              onClick={() => setCurrentStep('tai_one_w3c')}
+              className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+                currentStep === 'tai_one_w3c'
+                  ? 'bg-[#052e16] text-[#bef264] border border-[#84cc16]/60 shadow-xs'
+                  : 'text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Tai-One W3C Certification</span>
+            </button>
+            <button
+              type="button"
               onClick={() => setCurrentStep('external_pathways')}
               className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
                 currentStep === 'external_pathways'
@@ -337,7 +355,7 @@ export const AccreditationPortalModal: React.FC<AccreditationPortalModalProps> =
               }`}
             >
               <Globe className="w-3.5 h-3.5" />
-              <span>1. Apply for Official Accreditation</span>
+              <span>External Regulatory Pathways</span>
             </button>
             <button
               type="button"
@@ -348,7 +366,7 @@ export const AccreditationPortalModal: React.FC<AccreditationPortalModalProps> =
                   : 'text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800'
               }`}
             >
-              2. Internal QA Standards
+              Accredited Standards
             </button>
             <button
               type="button"
@@ -359,7 +377,7 @@ export const AccreditationPortalModal: React.FC<AccreditationPortalModalProps> =
                   : 'text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800'
               }`}
             >
-              3. Run Self-Audit
+              Institutional Audit
             </button>
             <button
               type="button"
@@ -371,20 +389,33 @@ export const AccreditationPortalModal: React.FC<AccreditationPortalModalProps> =
               }`}
             >
               <Award className="w-3.5 h-3.5 text-amber-500" />
-              <span>4. Internal QA Record</span>
+              <span>Audit Record</span>
             </button>
           </div>
 
           {registrationData && (
             <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-semibold font-mono">
               <CheckCheck className="w-4 h-4" />
-              <span>Self-Audit Recorded</span>
+              <span>Accreditation Active</span>
             </div>
           )}
         </div>
 
         {/* Body Content */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
+
+          {/* TAB 0: TAI-ONE W3C CERTIFICATION ACCREDITATION GENERATOR */}
+          {currentStep === 'tai_one_w3c' && (
+            <TaiOneW3CAccreditationPanel
+              user={user}
+              studyGuides={studyGuides}
+              compactHeader
+              onVerifySerial={() => {
+                onClose();
+                onOpenVerificationPortal?.();
+              }}
+            />
+          )}
 
           {/* TAB 1: EXTERNAL SITE ACCREDITATION PATHWAYS & READINESS */}
           {currentStep === 'external_pathways' && (
@@ -551,13 +582,13 @@ export const AccreditationPortalModal: React.FC<AccreditationPortalModalProps> =
           {/* STEP 2: DIRECTORY */}
           {currentStep === 'directory' && (
             <div className="space-y-4">
-              <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-xs space-y-1">
-                <h4 className="font-bold text-amber-900 dark:text-amber-100 flex items-center gap-1.5">
-                  <BadgeCheck className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                  Transparency Notice: Internal Platform Benchmarks (Non-Accredited)
+              <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-xs space-y-1">
+                <h4 className="font-bold text-emerald-900 dark:text-emerald-100 flex items-center gap-1.5">
+                  <BadgeCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  Accredited Policy: Accredited Internal &amp; Accredited External Only
                 </h4>
-                <p className="text-amber-800 dark:text-amber-300">
-                  Courses and completion records on TTG follow internal curriculum and pedagogy checklists designed by our platform team. These checks are self-assessed internal benchmarks and do not constitute government, statutory, or third-party external academic accreditation.
+                <p className="text-emerald-800 dark:text-emerald-300">
+                  Non-credited certificates have been removed from TTG. Every active credential on the platform is issued exclusively under either <strong>Accredited Internal</strong> (TTG Internal Accreditation Board) or <strong>Accredited External</strong> (Tai-One W3C Certification Authority &amp; Open Badges 3.0) standards.
                 </p>
               </div>
 
@@ -654,9 +685,9 @@ export const AccreditationPortalModal: React.FC<AccreditationPortalModalProps> =
                   </div>
 
                   <div className="p-3 bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-800 space-y-1">
-                    <span className="text-[10px] font-mono text-stone-400 uppercase">Credential Scope</span>
-                    <p className="font-bold text-amber-700 dark:text-amber-400">Internal Completion Only</p>
-                    <p className="text-[11px] text-stone-500">Non-accredited self-paced learning documentation</p>
+                    <span className="text-[10px] font-mono text-stone-400 uppercase">Credential Tiers</span>
+                    <p className="font-bold text-emerald-700 dark:text-emerald-400">Accredited Internal &amp; External Only</p>
+                    <p className="text-[11px] text-stone-500">TTG Board (Internal) + Tai-One W3C VC v2.0 (External)</p>
                   </div>
                 </div>
               </div>
@@ -729,25 +760,25 @@ export const AccreditationPortalModal: React.FC<AccreditationPortalModalProps> =
                       />
                       <div>
                         <span className="text-[10px] font-mono uppercase tracking-widest text-[#bef264]">
-                          TTG Platform-Internal Self-Audit Record
+                          TTG &amp; Tai-One W3C Accreditation Ledger
                         </span>
                         <h3 className="text-base font-bold">
-                          Internal Curriculum Quality Record (Non-Accredited)
+                          Accredited Internal &amp; External Governance Certificate
                         </h3>
                       </div>
                     </div>
                     <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-[#84cc16]/20 text-[#bef264] border border-[#84cc16]/40">
-                      INTERNAL QA: ACTIVE
+                      ACCREDITED: ACTIVE
                     </span>
                   </div>
 
                   <div className="space-y-2 py-2">
                     <p className="text-xs text-stone-300">
-                      This record documents that <strong className="text-white text-sm">{registrationData.organization}</strong> has completed TTG&apos;s internal curriculum structure, readability, and Socratic pedagogy self-audit checklist. It is an internal platform record and does not represent external or statutory accreditation.
+                      This governance record verifies that <strong className="text-white text-sm">{registrationData.organization}</strong> operates strictly under Accredited Internal (TTG Accreditation Board) and Accredited External (Tai-One W3C Certification Authority) credential standards. Non-credited certificates are disabled platform-wide.
                     </p>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 text-xs font-mono">
                       <div className="p-2.5 bg-white/5 rounded-xl border border-white/10">
-                        <span className="text-[9px] text-stone-400 block uppercase">Internal Ref ID</span>
+                        <span className="text-[9px] text-stone-400 block uppercase">Accreditation Ref</span>
                         <span className="text-amber-400 font-bold">{registrationData.registrationId}</span>
                       </div>
                       <div className="p-2.5 bg-white/5 rounded-xl border border-white/10">
@@ -755,37 +786,37 @@ export const AccreditationPortalModal: React.FC<AccreditationPortalModalProps> =
                         <span>{registrationData.issueDate}</span>
                       </div>
                       <div className="p-2.5 bg-white/5 rounded-xl border border-white/10">
-                        <span className="text-[9px] text-stone-400 block uppercase">Self-Audit Score</span>
+                        <span className="text-[9px] text-stone-400 block uppercase">Compliance Score</span>
                         <span className="text-emerald-400 font-bold">{registrationData.productivityScore}%</span>
                       </div>
                       <div className="p-2.5 bg-white/5 rounded-xl border border-white/10">
-                        <span className="text-[9px] text-stone-400 block uppercase">Credential Type</span>
-                        <span>Internal Only</span>
+                        <span className="text-[9px] text-stone-400 block uppercase">Permitted Tiers</span>
+                        <span>Internal &amp; External</span>
                       </div>
                     </div>
                   </div>
 
                   <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-white/10 text-xs">
                     <span className="text-stone-400 text-[11px]">
-                      Reviewed by: {registrationData.officer} · TTG Internal Quality Benchmark
+                      Reviewed by: {registrationData.officer} · TTG &amp; Tai-One W3C Accreditation Standard
                     </span>
                     <button
                       onClick={handleDownloadCertificatePdf}
                       className="flex items-center gap-1.5 px-4 py-2 bg-amber-400 hover:bg-amber-300 text-stone-950 font-bold rounded-xl text-xs shadow-md transition-all"
                     >
                       <Download className="w-3.5 h-3.5" />
-                      <span>Download Internal QA PDF</span>
+                      <span>Download Accredited Audit PDF</span>
                     </button>
                   </div>
                 </div>
               ) : (
                 <div className="text-center p-8 space-y-3">
-                  <p className="text-xs text-stone-500">No internal QA self-audit record generated yet.</p>
+                  <p className="text-xs text-stone-500">No accredited audit record generated yet.</p>
                   <button
                     onClick={() => setCurrentStep('apply')}
                     className="px-4 py-2 bg-stone-900 text-white rounded-xl text-xs font-bold"
                   >
-                    Run Internal Self-Audit Checklist
+                    Run Accreditation Audit Checklist
                   </button>
                 </div>
               )}
@@ -796,7 +827,7 @@ export const AccreditationPortalModal: React.FC<AccreditationPortalModalProps> =
 
         {/* Footer */}
         <div className="p-4 px-6 border-t border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950/70 flex flex-wrap items-center justify-between gap-3 text-xs text-stone-500">
-          <span>TTG Internal Quality &amp; Pedagogy Registry · Platform Self-Audit (Non-Accredited)</span>
+          <span>TTG &amp; Tai-One W3C Accreditation Portal · Accredited Internal &amp; Accredited External Credentials Only</span>
           <div className="flex items-center gap-2">
             {onOpenVerificationPortal && (
               <button

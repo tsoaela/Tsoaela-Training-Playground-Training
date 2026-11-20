@@ -36,6 +36,7 @@ import { PhotographyStoreTab } from './components/PhotographyStoreTab';
 import { VideographyStoreTab } from './components/VideographyStoreTab';
 import { BookStoreTab } from './components/BookStoreTab';
 import { AuthModal } from './components/AuthModal';
+import { initGoogleAuth, googleSignOut } from './services/googleAuth';
 import { BillingDashboardTab } from './components/BillingDashboardTab';
 import { FAQSection } from './components/FAQSection';
 import { PaywallModal } from './components/PaywallModal';
@@ -68,6 +69,7 @@ import { useBackgroundSync } from './hooks/useBackgroundSync';
 import { usePomodoroTimer } from './hooks/usePomodoroTimer';
 import { useRealtimeStudyProgress } from './hooks/useRealtimeStudyProgress';
 import { useDeepWorkMode } from './hooks/useDeepWorkMode';
+import { useDeepWorkAmbience } from './hooks/useDeepWorkAmbience';
 import { useAcceptedStudents } from './hooks/useAcceptedStudents';
 import { FACULTY_LECTURE_SERIES } from './data/lecturesAndSyllabuses';
 import { CertificateVerificationTab } from './components/CertificateVerificationTab';
@@ -209,9 +211,8 @@ export default function App() {
       : g.category;
     const rawAccreditor = g.certificate?.accreditor || '';
     const cleanedAccreditor =
-      !rawAccreditor ||
-      /tai-one|standard board|ai course generated/i.test(rawAccreditor)
-        ? 'TTG - Tsoaela Training Ground Platform'
+      !rawAccreditor || /^(ai course generated)$/i.test(rawAccreditor.trim())
+        ? 'TTG Internal Accreditation Board (Accredited Internal)'
         : rawAccreditor;
     const rawCertCategoryKey = g.certificate?.categoryKey || '';
     const cleanedCertCategoryKey = /^(ai courses?( \(ai generated\))?)$/i.test(rawCertCategoryKey.trim())
@@ -461,11 +462,43 @@ export default function App() {
     }
   };
 
+  // Keep Firebase Google OAuth session synchronized on app load
+  useEffect(() => {
+    const unsubscribe = initGoogleAuth((googleUser) => {
+      setUser((prev) => {
+        const emailAddr = googleUser.email || prev.email;
+        const displayName =
+          googleUser.displayName ||
+          prev.name ||
+          emailAddr.split('@')[0];
+        const next: UserProfile = {
+          ...prev,
+          id: googleUser.uid,
+          name: displayName,
+          email: emailAddr,
+          photoUrl: googleUser.photoURL || prev.photoUrl,
+          authProvider: 'google',
+        };
+        try {
+          localStorage.setItem('ttg_is_authenticated', 'true');
+          localStorage.setItem('ttg_user_profile', JSON.stringify(next));
+        } catch {}
+        return next;
+      });
+      setIsAuthenticated(true);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
   const handleLogout = () => {
     setIsAuthenticated(false);
     setUserRole('student');
     setSelectedStudyGuideId(null);
     setSelectedStudyChapterIdx(0);
+    void googleSignOut();
     try {
       localStorage.removeItem('ttg_is_authenticated');
       localStorage.removeItem('ttg_user_role');
@@ -589,9 +622,10 @@ export default function App() {
       const isEarned = Boolean(
         prog.isCompleted || pct >= 100 || (bestScore !== undefined && bestScore >= passThreshold)
       );
-      if (!isEarned) return;
+      if (!isEarned || guide.is_accredited === false) return;
 
       const certSpec = getCertificateForStudyGuide(guide);
+      if (!certSpec) return;
       const serial = formatCertificateSerial(certSpec.credentialCodePrefix, guide.id, user.id);
       const dedupeKey = `${serial}:${pct}:${bestScore ?? ''}:${user.name}`;
       if (issuedLedgerKeysRef.current.has(dedupeKey)) return;
@@ -607,6 +641,8 @@ export default function App() {
           categoryKey: certSpec.categoryKey,
           credentialTitle: certSpec.credentialTitle,
           accreditor: certSpec.accreditor,
+          accreditationTier: certSpec.accreditationTier,
+          isAccredited: true,
           recipientName: user.name || 'Academic Scholar',
           recipientEmail: user.email || 'scholar@ttg-platform.local',
           userId: user.id || 'user_88219',
@@ -761,6 +797,18 @@ export default function App() {
     pomodoroLogs: pomodoro.sessionLogs,
     onCompleteSession: (minutes, guideId, guideTitle) => {
       pomodoro.recordExternalFocusSession(minutes, guideId, guideTitle);
+    },
+  });
+
+  // Deep Work Ambience Soundboard (auto-pauses when study session ends)
+  const deepWorkAmbience = useDeepWorkAmbience({
+    isDeepWorkActive: deepWork.state.isActive,
+    isDeepWorkPaused: deepWork.state.isPaused,
+    pomodoroPhase: pomodoro.phase,
+    isPomodoroRunning: pomodoro.isRunning,
+    onAutoPause: (reason) => {
+      setToastMessage(reason);
+      setTimeout(() => setToastMessage(null), 4000);
     },
   });
 
@@ -2247,6 +2295,7 @@ export default function App() {
               totalPhaseSeconds: pomodoro.totalPhaseSeconds,
               onStartPause: pomodoro.startPause,
             }}
+            deepWorkAmbience={deepWorkAmbience}
           />
         )}
 
@@ -2448,11 +2497,12 @@ export default function App() {
         onInsertIntoEditor={handleInsertIntoEditor}
       />
 
-      {/* Free Institutional Accreditation & Productivity Registration Portal */}
+      {/* Free Institutional Accreditation & Tai-One W3C Certification Portal */}
       <AccreditationPortalModal
         isOpen={isAccreditationPortalOpen}
         onClose={() => setIsAccreditationPortalOpen(false)}
         user={user}
+        studyGuides={studyGuides}
         onAccreditationSuccess={handleAccreditationSuccess}
         onOpenVerificationPortal={() => handleOpenVerifySerial()}
       />

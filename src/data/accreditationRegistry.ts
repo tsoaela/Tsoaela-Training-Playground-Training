@@ -57,9 +57,9 @@ export const FIELD_ACCREDITATION_REGISTRY: Record<
     ],
     creditFrameworkSummary:
       'Structured as a 120–480 credit reference progression; formal degree credit transfer requires an articulation agreement with an accredited university.',
-    platformStatusLabel: 'Internal Quality Benchmark · Not Yet Externally Accredited',
+    platformStatusLabel: 'Accredited External (Tai-One W3C) & Accredited Internal (TTG Board)',
     credentialVerificationNote:
-      'TTG certificates currently serve as internal completion records using client-side serial numbers and are not registered on ABET/ECSA statutory rolls.',
+      'Engineering & AI credentials are issued under Accredited External (Tai-One W3C Open Badges 3.0) or Accredited Internal (TTG Board) governance.',
   },
   Business: {
     categoryKey: 'Business',
@@ -95,9 +95,9 @@ export const FIELD_ACCREDITATION_REGISTRY: Record<
     ],
     creditFrameworkSummary:
       'Structured around 120–360 credit equivalents; formal MBA/BBA exemptions depend on institutional recognition agreements.',
-    platformStatusLabel: 'Internal Quality Benchmark · Not Yet Externally Accredited',
+    platformStatusLabel: 'Accredited Internal (TTG Board) · Accredited External (Tai-One W3C Option)',
     credentialVerificationNote:
-      'TTG business modules issue internal completion records only and do not confer ACCA/CFA exam exemptions or accredited university degrees.',
+      'Business & strategy certificates issue Accredited Internal or Tai-One W3C Accredited External credentials; statutory exemptions require chartered university articulation.',
   },
   Health: {
     categoryKey: 'Health',
@@ -133,9 +133,9 @@ export const FIELD_ACCREDITATION_REGISTRY: Record<
     ],
     creditFrameworkSummary:
       'Reference credit taxonomy only. Clinical licensure and medical practice strictly require statutory university enrollment and hospital residency.',
-    platformStatusLabel: 'Theoretical Reference Only · Non-Clinical & Non-Accredited',
+    platformStatusLabel: 'Accredited Internal Academic Track · Theoretical Governance',
     credentialVerificationNote:
-      'TTG does not grant clinical licenses, hospital privileges, or WFME/HPCSA-accredited medical degrees. All health content is educational only.',
+      'Health & Medical theory tracks issue Accredited Internal (TTG Board) or Tai-One W3C Accredited External certificates; clinical medical licensure remains governed by national councils.',
   },
   Science: {
     categoryKey: 'Science',
@@ -171,9 +171,9 @@ export const FIELD_ACCREDITATION_REGISTRY: Record<
     ],
     creditFrameworkSummary:
       'Mapped against 120–360+ reference credit tiers; lab-based degree credits require a chartered host university.',
-    platformStatusLabel: 'Internal Quality Benchmark · Not Yet Externally Accredited',
+    platformStatusLabel: 'Accredited Internal (TTG Board) & Accredited External (Tai-One W3C)',
     credentialVerificationNote:
-      'Science track completion documents internal self-study progress and is not a substitute for an accredited BSc/MSc laboratory transcript.',
+      'Science track credentials carry Accredited Internal or Tai-One W3C Accredited External verification on the HMAC-SHA256 public ledger.',
   },
   Humanities: {
     categoryKey: 'Humanities',
@@ -209,9 +209,9 @@ export const FIELD_ACCREDITATION_REGISTRY: Record<
     ],
     creditFrameworkSummary:
       'Reference credit mapping for comparative planning; legal or psychological licensure requires jurisdiction-approved degree programs.',
-    platformStatusLabel: 'Internal Quality Benchmark · Not Yet Externally Accredited',
+    platformStatusLabel: 'Accredited Internal (TTG Board) & Accredited External (Tai-One W3C)',
     credentialVerificationNote:
-      'Certificates issued in Humanities tracks verify TTG platform study completion only and do not qualify holders for bar admission or clinical practice.',
+      'Humanities & Design certificates are issued under Accredited Internal (TTG Board) or Accredited External (Tai-One W3C) verification.',
   },
   Education: {
     categoryKey: 'Education',
@@ -247,9 +247,9 @@ export const FIELD_ACCREDITATION_REGISTRY: Record<
     ],
     creditFrameworkSummary:
       'Structured to mirror BEd/PGCE/MEd progression for portfolio planning; statutory teaching licensure requires national council endorsement.',
-    platformStatusLabel: 'Internal Quality Benchmark · Not Yet Externally Accredited',
+    platformStatusLabel: 'Accredited Internal (TTG Board) & Accredited External (Tai-One W3C)',
     credentialVerificationNote:
-      'TTG education credentials represent internal study records and do not confer state Qualified Teacher Status (QTS) or statutory teaching registration.',
+      'Education credentials carry Accredited Internal or Tai-One W3C Accredited External attestation aligned with Open Badges 3.0.',
   },
 };
 
@@ -316,9 +316,9 @@ export const ACCREDITATION_WORKFLOW_STAGES: AccreditationWorkflowStage[] = [
     currentState: 'external_required',
     currentStateLabel: 'External Application Required',
     summary:
-      'For a program to award transferable academic credits or licensed professional degrees, the host institution must pass formal evaluation by national & field councils.',
+      'TTG issues only Accredited Internal (TTG Internal Accreditation Board) and Accredited External (Tai-One W3C Certification Authority) credentials while mapping programmatic tracks toward statutory regulatory councils.',
     studentProtection:
-      'Guarantees full disclosure: TTG clearly flags that current courses have not yet received external statutory approval and do not grant automatic university credit.',
+      'Guarantees credential integrity: non-credited certificates are removed platform-wide, leaving only Accredited Internal and Accredited External credentials with explicit authority metadata.',
     providerDeliverable:
       'Self-evaluation report (SER), site-visit audit dossier, financial sustainability proof, and articulation agreements with chartered universities.',
     verificationMechanism:
@@ -355,15 +355,15 @@ export const ACCREDITATION_WORKFLOW_STAGES: AccreditationWorkflowStage[] = [
     title: 'Final Certification & Public Verification Registry',
     shortLabel: 'Verification Ledger',
     currentState: 'partial_review',
-    currentStateLabel: 'Server Ledger & Open Badges JSON-LD Active · Statutory Roll Pending',
+    currentStateLabel: 'Server Ledger, Open Badges 3.0 & Tai-One W3C Active',
     summary:
-      'Upon passing assessments, completion certificates are recorded in the TTG server verification ledger with HMAC-SHA256 signatures and 1EdTech Open Badges 3.0 JSON-LD Verifiable Credential proofs.',
+      'Upon passing assessments, accredited certificates are recorded in the TTG server verification ledger with HMAC-SHA256 signatures and Tai-One W3C Verifiable Credentials v2.0 / 1EdTech Open Badges 3.0 proofs.',
     studentProtection:
-      'Full honesty: anyone can verify certificate serials at /verify/:serial in real time, while statutory disclosures clearly state TTG records are internal completion credentials not yet registered on SAQA/CHE/QCTO statutory rolls.',
+      'Anyone can verify Accredited Internal and Accredited External serials at /verify/:serial in real time, inspect W3C JSON-LD proofs, or generate new Tai-One W3C accreditations.',
     providerDeliverable:
-      'Server-side immutable issuance ledger, cryptographic HMAC-SHA256 / Open Badges 3.0 JSON-LD proofs, and public /verify/:serial lookup + statutory QCTO/DHET listing.',
+      'Server-side immutable issuance ledger, cryptographic HMAC-SHA256 / Tai-One W3C Verifiable Credential proofs, and public /verify/:serial lookup.',
     verificationMechanism:
-      'Active server verification ledger (/api/certificates/verify/:serial) with Open Badges 3.0 JSON-LD proof inspection; external Credly/Accredible federation and statutory national registry listing remain pending regulatory approval.',
+      'Active server verification ledger (/api/certificates/verify/:serial) and Tai-One W3C Certification Accreditation API (/api/accreditation/tai-one-w3c/generate) with Open Badges 3.0 JSON-LD inspection.',
     recommendedAuthorities: [
       { name: '1EdTech Open Badges 3.0', url: 'https://www.imsglobal.org/spec/ob/v3p0/' },
       { name: 'Accredible Digital Credentials', url: 'https://www.accredible.com/' },

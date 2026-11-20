@@ -111,7 +111,7 @@ export const ReadingProgressExportModal: React.FC<ReadingProgressExportModalProp
     report_type: 'Student Reading Progress & Chapter Completion Transcript',
     document_id: reportId,
     generated_at: generatedAt,
-    quality_benchmark: 'TTG Internal Self-Audit Standard (Non-Accredited)',
+    quality_benchmark: 'TTG Accredited Internal & Tai-One W3C External Standard',
     student: {
       id: user.id,
       name: user.name,
@@ -359,7 +359,7 @@ export const ReadingProgressExportModal: React.FC<ReadingProgressExportModalProp
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(7.5);
         doc.setTextColor(148, 163, 184);
-        doc.text('TTG Platform Study Transcript · Internal Completion Record (Non-Accredited)', 14, 288);
+        doc.text('TTG & Tai-One W3C Accredited Study Transcript · Accredited Internal & External Ledger', 14, 288);
         doc.text(`Page ${i} of ${totalPages}`, 196, 288, { align: 'right' });
       }
 

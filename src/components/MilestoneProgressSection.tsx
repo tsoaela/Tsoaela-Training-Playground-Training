@@ -110,10 +110,13 @@ export const MilestoneProgressSection: React.FC<MilestoneProgressSectionProps> =
 
     const earnedBadges = STUDENT_BADGES.filter((b) => unlockedBadgeIds.has(b.id));
     const lockedBadges = STUDENT_BADGES.filter((b) => !unlockedBadgeIds.has(b.id));
-    const earnedCertificates = courseMilestones.filter((c) => c.isCertificateEarned);
+    const earnedCertificates = courseMilestones.filter(
+      (c): c is typeof c & { certSpec: NonNullable<typeof c.certSpec> } =>
+        c.isCertificateEarned && c.certSpec !== null
+    );
     const nextCertificateTrack =
       courseMilestones
-        .filter((c) => !c.isCertificateEarned)
+        .filter((c) => !c.isCertificateEarned && c.certSpec !== null)
         .sort((a, b) => b.pct - a.pct)[0] || null;
 
     const nextTier =

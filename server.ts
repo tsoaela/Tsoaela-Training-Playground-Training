@@ -9,6 +9,7 @@ import {
   applyBackgroundSyncBatch,
   createAppeal,
   createRegisteredStudyGroup,
+  generateTaiOneW3CAccreditation,
   getLiveStudySession,
   getOrCreateStudyGroupForRoom,
   getStudyRoomSharedNote,
@@ -18,6 +19,8 @@ import {
   listAppeals,
   listCertificates,
   listRegisteredStudyGroups,
+  listTaiOneW3CAccreditations,
+  recordStudyGroupAttendance,
   recordStudyHeartbeat,
   registerMemberInStudyGroup,
   updateAcceptedStudentStatus,
@@ -31,6 +34,7 @@ import {
   explainStudyPassageWithGemini,
 } from './src/server/focusAiService';
 import {
+  AccreditationTier,
   AppealStatus,
   StudentAdmissionStatus,
   StudyRoomActiveParticipant,
@@ -173,6 +177,7 @@ async function startServer() {
         courseTitle: String(body.courseTitle || body.courseId),
         hostName: String(body.hostName || 'Academic Scholar'),
         hostEmail: String(body.hostEmail || 'scholar@ttg-platform.local'),
+        dateKey: typeof body.dateKey === 'string' ? body.dateKey : undefined,
       });
       return res.status(201).json(created);
     } catch (err: any) {
@@ -191,7 +196,8 @@ async function startServer() {
       const updatedGroup = await registerMemberInStudyGroup(
         roomId,
         String(body.memberName || 'Academic Scholar'),
-        String(body.memberEmail)
+        String(body.memberEmail),
+        typeof body.dateKey === 'string' ? body.dateKey : undefined
       );
       if (!updatedGroup) {
         return res.status(404).json({ error: 'Registered study group not found.' });
@@ -205,6 +211,34 @@ async function startServer() {
     } catch (err: any) {
       console.error('Error joining study group:', err);
       return res.status(500).json({ error: 'Failed to register membership in study group' });
+    }
+  });
+
+  app.post('/api/study-groups/:roomId/attendance', async (req, res) => {
+    try {
+      const roomId = String(req.params.roomId || '').trim();
+      const body = req.body || {};
+      if (!roomId) {
+        return res.status(400).json({ error: 'roomId is required.' });
+      }
+      const updatedGroup = await recordStudyGroupAttendance({
+        roomId,
+        memberEmail: typeof body.memberEmail === 'string' ? body.memberEmail : undefined,
+        memberName: typeof body.memberName === 'string' ? body.memberName : undefined,
+        dateKey: typeof body.dateKey === 'string' ? body.dateKey : undefined,
+      });
+      if (!updatedGroup) {
+        return res.status(404).json({ error: 'Registered study group not found.' });
+      }
+      broadcastToStudyRoom(roomId, {
+        type: 'group:updated',
+        roomId,
+        group: updatedGroup,
+      });
+      return res.json({ group: updatedGroup });
+    } catch (err: any) {
+      console.error('Error recording study group attendance:', err);
+      return res.status(500).json({ error: 'Failed to record study group attendance' });
     }
   });
 
@@ -398,14 +432,26 @@ async function startServer() {
           error: 'serialNumber, courseId, and recipientName are required to issue a certificate record.',
         });
       }
+      if (body.isAccredited === false) {
+        return res.status(400).json({
+          error: 'Non-accredited certificates are disabled. Only accredited internal or external certificates can be issued.',
+        });
+      }
+
+      const rawTier = body.accreditationTier;
+      const accreditationTier: AccreditationTier | undefined =
+        rawTier === 'accredited_external' || rawTier === 'accredited_internal'
+          ? rawTier
+          : undefined;
 
       const record = await issueOrUpdateCertificate({
         serialNumber: String(body.serialNumber),
         courseId: String(body.courseId),
         courseTitle: String(body.courseTitle || 'Platform Study Course'),
         categoryKey: String(body.categoryKey || 'Institutional Studies'),
-        credentialTitle: String(body.credentialTitle || 'Internal Completion Certificate'),
-        accreditor: String(body.accreditor || 'TTG - Tsoaela Training Ground Platform'),
+        credentialTitle: String(body.credentialTitle || 'Accredited Course Completion Certificate'),
+        accreditor: String(body.accreditor || 'TTG Internal Accreditation Board (Accredited Internal)'),
+        accreditationTier,
         recipientName: String(body.recipientName),
         recipientEmail: String(body.recipientEmail || 'learner@ttg-platform.local'),
         userId: String(body.userId || 'user_88219'),
@@ -418,6 +464,65 @@ async function startServer() {
     } catch (err: any) {
       console.error('Certificate issue error:', err);
       return res.status(500).json({ error: 'Failed to record certificate in verification ledger' });
+    }
+  });
+
+  // ----------------------------------------------------
+  // Tai-One W3C Certification Accreditation API
+  // ----------------------------------------------------
+
+  app.get('/api/accreditation/tai-one-w3c', async (req, res) => {
+    try {
+      const rawTier = typeof req.query.tier === 'string' ? req.query.tier : 'all';
+      const tier =
+        rawTier === 'accredited_external' || rawTier === 'accredited_internal'
+          ? rawTier
+          : 'all';
+      const accreditations = await listTaiOneW3CAccreditations({ tier });
+      return res.json({ accreditations });
+    } catch (err: any) {
+      console.error('Error listing Tai-One W3C accreditations:', err);
+      return res.status(500).json({ error: 'Failed to list Tai-One W3C accreditations' });
+    }
+  });
+
+  app.post('/api/accreditation/tai-one-w3c/generate', async (req, res) => {
+    try {
+      const body = req.body || {};
+      const tier = body.accreditationTier;
+      if (tier !== 'accredited_external' && tier !== 'accredited_internal') {
+        return res.status(400).json({
+          error: 'Only accredited_external or accredited_internal tiers are permitted.',
+        });
+      }
+      if (!body.programTitle || !body.recipientName) {
+        return res.status(400).json({
+          error: 'programTitle and recipientName are required to generate Tai-One W3C accreditation.',
+        });
+      }
+
+      const result = await generateTaiOneW3CAccreditation({
+        accreditationTier: tier,
+        programTitle: String(body.programTitle),
+        courseId: typeof body.courseId === 'string' ? body.courseId : undefined,
+        categoryKey: String(body.categoryKey || 'Frontier AI & Systems'),
+        recipientName: String(body.recipientName),
+        recipientEmail: String(body.recipientEmail || 'scholar@ttg-platform.local'),
+        organizationName: String(
+          body.organizationName || 'TTG - Tsoaela Training Ground Platform'
+        ),
+        nqfCreditsReference: String(
+          body.nqfCreditsReference || 'NQF Level 7 · 15 Accredited Credits'
+        ),
+        userId: typeof body.userId === 'string' ? body.userId : 'user_88219',
+      });
+
+      return res.status(201).json(result);
+    } catch (err: any) {
+      console.error('Error generating Tai-One W3C accreditation:', err);
+      return res.status(500).json({
+        error: 'Failed to generate Tai-One W3C certification accreditation',
+      });
     }
   });
 

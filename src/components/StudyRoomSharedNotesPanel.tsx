@@ -13,6 +13,7 @@ import {
   ListTodo,
   Heading2,
   Sigma,
+  Flame,
 } from 'lucide-react';
 import {
   RegisteredStudyGroup,
@@ -20,6 +21,7 @@ import {
   StudyRoomSharedNote,
 } from '../types';
 import { SharedNotesConnectionStatus } from '../hooks/useStudyRoomSharedNotes';
+import { computeStudyGroupStreak, getLocalDateKey } from '../utils/studyGroupStreak';
 
 export interface StudyRoomSharedNotesPanelProps {
   group: RegisteredStudyGroup | null;
@@ -146,9 +148,23 @@ export const StudyRoomSharedNotesPanel: React.FC<StudyRoomSharedNotesPanelProps>
               {group?.memberEmails.length || 1} registered members
             </span>
           </div>
-          <h4 className="text-xs sm:text-sm font-bold text-white truncate mt-0.5">
-            {group?.name || 'Registered Study Group Notes'}
-          </h4>
+          <div className="flex items-center gap-2 mt-0.5 min-w-0">
+            <h4 className="text-xs sm:text-sm font-bold text-white truncate">
+              {group?.name || 'Registered Study Group Notes'}
+            </h4>
+            {group && (() => {
+              const streak = computeStudyGroupStreak(group, getLocalDateKey(), 7);
+              return (
+                <span
+                  className="inline-flex items-center gap-0.5 text-[11px] font-mono tabular-nums font-bold text-amber-400 shrink-0"
+                  title={`${streak.currentStreak}-day study streak`}
+                >
+                  <Flame className="w-3 h-3 text-amber-400 fill-amber-400/25" aria-hidden="true" />
+                  <span>{streak.currentStreak}d</span>
+                </span>
+              );
+            })()}
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5 shrink-0">

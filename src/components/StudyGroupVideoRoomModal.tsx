@@ -22,11 +22,13 @@ import {
   CircleDot,
   GraduationCap,
   FileEdit,
-  Columns2
+  Columns2,
+  Flame,
 } from 'lucide-react';
 import { StudyGroupRoom, StudyGroupPeer, UserProfile } from '../types';
 import { useStudyRoomSharedNotes } from '../hooks/useStudyRoomSharedNotes';
 import { StudyRoomSharedNotesPanel } from './StudyRoomSharedNotesPanel';
+import { computeStudyGroupStreak, getLocalDateKey } from '../utils/studyGroupStreak';
 
 interface StudyGroupVideoRoomModalProps {
   isOpen: boolean;
@@ -64,6 +66,23 @@ export const StudyGroupVideoRoomModal: React.FC<StudyGroupVideoRoomModalProps> =
     courseTitle,
     user,
   });
+
+  const roomStreak = sharedNotes.group
+    ? computeStudyGroupStreak(sharedNotes.group, getLocalDateKey(), 7)
+    : null;
+
+  useEffect(() => {
+    if (!isOpen || !effectiveRoomId) return;
+    fetch(`/api/study-groups/${encodeURIComponent(effectiveRoomId)}/attendance`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        memberName: user.name || 'Academic Scholar',
+        memberEmail: user.email || 'scholar@ttg-platform.local',
+        dateKey: getLocalDateKey(),
+      }),
+    }).catch(() => {});
+  }, [isOpen, effectiveRoomId, user.name, user.email]);
 
   // Local Media Stream State
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
@@ -307,9 +326,20 @@ export const StudyGroupVideoRoomModal: React.FC<StudyGroupVideoRoomModalProps> =
                   {sharedNotes.participants.length} collaborating on notes
                 </span>
               </div>
-              <h3 className="text-sm sm:text-base font-extrabold text-white truncate max-w-lg mt-0.5">
-                {sharedNotes.group?.name || `${courseTitle} — Live Study Group`}
-              </h3>
+              <div className="flex items-center gap-2 mt-0.5 min-w-0">
+                <h3 className="text-sm sm:text-base font-extrabold text-white truncate max-w-lg">
+                  {sharedNotes.group?.name || `${courseTitle} — Live Study Group`}
+                </h3>
+                {roomStreak && (
+                  <span
+                    className="inline-flex items-center gap-1 text-xs font-mono tabular-nums font-bold text-amber-400 shrink-0"
+                    title={`${roomStreak.currentStreak}-day consecutive study group streak`}
+                  >
+                    <Flame className="w-3.5 h-3.5 text-amber-400 fill-amber-400/25" aria-hidden="true" />
+                    <span>{roomStreak.currentStreak}d</span>
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 

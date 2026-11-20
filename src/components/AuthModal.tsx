@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 import { UserProfile, UserRole } from '../types';
 import { TTG_LOGO_URL } from '../utils/pdfBranding';
+import { GoogleSignInButton } from './GoogleSignInButton';
+import { signInWithGoogle } from '../services/googleAuth';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -42,8 +44,55 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [tier, setTier] = useState<'free' | 'educare_pro' | 'all_access'>('free');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   if (!isOpen) return null;
+
+  const handleGoogleSignIn = async () => {
+    setError(null);
+    setIsGoogleLoading(true);
+    try {
+      const { user: googleUser } = await signInWithGoogle();
+      const emailAddr = googleUser.email || 'scholar@gmail.com';
+      const fallbackName =
+        emailAddr.split('@')[0].charAt(0).toUpperCase() + emailAddr.split('@')[0].slice(1);
+      const selectedRole: UserRole = mode === 'register' ? role : 'student';
+
+      const userProfile: UserProfile = {
+        id: googleUser.uid,
+        name: googleUser.displayName || fallbackName,
+        email: emailAddr,
+        role: selectedRole,
+        photoUrl: googleUser.photoURL || undefined,
+        authProvider: 'google',
+        subscription_tier: tier,
+        plan_status: tier === 'free' ? 'None' : 'Active',
+        renewal_date: '2026-12-10',
+        billing_interval: 'monthly',
+        payment_method: {
+          brand: 'Visa',
+          last4: '4242',
+          exp_month: 12,
+          exp_year: 2028,
+        },
+      };
+
+      try {
+        localStorage.setItem('ttg_is_authenticated', 'true');
+        localStorage.setItem('ttg_user_profile', JSON.stringify(userProfile));
+        localStorage.setItem('ttg_user_role', selectedRole);
+      } catch (err) {
+        console.error(err);
+      }
+
+      onLoginSuccess(userProfile);
+      onClose();
+    } catch (err: any) {
+      setError(err?.message || 'Google Sign-In failed. Please try again.');
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -171,6 +220,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           >
             Register ($0 Free)
           </button>
+        </div>
+
+        {/* Google OAuth Sign-In */}
+        <div className="px-6 pb-3 space-y-3">
+          <GoogleSignInButton
+            onClick={handleGoogleSignIn}
+            disabled={isLoading}
+            isLoading={isGoogleLoading}
+            label={mode === 'register' ? 'Sign up with Google' : 'Sign in with Google'}
+          />
+
+          <div className="relative flex items-center py-1">
+            <div className="grow border-t border-stone-200 dark:border-stone-800" />
+            <span className="shrink mx-3 text-[11px] font-medium text-stone-400 dark:text-stone-500">
+              or continue with email
+            </span>
+            <div className="grow border-t border-stone-200 dark:border-stone-800" />
+          </div>
         </div>
 
         {/* Form Body */}

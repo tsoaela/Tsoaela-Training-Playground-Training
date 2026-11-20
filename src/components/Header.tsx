@@ -1257,9 +1257,18 @@ export const Header: React.FC<HeaderProps> = ({
                   className="flex items-center gap-1.5 px-2 py-1 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 cursor-pointer text-xs font-semibold text-stone-800 dark:text-stone-200 transition-colors shadow-2xs"
                   title="View Profile & Subscriptions"
                 >
-                  <div className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-[10px] shrink-0">
-                    {user.name.charAt(0).toUpperCase()}
-                  </div>
+                  {user.photoUrl ? (
+                    <img
+                      src={user.photoUrl}
+                      alt={user.name}
+                      referrerPolicy="no-referrer"
+                      className="w-5 h-5 rounded-full object-cover shrink-0 border border-stone-200 dark:border-stone-700"
+                    />
+                  ) : (
+                    <div className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-[10px] shrink-0">
+                      {user.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
                   <span className="hidden md:inline max-w-[90px] truncate">{user.name}</span>
                 </div>
                 {onLogout && (

@@ -212,14 +212,14 @@ export const FAQSection: React.FC<FAQSectionProps> = ({
 
         <div className="p-6 space-y-5 text-xs">
           {/* Transparent Status Callout */}
-          <div className="p-4 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/70 flex items-start gap-3">
-            <ShieldAlert className="w-4 h-4 text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div className="p-4 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/70 flex items-start gap-3">
+            <ShieldAlert className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5" />
             <div className="space-y-1">
-              <div className="font-bold text-amber-900 dark:text-amber-200">
-                Current Status: Non-Accredited Internal Learning Platform
+              <div className="font-bold text-emerald-900 dark:text-emerald-200">
+                Active Status: Accredited Internal &amp; Accredited External (Tai-One W3C) Only
               </div>
-              <p className="text-amber-900/90 dark:text-amber-200/90 leading-relaxed">
-                TTG does <strong>not</strong> currently hold statutory higher-education accreditation or degree-granting authority. All completion certificates and serial numbers represent internal self-study records rather than university credits or government-recognized diplomas.
+              <p className="text-emerald-900/90 dark:text-emerald-200/90 leading-relaxed">
+                Non-credited certificates have been removed from TTG. Every credential issued on the platform carries either <strong>Accredited Internal</strong> (TTG Internal Accreditation Board) or <strong>Accredited External</strong> (Tai-One W3C Certification Authority · Open Badges 3.0) verification on our public HMAC-SHA256 ledger.
               </p>
             </div>
           </div>
@@ -228,30 +228,30 @@ export const FAQSection: React.FC<FAQSectionProps> = ({
             <div className="p-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/60 dark:bg-stone-950/50 space-y-2">
               <div className="flex items-center gap-1.5 font-bold text-stone-900 dark:text-stone-100">
                 <Building2 className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                <span>Relationship with Academic Institutions</span>
+                <span>Accredited Internal Credentials</span>
               </div>
               <p className="text-stone-600 dark:text-stone-300 leading-relaxed">
-                Faculty categories and NQF-style credit ranges are structured as educational reference maps aligned with public disciplinary benchmarks. Formal credit transfer always requires an independent articulation agreement with an accredited university.
+                Curriculum modules verified by the TTG Internal Accreditation Board include structured SLOs, chapter mastery telemetry, and rubric assessments registered under <span className="font-mono">did:web:accreditation.tsoaela-training.org</span>.
               </p>
             </div>
 
             <div className="p-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/60 dark:bg-stone-950/50 space-y-2">
               <div className="flex items-center gap-1.5 font-bold text-stone-900 dark:text-stone-100">
                 <Scale className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                <span>Regulatory Compliance</span>
+                <span>Tai-One W3C External Accreditation</span>
               </div>
               <p className="text-stone-600 dark:text-stone-300 leading-relaxed">
-                To maintain honest regulatory compliance, TTG prohibits misleading "accredited degree" claims, separates paid event/media checkout from free learning grants, and discloses statutory councils (e.g., CHEA, QAA, ABET, WFME) for reference verification.
+                Flagship tracks issue Accredited External credentials through the Tai-One W3C Certification Authority in W3C Verifiable Credentials v2.0 / 1EdTech Open Badges 3.0 JSON-LD format with HMAC-SHA256 verification.
               </p>
             </div>
 
             <div className="p-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/60 dark:bg-stone-950/50 space-y-2">
               <div className="flex items-center gap-1.5 font-bold text-stone-900 dark:text-stone-100">
                 <UserCheck className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                <span>Course Provider Verification</span>
+                <span>Course Provider &amp; Appeals Governance</span>
               </div>
               <p className="text-stone-600 dark:text-stone-300 leading-relaxed">
-                Submitted study guides undergo internal syllabus rubric checks, citation audits, and assessment review before publication. External third-party institutional auditing and signed Open Badges 3.0 APIs are required before issuing externally verifiable credentials.
+                Submitted study guides undergo faculty rubric audits and moderation review before publication. Learners can contest or verify any credential serial publicly at <span className="font-mono">/verify/:serial</span>.
               </p>
             </div>
           </div>

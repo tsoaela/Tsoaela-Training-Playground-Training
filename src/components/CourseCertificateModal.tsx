@@ -41,6 +41,16 @@ export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
 
   if (!isOpen || !certificate) return null;
 
+  const isExternalAccredited =
+    certificate.accreditationTier === 'accredited_external' ||
+    /tai-one|w3c|fpac|iocc|ascr|ivcab|gdlab|cosv|external/i.test(certificate.accreditor || '');
+  const accreditedTierBadge = isExternalAccredited
+    ? 'ACCREDITED EXTERNAL · TAI-ONE W3C'
+    : 'ACCREDITED INTERNAL · TTG BOARD';
+  const accreditedSubline = isExternalAccredited
+    ? 'Tai-One W3C Verifiable Credential · Accredited External'
+    : 'TTG Internal Accreditation Board · Accredited Internal';
+
   const handleDownloadHighResPng = async () => {
     if (!isEarned) return;
     setIsGeneratingPng(true);
@@ -149,9 +159,7 @@ export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
       }
 
       // 5. Header Lockup
-      const safeAccreditor = /tai-one\s+ai\s+standard\s+board/i.test(certificate.accreditor)
-        ? 'TTG - Tsoaela Training Ground Platform'
-        : certificate.accreditor;
+      const safeAccreditor = certificate.accreditor;
       const hx = headerOffsetX;
       ctx.fillStyle = '#bef264';
       ctx.font = 'bold 24px ui-monospace, SFMono-Regular, Menlo, monospace';
@@ -168,7 +176,7 @@ export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
       ctx.textAlign = 'right';
       ctx.fillStyle = '#bef264';
       ctx.font = 'bold 24px ui-monospace, SFMono-Regular, Menlo, monospace';
-      ctx.fillText(isEarned ? 'COMPLETED (INTERNAL)' : `COMPLETION: ${progressPercent}%`, W - 168, 224);
+      ctx.fillText(isEarned ? accreditedTierBadge : `COMPLETION: ${progressPercent}%`, W - 168, 224);
       ctx.fillStyle = '#d9f99d';
       ctx.font = '500 22px ui-monospace, SFMono-Regular, Menlo, monospace';
       ctx.fillText(`SERIAL: ${serialNumber}`, W - 168, 266);
@@ -197,7 +205,13 @@ export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
 
       ctx.fillStyle = '#d9f99d';
       ctx.font = '400 28px system-ui, -apple-system, sans-serif';
-      ctx.fillText('This internal platform completion certificate records study by', W / 2, 608);
+      ctx.fillText(
+        isExternalAccredited
+          ? 'This accredited external Tai-One W3C credential certifies mastery by'
+          : 'This accredited internal institutional credential certifies mastery by',
+        W / 2,
+        608
+      );
 
       ctx.fillStyle = '#ffffff';
       ctx.font = '900 92px system-ui, -apple-system, sans-serif';
@@ -288,8 +302,8 @@ export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
       ctx.textAlign = 'center';
       ctx.fillStyle = '#bef264';
       ctx.font = 'bold 22px ui-monospace, SFMono-Regular, Menlo, monospace';
-      ctx.fillText('INTERNAL', sealX, sealY - 4);
-      ctx.fillText('RECORD', sealX, sealY + 26);
+      ctx.fillText(isExternalAccredited ? 'TAI-ONE' : 'TTG BOARD', sealX, sealY - 4);
+      ctx.fillText(isExternalAccredited ? 'W3C EXT' : 'ACCRED', sealX, sealY + 26);
 
       ctx.textAlign = 'right';
       ctx.fillStyle = '#fef08a';
@@ -297,7 +311,7 @@ export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
       ctx.fillText(certificate.sealTitle, sealX - 116, sealY - 6);
       ctx.fillStyle = '#bef264';
       ctx.font = '500 22px ui-monospace, SFMono-Regular, Menlo, monospace';
-      ctx.fillText('Internal Completion Record · Non-Accredited', sealX - 116, sealY + 34);
+      ctx.fillText(accreditedSubline, sealX - 116, sealY + 34);
       ctx.textAlign = 'left';
 
       const link = document.createElement('a');
@@ -400,9 +414,7 @@ export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
       }
 
       // 5. Header Text Lockup
-      const safePdfAccreditor = /tai-one\s+ai\s+standard\s+board/i.test(certificate.accreditor)
-        ? 'TTG - Tsoaela Training Ground Platform'
-        : certificate.accreditor;
+      const safePdfAccreditor = certificate.accreditor;
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(9.5);
       doc.setTextColor(190, 242, 100); // #bef264
@@ -428,7 +440,7 @@ export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
       doc.setFontSize(8.5);
       doc.setTextColor(163, 230, 53);
       doc.text(
-        isEarned ? 'STATUS: COMPLETED (INTERNAL)' : `COURSE COMPLETION: ${progressPercent}%`,
+        isEarned ? accreditedTierBadge : `COURSE COMPLETION: ${progressPercent}%`,
         pageW - 24,
         36,
         { align: 'right' }
@@ -453,9 +465,14 @@ export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(10.5);
       doc.setTextColor(217, 249, 157);
-      doc.text('This internal platform completion certificate records study progress by', pageW / 2, 91, {
-        align: 'center',
-      });
+      doc.text(
+        isExternalAccredited
+          ? 'This accredited external Tai-One W3C credential certifies study mastery by'
+          : 'This accredited internal institutional credential certifies study mastery by',
+        pageW / 2,
+        91,
+        { align: 'center' }
+      );
 
       // Recipient Name
       doc.setFont('helvetica', 'bold');
@@ -529,8 +546,8 @@ export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(6.5);
       doc.setTextColor(190, 242, 100);
-      doc.text('INTERNAL', pageW - 36, 178, { align: 'center' });
-      doc.text('RECORD', pageW - 36, 182, { align: 'center' });
+      doc.text(isExternalAccredited ? 'TAI-ONE' : 'TTG', pageW - 36, 178, { align: 'center' });
+      doc.text(isExternalAccredited ? 'W3C EXT' : 'ACCRED', pageW - 36, 182, { align: 'center' });
 
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(9);
@@ -540,7 +557,7 @@ export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
       doc.setTextColor(163, 230, 53);
-      doc.text('TTG - Tsoaela Training Ground Platform · Internal Completion Record', pageW - 52, 182, {
+      doc.text(accreditedSubline, pageW - 52, 182, {
         align: 'right',
       });
 
@@ -676,7 +693,10 @@ export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
             <span>
               {isEarned ? (
                 <>
-                  <strong className="text-stone-800 dark:text-stone-200">Internal Completion Record</strong> · Platform-issued proof of self-paced study (not externally or statutorily accredited)
+                  <strong className="text-stone-800 dark:text-stone-200">
+                    {isExternalAccredited ? 'Accredited External · Tai-One W3C' : 'Accredited Internal · TTG Board'}
+                  </strong>{' '}
+                  · {certificate.w3cStandard || 'W3C Verifiable Credentials & Open Badges 3.0 Ledger'}
                 </>
               ) : (
                 <>

@@ -1,17 +1,22 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Users,
   Video,
   Plus,
   UserPlus,
   CheckCircle2,
   FileEdit,
+  Flame,
+  CalendarCheck2,
 } from 'lucide-react';
 import {
   RegisteredStudyGroup,
   StudyGuide,
   UserProfile,
 } from '../types';
+import {
+  computeStudyGroupStreak,
+  getLocalDateKey,
+} from '../utils/studyGroupStreak';
 
 export interface RegisteredStudyGroupsPanelProps {
   user: UserProfile;
@@ -36,6 +41,7 @@ export const RegisteredStudyGroupsPanel: React.FC<RegisteredStudyGroupsPanelProp
   const [loading, setLoading] = useState<boolean>(true);
   const [isCreating, setIsCreating] = useState<boolean>(false);
   const [joiningRoomId, setJoiningRoomId] = useState<string | null>(null);
+  const [checkingInRoomId, setCheckingInRoomId] = useState<string | null>(null);
 
   const [newName, setNewName] = useState('');
   const [newTopic, setNewTopic] = useState('');
@@ -45,6 +51,7 @@ export const RegisteredStudyGroupsPanel: React.FC<RegisteredStudyGroupsPanelProp
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const userEmailLower = (user.email || 'scholar@ttg-platform.local').trim().toLowerCase();
+  const todayKey = getLocalDateKey();
 
   const fetchGroups = async () => {
     try {
@@ -65,6 +72,22 @@ export const RegisteredStudyGroupsPanel: React.FC<RegisteredStudyGroupsPanelProp
     void fetchGroups();
   }, []);
 
+  const streakOverview = useMemo(() => {
+    if (groups.length === 0) {
+      return { topStreak: 0, checkedInTodayCount: 0, totalCohortDays: 0 };
+    }
+    let topStreak = 0;
+    let checkedInTodayCount = 0;
+    let totalCohortDays = 0;
+    for (const grp of groups) {
+      const stats = computeStudyGroupStreak(grp, todayKey, 7);
+      if (stats.currentStreak > topStreak) topStreak = stats.currentStreak;
+      if (stats.attendedToday) checkedInTodayCount += 1;
+      totalCohortDays += stats.totalActiveDays;
+    }
+    return { topStreak, checkedInTodayCount, totalCohortDays };
+  }, [groups, todayKey]);
+
   const handleRegisterGroupMember = async (group: EnrichedGroup) => {
     onRequireAuth(async () => {
       setJoiningRoomId(group.id);
@@ -77,6 +100,7 @@ export const RegisteredStudyGroupsPanel: React.FC<RegisteredStudyGroupsPanelProp
             body: JSON.stringify({
               memberName: user.name || 'Academic Scholar',
               memberEmail: userEmailLower,
+              dateKey: todayKey,
             }),
           }
         );
@@ -92,6 +116,66 @@ export const RegisteredStudyGroupsPanel: React.FC<RegisteredStudyGroupsPanelProp
         setJoiningRoomId(null);
       }
     }, 'Sign in to register for a collaborative study group.');
+  };
+
+  const handleCheckInAttendance = async (group: EnrichedGroup) => {
+    onRequireAuth(async () => {
+      setCheckingInRoomId(group.id);
+      try {
+        const res = await fetch(
+          `/api/study-groups/${encodeURIComponent(group.id)}/attendance`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              memberName: user.name || 'Academic Scholar',
+              memberEmail: userEmailLower,
+              dateKey: todayKey,
+            }),
+          }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          if (data.group) {
+            setGroups((prev) =>
+              prev.map((g) => (g.id === group.id ? { ...g, ...data.group } : g))
+            );
+          }
+        }
+      } finally {
+        setCheckingInRoomId(null);
+      }
+    }, 'Sign in to log daily study group attendance.');
+  };
+
+  const handleEnterStudyRoom = async (group: EnrichedGroup) => {
+    if (isAuthenticated) {
+      try {
+        const res = await fetch(
+          `/api/study-groups/${encodeURIComponent(group.id)}/attendance`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              memberName: user.name || 'Academic Scholar',
+              memberEmail: userEmailLower,
+              dateKey: todayKey,
+            }),
+          }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          if (data.group) {
+            setGroups((prev) =>
+              prev.map((g) => (g.id === group.id ? { ...g, ...data.group } : g))
+            );
+          }
+        }
+      } catch {
+        // Non-blocking attendance update when entering room
+      }
+    }
+    onStartStudyRoom?.(group.courseTitle, group.courseId, group.id);
   };
 
   const handleCreateGroup = async (e: React.FormEvent) => {
@@ -110,6 +194,7 @@ export const RegisteredStudyGroupsPanel: React.FC<RegisteredStudyGroupsPanelProp
           courseTitle: selectedCourse?.title || 'Curriculum Course',
           hostName: user.name || 'Academic Scholar',
           hostEmail: userEmailLower,
+          dateKey: todayKey,
         }),
       });
       if (res.ok) {
@@ -135,7 +220,7 @@ export const RegisteredStudyGroupsPanel: React.FC<RegisteredStudyGroupsPanelProp
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400 mb-1">
             <FileEdit className="w-3.5 h-3.5" />
-            <span>Registered Study Groups · Real-Time Collaborative Notes</span>
+            <span>Registered Study Groups · Real-Time Collaborative Notes &amp; Study Streaks</span>
           </div>
           <h3
             id="registered-study-groups-heading"
@@ -144,7 +229,7 @@ export const RegisteredStudyGroupsPanel: React.FC<RegisteredStudyGroupsPanelProp
             Study Group Rooms &amp; Shared Notes
           </h3>
           <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
-            Register in a study group cohort and co-edit live synchronized Markdown notes with peers currently in the same study room.
+            Register in a study group cohort, build consecutive daily attendance streaks, and co-edit live synchronized Markdown notes.
           </p>
         </div>
 
@@ -161,6 +246,39 @@ export const RegisteredStudyGroupsPanel: React.FC<RegisteredStudyGroupsPanelProp
           <span>{isCreating ? 'Close Form' : 'Register Study Group'}</span>
         </button>
       </div>
+
+      {/* Study Streak Tracker Summary Strip */}
+      {!loading && groups.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-950/60 text-xs">
+          <div className="flex items-center gap-2 font-semibold text-stone-800 dark:text-stone-200">
+            <Flame className="w-4 h-4 text-amber-500 fill-amber-500/20 shrink-0" />
+            <span>Cohort Study Streak Tracker</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 text-stone-600 dark:text-stone-400 font-mono tabular-nums">
+            <span>
+              Top Streak:{' '}
+              <strong className="text-amber-600 dark:text-amber-400">
+                {streakOverview.topStreak}d
+              </strong>
+            </span>
+            <span aria-hidden="true">·</span>
+            <span>
+              Active Today:{' '}
+              <strong className="text-stone-900 dark:text-stone-100">
+                {streakOverview.checkedInTodayCount}/{groups.length}
+              </strong>{' '}
+              groups
+            </span>
+            <span aria-hidden="true">·</span>
+            <span>
+              Logged Days:{' '}
+              <strong className="text-stone-900 dark:text-stone-100">
+                {streakOverview.totalCohortDays}
+              </strong>
+            </span>
+          </div>
+        </div>
+      )}
 
       {isCreating && (
         <form
@@ -217,14 +335,14 @@ export const RegisteredStudyGroupsPanel: React.FC<RegisteredStudyGroupsPanelProp
             <button
               type="button"
               onClick={() => setIsCreating(false)}
-              className="px-3.5 py-1.5 rounded-lg border border-stone-200 dark:border-stone-700 text-xs font-semibold cursor-pointer"
+              className="px-3.5 py-1.5 rounded-lg border border-stone-200 dark:border-stone-700 text-xs font-semibold cursor-pointer whitespace-nowrap"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting || !newName.trim()}
-              className="px-4 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold cursor-pointer disabled:opacity-60"
+              className="px-4 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold cursor-pointer disabled:opacity-60 whitespace-nowrap"
             >
               {isSubmitting ? 'Registering…' : 'Create & Register Room'}
             </button>
@@ -237,7 +355,7 @@ export const RegisteredStudyGroupsPanel: React.FC<RegisteredStudyGroupsPanelProp
           {[1, 2].map((skeleton) => (
             <div
               key={skeleton}
-              className="h-32 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-950/50 animate-pulse"
+              className="h-44 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-950/50 animate-pulse"
             />
           ))}
         </div>
@@ -252,10 +370,12 @@ export const RegisteredStudyGroupsPanel: React.FC<RegisteredStudyGroupsPanelProp
               isAuthenticated &&
               (grp.memberEmails.some((e) => e.toLowerCase() === userEmailLower) ||
                 grp.hostEmail.toLowerCase() === userEmailLower);
+            const streak = computeStudyGroupStreak(grp, todayKey, 7);
+
             return (
               <div
                 key={grp.id}
-                className="p-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950/50 flex flex-col justify-between gap-3"
+                className="p-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950/50 flex flex-col justify-between gap-3.5"
               >
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between gap-2 text-[11px] text-stone-500 dark:text-stone-400">
@@ -269,9 +389,38 @@ export const RegisteredStudyGroupsPanel: React.FC<RegisteredStudyGroupsPanelProp
                       </span>
                     )}
                   </div>
-                  <h4 className="text-sm font-bold text-stone-900 dark:text-stone-100">
-                    {grp.name}
-                  </h4>
+
+                  {/* Group Name with Inline Small Fire Icon & Study Streak */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <h4 className="text-sm font-bold text-stone-900 dark:text-stone-100 truncate">
+                        {grp.name}
+                      </h4>
+                      <span
+                        className={`inline-flex items-center gap-0.5 text-xs font-mono tabular-nums font-bold shrink-0 ${
+                          streak.currentStreak > 0
+                            ? 'text-amber-600 dark:text-amber-400'
+                            : 'text-stone-400 dark:text-stone-500'
+                        }`}
+                        title={
+                          streak.currentStreak > 0
+                            ? `${streak.currentStreak}-day consecutive study group attendance streak (Best: ${streak.bestStreak}d)`
+                            : 'No active consecutive streak yet — check in today to start a streak'
+                        }
+                      >
+                        <Flame
+                          className={`w-3.5 h-3.5 shrink-0 ${
+                            streak.currentStreak > 0
+                              ? 'text-amber-500 fill-amber-500/25'
+                              : 'text-stone-400 dark:text-stone-600'
+                          }`}
+                          aria-hidden="true"
+                        />
+                        <span>{streak.currentStreak}d</span>
+                      </span>
+                    </div>
+                  </div>
+
                   <p className="text-xs text-stone-600 dark:text-stone-400 line-clamp-1">
                     Course: {grp.courseTitle}
                   </p>
@@ -280,23 +429,89 @@ export const RegisteredStudyGroupsPanel: React.FC<RegisteredStudyGroupsPanelProp
                   </p>
                 </div>
 
+                {/* 7-Day Study Streak Attendance Calendar Strip */}
+                <div className="pt-2.5 border-t border-stone-200/70 dark:border-stone-800 space-y-2">
+                  <div className="flex items-center justify-between gap-2 text-[11px]">
+                    <span className="font-semibold text-stone-700 dark:text-stone-300">
+                      7-Day Attendance Streak
+                    </span>
+                    <span className="font-mono tabular-nums text-stone-500 dark:text-stone-400">
+                      {streak.currentStreak > 0
+                        ? `${streak.currentStreak}d current · Best ${streak.bestStreak}d`
+                        : streak.isStreakAtRisk
+                        ? 'Check in today to extend'
+                        : `Best ${streak.bestStreak}d`}
+                    </span>
+                  </div>
+
+                  <div
+                    className="grid grid-cols-7 gap-1.5"
+                    role="group"
+                    aria-label={`${grp.name} 7-day study attendance history`}
+                  >
+                    {streak.recentDays.map((day) => (
+                      <div
+                        key={day.dateKey}
+                        title={`${day.fullLabel}: ${
+                          day.isActive
+                            ? `${day.attendeeCount} member${day.attendeeCount === 1 ? '' : 's'} attended`
+                            : 'No attendance logged'
+                        }`}
+                        className={`flex flex-col items-center justify-center py-1 rounded-lg border text-[10px] font-mono tabular-nums transition-colors ${
+                          day.isActive
+                            ? 'border-amber-400/70 dark:border-amber-600/60 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-bold'
+                            : day.isToday
+                            ? 'border-dashed border-stone-400 dark:border-stone-600 bg-white dark:bg-stone-900 text-stone-600 dark:text-stone-300'
+                            : 'border-stone-200 dark:border-stone-800 bg-white/70 dark:bg-stone-900/60 text-stone-400 dark:text-stone-500'
+                        }`}
+                      >
+                        <span className="leading-tight">{day.shortDay}</span>
+                        <span className="text-[9px] opacity-80 leading-tight">
+                          {day.isToday ? 'Now' : day.dayNumber}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-stone-200/70 dark:border-stone-800">
                   {!isRegistered && (
                     <button
                       type="button"
                       disabled={joiningRoomId === grp.id}
                       onClick={() => void handleRegisterGroupMember(grp)}
-                      className="px-3 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 hover:bg-stone-100 dark:hover:bg-stone-800 text-xs font-semibold text-stone-800 dark:text-stone-200 inline-flex items-center gap-1.5 cursor-pointer"
+                      className="px-3 py-1.5 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 hover:bg-stone-100 dark:hover:bg-stone-800 text-xs font-semibold text-stone-800 dark:text-stone-200 inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                     >
                       <UserPlus className="w-3.5 h-3.5" />
                       <span>{joiningRoomId === grp.id ? 'Joining…' : 'Register'}</span>
                     </button>
                   )}
+
+                  <button
+                    type="button"
+                    disabled={streak.attendedToday || checkingInRoomId === grp.id}
+                    onClick={() => void handleCheckInAttendance(grp)}
+                    className={`px-3 py-1.5 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap transition-colors ${
+                      streak.attendedToday
+                        ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 cursor-default'
+                        : 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-amber-800 dark:text-amber-300 cursor-pointer'
+                    }`}
+                  >
+                    <CalendarCheck2 className="w-3.5 h-3.5" />
+                    <span>
+                      {checkingInRoomId === grp.id
+                        ? 'Logging…'
+                        : streak.attendedToday
+                        ? 'Checked In'
+                        : 'Check In Today'}
+                    </span>
+                  </button>
+
                   {onStartStudyRoom && (
                     <button
                       type="button"
-                      onClick={() => onStartStudyRoom(grp.courseTitle, grp.courseId, grp.id)}
-                      className="flex-1 px-3 py-1.5 rounded-lg bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer"
+                      onClick={() => void handleEnterStudyRoom(grp)}
+                      className="flex-1 px-3 py-1.5 rounded-lg bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
                     >
                       <Video className="w-3.5 h-3.5" />
                       <span>Enter Room &amp; Shared Notes</span>
@@ -311,3 +526,4 @@ export const RegisteredStudyGroupsPanel: React.FC<RegisteredStudyGroupsPanelProp
     </section>
   );
 };
+

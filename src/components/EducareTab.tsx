@@ -1563,6 +1563,7 @@ export const EducareTab: React.FC<EducareTabProps> = ({
                   {/* Attached Category Certificate Strip */}
                   {(() => {
                     const certSpec = getCertificateForStudyGuide(guide);
+                    if (!certSpec) return null;
                     return (
                       <div className="mt-3.5 px-3 py-2 rounded-xl bg-[#022c22] text-[#ecfccb] border border-[#84cc16]/45 flex items-center justify-between gap-2 text-[11px]">
                         <div className="flex items-center gap-2 min-w-0">
@@ -3026,6 +3027,7 @@ export const EducareTab: React.FC<EducareTabProps> = ({
       {(() => {
         if (!certificateGuide) return null;
         const cert = getCertificateForStudyGuide(certificateGuide);
+        if (!cert) return null;
         const prog = readingProgress[certificateGuide.id];
         const scores = prog?.quizScores
           ? Object.values(prog.quizScores).filter((v): v is number => typeof v === 'number')

@@ -11,6 +11,8 @@ export interface UserProfile {
   name: string;
   email: string;
   role?: UserRole;
+  photoUrl?: string;
+  authProvider?: 'google' | 'password' | 'demo';
   institution?: string;
   specialization?: string;
   bio?: string;
@@ -116,6 +118,8 @@ export interface Quiz {
   badgeId?: string;
 }
 
+export type AccreditationTier = 'accredited_internal' | 'accredited_external';
+
 export interface CourseCertificateSpec {
   id: string;
   categoryKey: string;
@@ -124,6 +128,8 @@ export interface CourseCertificateSpec {
   distinctionLabel: string;
   credentialCodePrefix: string;
   accreditor: string;
+  accreditationTier?: AccreditationTier;
+  w3cStandard?: string;
   sealTitle: string;
   competencies: string[];
   texturePattern: 'guilloche' | 'botanical_lattice' | 'hex_mesh' | 'harmonic_waves';
@@ -906,6 +912,7 @@ export interface VerifiedCertificateRecord {
   categoryKey: string;
   credentialTitle: string;
   accreditor: string;
+  accreditationTier?: AccreditationTier;
   recipientName: string;
   recipientEmail: string;
   userId: string;
@@ -918,6 +925,60 @@ export interface VerifiedCertificateRecord {
   signatureAlgorithm: 'HMAC-SHA256';
   revocationReason?: string;
   openBadgeCredential?: OpenBadgeVerifiableCredential;
+}
+
+export interface TaiOneW3CAccreditationRecord {
+  id: string;
+  serialNumber: string;
+  accreditationTier: AccreditationTier;
+  authorityName: string;
+  issuerDid: string;
+  programTitle: string;
+  courseId?: string;
+  categoryKey: string;
+  recipientName: string;
+  recipientEmail: string;
+  organizationName: string;
+  nqfCreditsReference: string;
+  w3cSpecVersion: 'W3C Verifiable Credentials v2.0 · Open Badges 3.0';
+  issuedAt: string;
+  issueDate: string;
+  validUntil: string;
+  signatureHash: string;
+  status: 'active' | 'revoked';
+  w3cVerifiableCredential: {
+    '@context': string[];
+    id: string;
+    type: string[];
+    issuer: {
+      id: string;
+      type: string;
+      name: string;
+      url: string;
+      accreditationTier: AccreditationTier;
+    };
+    validFrom: string;
+    validUntil: string;
+    credentialSubject: {
+      id: string;
+      type: string;
+      recipientName: string;
+      organizationName: string;
+      accreditationTier: AccreditationTier;
+      programTitle: string;
+      categoryKey: string;
+      nqfCreditsReference: string;
+      complianceStandards: string[];
+    };
+    proof: {
+      type: 'DataIntegrityProof';
+      cryptosuite: 'hmac-sha256-tai-one-w3c-v2';
+      created: string;
+      verificationMethod: string;
+      proofPurpose: 'assertionMethod';
+      proofValue: string;
+    };
+  };
 }
 
 export type AppealCategory =
@@ -992,6 +1053,8 @@ export interface RegisteredStudyGroup {
   memberEmails: string[];
   memberNames: Record<string, string>;
   createdAt: string;
+  activeAttendanceDates?: string[];
+  attendanceByDate?: Record<string, string[]>;
 }
 
 export interface StudyRoomSharedNote {

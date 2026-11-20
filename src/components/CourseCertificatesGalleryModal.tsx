@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Award, CheckCircle2, Layers, X, ArrowUpRight, Lock } from 'lucide-react';
 import {
+  AccreditationTier,
   CourseCertificateSpec,
   EducationCourse,
   ReadingProgress,
@@ -11,6 +12,7 @@ import {
   formatCertificateSerial,
   getCertificateForEducationCourse,
   getCertificateForStudyGuide,
+  inferAccreditationTier,
   TAI_ONE_LOGO_URL,
 } from '../data/certificatesData';
 import { CourseCertificateCard } from './CourseCertificateCard';
@@ -22,6 +24,7 @@ interface AttachedCourseCertItem {
   category: string;
   sourceLabel: string;
   certificate: CourseCertificateSpec;
+  accreditationTier: AccreditationTier;
   progressPercent: number;
   quizScore?: number;
   isEarned: boolean;
@@ -45,41 +48,50 @@ export const CourseCertificatesGalleryModal: React.FC<CourseCertificatesGalleryM
   readingProgress,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedTier, setSelectedTier] = useState<'all' | AccreditationTier>('all');
   const [activePreviewItem, setActivePreviewItem] = useState<AttachedCourseCertItem | null>(null);
 
   const items = useMemo<AttachedCourseCertItem[]>(() => {
-    const guideItems: AttachedCourseCertItem[] = studyGuides.map((g) => {
+    const guideItems: AttachedCourseCertItem[] = [];
+    for (const g of studyGuides) {
+      const cert = getCertificateForStudyGuide(g);
+      if (!cert) continue;
       const prog = readingProgress[g.id];
       const scores = prog?.quizScores
         ? Object.values(prog.quizScores).filter((v): v is number => typeof v === 'number')
         : [];
       const bestScore = scores.length > 0 ? Math.max(...scores) : undefined;
       const pct = prog?.progressPercent || 0;
-      return {
+      guideItems.push({
         courseId: g.id,
         courseTitle: g.title,
         category: g.category,
         sourceLabel: 'Educare Curriculum',
-        certificate: getCertificateForStudyGuide(g),
+        certificate: cert,
+        accreditationTier: inferAccreditationTier(cert.accreditor, cert.accreditationTier),
         progressPercent: pct,
         quizScore: bestScore,
         isEarned: Boolean(prog?.isCompleted || pct >= 100 || (bestScore !== undefined && bestScore >= 70)),
-      };
-    });
+      });
+    }
 
-    const academyItems: AttachedCourseCertItem[] = educationCourses.map((c) => {
+    const academyItems: AttachedCourseCertItem[] = [];
+    for (const c of educationCourses) {
+      const cert = getCertificateForEducationCourse(c);
+      if (!cert) continue;
       const prog = readingProgress[c.id];
       const pct = prog?.progressPercent || 0;
-      return {
+      academyItems.push({
         courseId: c.id,
         courseTitle: c.title,
         category: c.platformDomain,
         sourceLabel: 'Digital World Academy',
-        certificate: getCertificateForEducationCourse(c),
+        certificate: cert,
+        accreditationTier: inferAccreditationTier(cert.accreditor, cert.accreditationTier),
         progressPercent: pct,
         isEarned: Boolean(prog?.isCompleted || pct >= 100),
-      };
-    });
+      });
+    }
 
     return [...guideItems, ...academyItems];
   }, [studyGuides, educationCourses, readingProgress]);
@@ -90,9 +102,12 @@ export const CourseCertificatesGalleryModal: React.FC<CourseCertificatesGalleryM
   );
 
   const filteredItems = useMemo(() => {
-    if (selectedCategory === 'all') return items;
-    return items.filter((i) => i.category === selectedCategory);
-  }, [items, selectedCategory]);
+    return items.filter((i) => {
+      if (selectedTier !== 'all' && i.accreditationTier !== selectedTier) return false;
+      if (selectedCategory !== 'all' && i.category !== selectedCategory) return false;
+      return true;
+    });
+  }, [items, selectedCategory, selectedTier]);
 
   if (!isOpen) return null;
 
@@ -122,10 +137,10 @@ export const CourseCertificatesGalleryModal: React.FC<CourseCertificatesGalleryM
             <div>
               <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-wider text-[#bef264]">
                 <Award className="w-3.5 h-3.5" />
-                <span>TTG - Tsoaela Training Ground Platform · Internal Certificate Archive</span>
+                <span>TTG &amp; Tai-One W3C · Accredited Internal &amp; External Registry</span>
               </div>
               <h2 className="text-lg sm:text-xl font-bold text-white">
-                Platform Completion Certificates by Category ({items.length} Courses)
+                Accredited Course Certificates ({items.length} Accredited Tracks)
               </h2>
             </div>
           </div>
@@ -140,25 +155,49 @@ export const CourseCertificatesGalleryModal: React.FC<CourseCertificatesGalleryM
           </button>
         </div>
 
-        {/* Category Filter Strip */}
-        <div className="px-5 py-3 border-b border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-950 flex flex-wrap items-center gap-1.5">
-          {categories.map((cat) => {
-            const active = selectedCategory === cat;
-            return (
+        {/* Tier & Category Filter Strip */}
+        <div className="px-5 py-3 border-b border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-950 space-y-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {(
+              [
+                { id: 'all', label: `All Accredited (${items.length})` },
+                { id: 'accredited_external', label: 'Accredited External · Tai-One W3C' },
+                { id: 'accredited_internal', label: 'Accredited Internal · TTG Board' },
+              ] as const
+            ).map((t) => (
               <button
-                key={cat}
+                key={t.id}
                 type="button"
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                  active
-                    ? 'bg-[#052e16] text-[#bef264] border border-[#84cc16]/70'
-                    : 'bg-white dark:bg-stone-900 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-800 hover:border-[#84cc16]/50'
+                onClick={() => setSelectedTier(t.id)}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                  selectedTier === t.id
+                    ? 'bg-emerald-700 text-white'
+                    : 'bg-white dark:bg-stone-900 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-800 hover:border-emerald-500/60'
                 }`}
               >
-                {cat === 'all' ? `All Categories (${items.length})` : cat}
+                {t.label}
               </button>
-            );
-          })}
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {categories.map((cat) => {
+              const active = selectedCategory === cat;
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                    active
+                      ? 'bg-[#052e16] text-[#bef264] border border-[#84cc16]/70'
+                      : 'bg-white dark:bg-stone-900 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-800 hover:border-[#84cc16]/50'
+                  }`}
+                >
+                  {cat === 'all' ? `All Categories (${items.length})` : cat}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Certificates Grid */}
@@ -216,7 +255,7 @@ export const CourseCertificatesGalleryModal: React.FC<CourseCertificatesGalleryM
         <div className="px-5 py-3 border-t border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 flex items-center justify-between text-xs text-stone-500">
           <span className="flex items-center gap-1.5">
             <CheckCircle2 className="w-4 h-4 text-[#65a30d]" />
-            Every course includes a downloadable internal completion certificate (PNG/PDF). Platform-issued study record; not externally accredited.
+            Only Accredited Internal (TTG Board) and Accredited External (Tai-One W3C) certificates are issued; non-credited certificates have been removed.
           </span>
           <button
             type="button"

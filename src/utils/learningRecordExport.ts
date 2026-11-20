@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { STUDENT_BADGES } from '../data/mockData';
-import { formatCertificateSerial, getCertificateForStudyGuide } from '../data/certificatesData';
+import { formatCertificateSerial, getCertificateForStudyGuide, inferAccreditationTier } from '../data/certificatesData';
 import { EnrolledStudentRecord, ReadingProgress, StudyGuide, UserProfile } from '../types';
 import { getFittedLogoSize, loadLogoDataUrl } from './pdfBranding';
 
@@ -192,21 +192,27 @@ export function buildLearningRecordSnapshot(input: LearningRecordExportInput): L
       });
     }
 
-    if (isCertEarned) {
+    if (isCertEarned && guide.is_accredited !== false) {
       const cert = getCertificateForStudyGuide(guide);
-      const serialNumber = formatCertificateSerial(cert.credentialCodePrefix, guide.id, user.id);
-      completedCertifications.push({
-        courseId: guide.id,
-        courseTitle: guide.title,
-        credentialTitle: cert.credentialTitle,
-        serialNumber,
-        categoryKey: cert.categoryKey,
-        issueDate:
-          prog?.lastReadDate ||
-          new Date().toISOString().slice(0, 10),
-        bestQuizScore: bestScore,
-        status: 'Completed (Internal Platform Record)',
-      });
+      if (cert) {
+        const tier = inferAccreditationTier(cert.accreditor, cert.accreditationTier);
+        const serialNumber = formatCertificateSerial(cert.credentialCodePrefix, guide.id, user.id);
+        completedCertifications.push({
+          courseId: guide.id,
+          courseTitle: guide.title,
+          credentialTitle: cert.credentialTitle,
+          serialNumber,
+          categoryKey: cert.categoryKey,
+          issueDate:
+            prog?.lastReadDate ||
+            new Date().toISOString().slice(0, 10),
+          bestQuizScore: bestScore,
+          status:
+            tier === 'accredited_external'
+              ? 'Accredited External (Tai-One W3C)'
+              : 'Accredited Internal (TTG Board)',
+        });
+      }
     }
   });
 
@@ -218,7 +224,8 @@ export function buildLearningRecordSnapshot(input: LearningRecordExportInput): L
   return {
     exportedAt: new Date().toISOString(),
     platform: 'TTG - Tsoaela Training Ground Platform',
-    recordClassification: 'Self-Paced Digital Educare Learning Record (Internal Platform Record)',
+    recordClassification:
+      'Accredited Internal (TTG Board) & Accredited External (Tai-One W3C) Learning Record',
     scholar: {
       id: user.id,
       name: user.name,
@@ -430,13 +437,13 @@ export async function exportLearningRecordPdf(
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(5, 46, 22);
-  doc.text('3. Completed Course Certifications (Internal Platform Records)', 14, y);
+  doc.text('3. Accredited Course Certifications (Internal & External Ledger)', 14, y);
   y += 3;
 
   (doc as any).autoTable({
     startY: y,
     margin: { left: 14, right: 14 },
-    head: [['Credential Title', 'Course', 'Serial Number', 'Issue Date', 'Quiz Score', 'Classification']],
+    head: [['Credential Title', 'Course', 'Serial Number', 'Issue Date', 'Quiz Score', 'Accreditation Tier']],
     body:
       snapshot.completedCertifications.length > 0
         ? snapshot.completedCertifications.map((cert) => [
@@ -449,7 +456,7 @@ export async function exportLearningRecordPdf(
           ])
         : [
             [
-              'No completed course certifications earned yet',
+              'No accredited course certifications earned yet',
               '—',
               '—',
               '—',
@@ -469,7 +476,7 @@ export async function exportLearningRecordPdf(
     doc.setFontSize(7.5);
     doc.setTextColor(120, 113, 108);
     doc.text(
-      `TTG - Tsoaela Training Ground Platform · Internal Self-Paced Learning Record · Page ${i} of ${pageCount}`,
+      `TTG & Tai-One W3C · Accredited Internal & External Learning Record · Page ${i} of ${pageCount}`,
       14,
       doc.internal.pageSize.getHeight() - 10
     );

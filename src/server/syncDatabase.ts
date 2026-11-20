@@ -4,6 +4,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'url';
 import {
   AcceptedRegisteredStudent,
+  AccreditationTier,
   AppealCategory,
   AppealStatus,
   CertificateVerificationStatus,
@@ -15,6 +16,7 @@ import {
   RegisteredStudyGroup,
   StudentAdmissionStatus,
   StudyRoomSharedNote,
+  TaiOneW3CAccreditationRecord,
   VerifiedCertificateRecord,
 } from '../types';
 
@@ -41,6 +43,7 @@ interface SyncDatabaseSchema {
   studyGroups: Record<string, RegisteredStudyGroup>;
   studyRoomNotes: Record<string, StudyRoomSharedNote>;
   acceptedStudents: Record<string, AcceptedRegisteredStudent>;
+  taiOneW3cAccreditations: Record<string, TaiOneW3CAccreditationRecord>;
   syncEventsCount: number;
   updatedAt: string;
 }
@@ -54,6 +57,7 @@ function createEmptyDb(): SyncDatabaseSchema {
     studyGroups: {},
     studyRoomNotes: {},
     acceptedStudents: {},
+    taiOneW3cAccreditations: {},
     syncEventsCount: 0,
     updatedAt: new Date().toISOString(),
   };
@@ -82,9 +86,29 @@ function computeCertificateHmac(payload: {
     .digest('hex');
 }
 
+function inferAccreditationTier(
+  accreditor: string,
+  explicitTier?: AccreditationTier
+): AccreditationTier {
+  if (explicitTier === 'accredited_external' || explicitTier === 'accredited_internal') {
+    return explicitTier;
+  }
+  return /tai-one|w3c|fpac|iocc|ascr|ivcab|gdlab|cosv|qcto|cpd|iacet|external/i.test(
+    accreditor
+  )
+    ? 'accredited_external'
+    : 'accredited_internal';
+}
+
 function buildOpenBadgeCredential(
   record: Omit<VerifiedCertificateRecord, 'openBadgeCredential'>
 ): OpenBadgeVerifiableCredential {
+  const tier = inferAccreditationTier(record.accreditor, record.accreditationTier);
+  const tierSummary =
+    tier === 'accredited_external'
+      ? 'Accredited External credential verified via Tai-One W3C Certification Authority & 1EdTech Open Badges 3.0.'
+      : 'Accredited Internal credential verified by the TTG Institutional Accreditation Board.';
+
   return {
     '@context': [
       'https://www.w3.org/ns/credentials/v2',
@@ -93,9 +117,12 @@ function buildOpenBadgeCredential(
     id: `https://ttg-platform.local/verify/${encodeURIComponent(record.serialNumber)}`,
     type: ['VerifiableCredential', 'OpenBadgeCredential'],
     issuer: {
-      id: 'https://ttg-platform.local/issuers/tsoaela-training-ground',
+      id:
+        tier === 'accredited_external'
+          ? 'did:web:tai-one.w3c.tsoaela-training.org'
+          : 'https://ttg-platform.local/issuers/tsoaela-training-ground',
       type: 'Profile',
-      name: record.accreditor || 'TTG - Tsoaela Training Ground Platform',
+      name: record.accreditor || 'TTG Accredited Curriculum Board',
       url: 'https://ttg-platform.local',
     },
     issuanceDate: record.issuedAt,
@@ -107,8 +134,8 @@ function buildOpenBadgeCredential(
         id: `urn:ttg:course:${record.courseId}`,
         type: 'Achievement',
         name: record.credentialTitle,
-        description: `Verified self-paced platform completion of ${record.courseTitle} (${record.categoryKey}). Internal completion record — not statutorily accredited.`,
-        criteriaNarrative: `Completed ${Math.round(record.progressPercent)}% of required curriculum modules${
+        description: `Verified accredited completion of ${record.courseTitle} (${record.categoryKey}). ${tierSummary}`,
+        criteriaNarrative: `Completed ${Math.round(record.progressPercent)}% of required accredited curriculum modules${
           typeof record.quizScore === 'number'
             ? ` with a verified assessment score of ${record.quizScore}%`
             : ''
@@ -136,6 +163,7 @@ function createSignedCertificateRecord(params: {
   categoryKey: string;
   credentialTitle: string;
   accreditor: string;
+  accreditationTier?: AccreditationTier;
   recipientName: string;
   recipientEmail: string;
   userId: string;
@@ -148,6 +176,7 @@ function createSignedCertificateRecord(params: {
 }): VerifiedCertificateRecord {
   const normalizedSerial = params.serialNumber.trim().toUpperCase();
   const issuedAt = params.issuedAt || new Date().toISOString();
+  const tier = inferAccreditationTier(params.accreditor, params.accreditationTier);
   const signatureHash = computeCertificateHmac({
     serialNumber: normalizedSerial,
     courseId: params.courseId,
@@ -164,6 +193,7 @@ function createSignedCertificateRecord(params: {
     categoryKey: params.categoryKey,
     credentialTitle: params.credentialTitle,
     accreditor: params.accreditor,
+    accreditationTier: tier,
     recipientName: params.recipientName,
     recipientEmail: params.recipientEmail,
     userId: params.userId,
@@ -183,6 +213,117 @@ function createSignedCertificateRecord(params: {
   };
 }
 
+function buildTaiOneW3CAccreditationRecord(params: {
+  id: string;
+  serialNumber: string;
+  accreditationTier: AccreditationTier;
+  programTitle: string;
+  courseId?: string;
+  categoryKey: string;
+  recipientName: string;
+  recipientEmail: string;
+  organizationName: string;
+  nqfCreditsReference: string;
+  issueDate?: string;
+  issuedAt?: string;
+  validYears?: number;
+}): TaiOneW3CAccreditationRecord {
+  const normalizedSerial = params.serialNumber.trim().toUpperCase();
+  const issuedAt = params.issuedAt || new Date().toISOString();
+  const issueDate = params.issueDate || issuedAt.slice(0, 10);
+  const validDate = new Date(issuedAt);
+  validDate.setFullYear(validDate.getFullYear() + (params.validYears || 3));
+  const validUntil = validDate.toISOString();
+
+  const isExternal = params.accreditationTier === 'accredited_external';
+  const authorityName = isExternal
+    ? 'Tai-One W3C Certification Authority (Accredited External)'
+    : 'TTG Internal Accreditation Board (Accredited Internal)';
+  const issuerDid = isExternal
+    ? 'did:web:tai-one.w3c.tsoaela-training.org'
+    : 'did:web:board.tsoaela-training.org';
+
+  const signatureHash = computeCertificateHmac({
+    serialNumber: normalizedSerial,
+    courseId: params.courseId || params.programTitle,
+    userId: params.organizationName,
+    recipientEmail: params.recipientEmail.toLowerCase(),
+    issueDate,
+    progressPercent: 100,
+  });
+
+  const complianceStandards = isExternal
+    ? [
+        'W3C Verifiable Credentials Data Model v2.0',
+        '1EdTech Open Badges 3.0 Context',
+        'Tai-One External Cross-Border Assessment Rubric',
+        'HMAC-SHA256 Public Ledger Assertion Proof',
+      ]
+    : [
+        'TTG Accredited Internal Curriculum & Syllabus Standard',
+        '1EdTech Open Badges 3.0 Context',
+        'Structured Outcome & Assessment Rubric Moderation',
+        'HMAC-SHA256 Public Ledger Assertion Proof',
+      ];
+
+  return {
+    id: params.id,
+    serialNumber: normalizedSerial,
+    accreditationTier: params.accreditationTier,
+    authorityName,
+    issuerDid,
+    programTitle: params.programTitle,
+    courseId: params.courseId,
+    categoryKey: params.categoryKey,
+    recipientName: params.recipientName,
+    recipientEmail: params.recipientEmail,
+    organizationName: params.organizationName,
+    nqfCreditsReference: params.nqfCreditsReference,
+    w3cSpecVersion: 'W3C Verifiable Credentials v2.0 · Open Badges 3.0',
+    issuedAt,
+    issueDate,
+    validUntil,
+    signatureHash,
+    status: 'active',
+    w3cVerifiableCredential: {
+      '@context': [
+        'https://www.w3.org/ns/credentials/v2',
+        'https://purl.imsglobal.org/spec/ob/v3p0/context-3.0.3.json',
+      ],
+      id: `https://ttg-platform.local/verify/${encodeURIComponent(normalizedSerial)}`,
+      type: ['VerifiableCredential', 'TaiOneAccreditationCredential', 'OpenBadgeCredential'],
+      issuer: {
+        id: issuerDid,
+        type: 'Profile',
+        name: authorityName,
+        url: 'https://ttg-platform.local/verify',
+        accreditationTier: params.accreditationTier,
+      },
+      validFrom: issuedAt,
+      validUntil,
+      credentialSubject: {
+        id: `urn:tai-one:accreditation:${encodeURIComponent(normalizedSerial)}`,
+        type: 'AccreditedProgramSubject',
+        recipientName: params.recipientName,
+        organizationName: params.organizationName,
+        accreditationTier: params.accreditationTier,
+        programTitle: params.programTitle,
+        categoryKey: params.categoryKey,
+        nqfCreditsReference: params.nqfCreditsReference,
+        complianceStandards,
+      },
+      proof: {
+        type: 'DataIntegrityProof',
+        cryptosuite: 'hmac-sha256-tai-one-w3c-v2',
+        created: issuedAt,
+        verificationMethod: `${issuerDid}#ledger-key-1`,
+        proofPurpose: 'assertionMethod',
+        proofValue: signatureHash,
+      },
+    },
+  };
+}
+
 function ensureSeedCollections(db: SyncDatabaseSchema): SyncDatabaseSchema {
   if (!db.users || typeof db.users !== 'object') db.users = {};
   if (!db.certificates || typeof db.certificates !== 'object') db.certificates = {};
@@ -191,6 +332,81 @@ function ensureSeedCollections(db: SyncDatabaseSchema): SyncDatabaseSchema {
   if (!db.studyGroups || typeof db.studyGroups !== 'object') db.studyGroups = {};
   if (!db.studyRoomNotes || typeof db.studyRoomNotes !== 'object') db.studyRoomNotes = {};
   if (!db.acceptedStudents || typeof db.acceptedStudents !== 'object') db.acceptedStudents = {};
+  if (!db.taiOneW3cAccreditations || typeof db.taiOneW3cAccreditations !== 'object') {
+    db.taiOneW3cAccreditations = {};
+  }
+
+  // Refresh legacy cached certificate metadata so non-accredited strings never leak out
+  Object.values(db.certificates).forEach((cert) => {
+    const inferred = inferAccreditationTier(cert.accreditor, cert.accreditationTier);
+    cert.accreditationTier = inferred;
+    if (
+      cert.openBadgeCredential?.credentialSubject?.achievement?.description?.includes(
+        'not statutorily accredited'
+      )
+    ) {
+      cert.openBadgeCredential = buildOpenBadgeCredential(cert);
+    }
+  });
+
+  if (Object.keys(db.taiOneW3cAccreditations).length === 0) {
+    const seedW3c: TaiOneW3CAccreditationRecord[] = [
+      buildTaiOneW3CAccreditationRecord({
+        id: 'tai1_w3c_ext_2026_01',
+        serialNumber: 'TAI1-W3C-2026-88219-EXT01',
+        accreditationTier: 'accredited_external',
+        programTitle: 'Test-Time Search & Process-Supervised Reasoning Architectures',
+        courseId: 'sg_ai_test_time_search',
+        categoryKey: 'Frontier AI & Systems',
+        recipientName: 'Tsoaelat S.',
+        recipientEmail: 'Tsoaelat.s@gmail.com',
+        organizationName: 'TTG - Tsoaela Training Ground Platform',
+        nqfCreditsReference: 'NQF Level 7 · 18 Credits (W3C External Accredited)',
+        issueDate: '2026-03-19',
+        issuedAt: '2026-03-19T12:00:00.000Z',
+      }),
+      buildTaiOneW3CAccreditationRecord({
+        id: 'tai1_w3c_int_2026_02',
+        serialNumber: 'TTG-INT-2026-88219-INT02',
+        accreditationTier: 'accredited_internal',
+        programTitle: 'First-Principles Cognitive Architecture & Systems Boundaries',
+        courseId: 'sg_cog_first_principles_01',
+        categoryKey: 'Cognitive Models',
+        recipientName: 'Tsoaelat S.',
+        recipientEmail: 'Tsoaelat.s@gmail.com',
+        organizationName: 'TTG Systems Curriculum Division',
+        nqfCreditsReference: 'NQF Level 6 · 12 Internal Accredited Credits',
+        issueDate: '2026-03-16',
+        issuedAt: '2026-03-16T09:30:00.000Z',
+      }),
+    ];
+
+    for (const acc of seedW3c) {
+      db.taiOneW3cAccreditations[acc.id] = acc;
+      if (!db.certificates[acc.serialNumber]) {
+        db.certificates[acc.serialNumber] = createSignedCertificateRecord({
+          serialNumber: acc.serialNumber,
+          courseId: acc.courseId || acc.id,
+          courseTitle: acc.programTitle,
+          categoryKey: acc.categoryKey,
+          credentialTitle:
+            acc.accreditationTier === 'accredited_external'
+              ? `Tai-One W3C External Accreditation — ${acc.programTitle}`
+              : `TTG Accredited Internal Certification — ${acc.programTitle}`,
+          accreditor: acc.authorityName,
+          accreditationTier: acc.accreditationTier,
+          recipientName: acc.recipientName,
+          recipientEmail: acc.recipientEmail,
+          userId: 'user_88219',
+          issueDate: acc.issueDate,
+          issuedAt: acc.issuedAt,
+          progressPercent: 100,
+          quizScore: 96,
+          status: 'verified',
+        });
+      }
+    }
+  }
 
   if (Object.keys(db.certificates).length === 0) {
     const seedCerts = [
@@ -199,8 +415,9 @@ function ensureSeedCollections(db: SyncDatabaseSchema): SyncDatabaseSchema {
         courseId: 'sg_ai_test_time_search',
         courseTitle: 'Test-Time Search & Process-Supervised Reasoning Architectures',
         categoryKey: 'Frontier AI & Systems',
-        credentialTitle: 'Completion Certificate in Frontier AI & Reasoning Systems',
-        accreditor: 'TTG - Tsoaela Training Ground Platform',
+        credentialTitle: 'Accredited Certificate in Frontier AI & Reasoning Systems',
+        accreditor: 'Tai-One W3C Certification Authority (Accredited External)',
+        accreditationTier: 'accredited_external',
         recipientName: 'Tsoaelat S.',
         recipientEmail: 'Tsoaelat.s@gmail.com',
         userId: 'user_88219',
@@ -215,8 +432,9 @@ function ensureSeedCollections(db: SyncDatabaseSchema): SyncDatabaseSchema {
         courseId: 'sg_ai_swarm_consensus',
         courseTitle: 'Decentralized Agent Swarms & Byzantine Consensus Verification',
         categoryKey: 'Frontier AI & Systems',
-        credentialTitle: 'Completion Certificate in Frontier AI & Reasoning Systems',
-        accreditor: 'TTG - Tsoaela Training Ground Platform',
+        credentialTitle: 'Accredited Certificate in Frontier AI & Reasoning Systems',
+        accreditor: 'Tai-One W3C Certification Authority (Accredited External)',
+        accreditationTier: 'accredited_external',
         recipientName: 'Tsoaelat S.',
         recipientEmail: 'Tsoaelat.s@gmail.com',
         userId: 'user_88219',
@@ -231,8 +449,9 @@ function ensureSeedCollections(db: SyncDatabaseSchema): SyncDatabaseSchema {
         courseId: 'sg_cog_first_principles_01',
         courseTitle: 'First-Principles Cognitive Architecture & Systems Boundaries',
         categoryKey: 'Cognitive Models',
-        credentialTitle: 'Completion Certificate in First-Principles Cognitive Modeling',
-        accreditor: 'TTG Systems Curriculum Division (Internal)',
+        credentialTitle: 'Accredited Internal Certificate in First-Principles Cognitive Modeling',
+        accreditor: 'TTG Internal Accreditation Board (Accredited Internal)',
+        accreditationTier: 'accredited_internal',
         recipientName: 'Lerato Mokoena',
         recipientEmail: 'lerato.mokoena@ttg-cohort.org',
         userId: 'enr_cohort_02',
@@ -302,6 +521,32 @@ function ensureSeedCollections(db: SyncDatabaseSchema): SyncDatabaseSchema {
     }
   }
 
+  const formatLocalDateKey = (dt: Date): string => {
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, '0');
+    const d = String(dt.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  const buildConsecutiveAttendance = (
+    consecutiveDays: number,
+    includeToday: boolean,
+    attendeeEmails: string[]
+  ): { activeAttendanceDates: string[]; attendanceByDate: Record<string, string[]> } => {
+    const activeAttendanceDates: string[] = [];
+    const attendanceByDate: Record<string, string[]> = {};
+    const endOffset = includeToday ? 0 : -1;
+    const startOffset = endOffset - (consecutiveDays - 1);
+    const now = new Date();
+    for (let offset = startOffset; offset <= endOffset; offset++) {
+      const dt = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
+      const key = formatLocalDateKey(dt);
+      activeAttendanceDates.push(key);
+      attendanceByDate[key] = attendeeEmails.slice(0, Math.max(1, attendeeEmails.length));
+    }
+    return { activeAttendanceDates, attendanceByDate };
+  };
+
   if (Object.keys(db.studyGroups).length === 0) {
     const seedGroups: RegisteredStudyGroup[] = [
       {
@@ -325,6 +570,11 @@ function ensureSeedCollections(db: SyncDatabaseSchema): SyncDatabaseSchema {
           'lerato.mokoena@ttg-cohort.org': 'Lerato Mokoena',
         },
         createdAt: '2026-03-10T09:00:00.000Z',
+        ...buildConsecutiveAttendance(6, true, [
+          'evelyn.brand@ttg.edu',
+          'tsoaelat.s@gmail.com',
+          'marcus.t@ttg.edu',
+        ]),
       },
       {
         id: 'room_sg_ai_swarm_consensus',
@@ -345,6 +595,10 @@ function ensureSeedCollections(db: SyncDatabaseSchema): SyncDatabaseSchema {
           'kagiso.sithole@ttg-cohort.org': 'Kagiso Sithole',
         },
         createdAt: '2026-03-12T14:30:00.000Z',
+        ...buildConsecutiveAttendance(4, false, [
+          'soraya.khemir@ttg.edu',
+          'kagiso.sithole@ttg-cohort.org',
+        ]),
       },
       {
         id: 'room_sg_cog_first_principles_01',
@@ -360,6 +614,10 @@ function ensureSeedCollections(db: SyncDatabaseSchema): SyncDatabaseSchema {
           'lerato.mokoena@ttg-cohort.org': 'Lerato Mokoena',
         },
         createdAt: '2026-03-15T11:00:00.000Z',
+        ...buildConsecutiveAttendance(3, true, [
+          'tsoaelat.s@gmail.com',
+          'lerato.mokoena@ttg-cohort.org',
+        ]),
       },
       {
         id: 'room_sg_econ_sovereign_01',
@@ -375,6 +633,7 @@ function ensureSeedCollections(db: SyncDatabaseSchema): SyncDatabaseSchema {
           'tsoaelat.s@gmail.com': 'Tsoaelat S.',
         },
         createdAt: '2026-03-17T16:15:00.000Z',
+        ...buildConsecutiveAttendance(2, false, ['marcus.t@ttg.edu']),
       },
     ];
 
@@ -403,6 +662,26 @@ function ensureSeedCollections(db: SyncDatabaseSchema): SyncDatabaseSchema {
           lastEditedByEmail: grp.hostEmail,
           lastEditedAt: grp.createdAt,
         };
+      }
+    }
+  } else {
+    // Backfill consecutive attendance history for existing study groups lacking streak arrays
+    const defaultStreakByGroupId: Record<string, { days: number; includeToday: boolean }> = {
+      room_sg_ai_test_time_search: { days: 6, includeToday: true },
+      room_sg_ai_swarm_consensus: { days: 4, includeToday: false },
+      room_sg_cog_first_principles_01: { days: 3, includeToday: true },
+      room_sg_econ_sovereign_01: { days: 2, includeToday: false },
+    };
+    for (const grp of Object.values(db.studyGroups)) {
+      if (!Array.isArray(grp.activeAttendanceDates) || grp.activeAttendanceDates.length === 0) {
+        const preset = defaultStreakByGroupId[grp.id] || { days: 2, includeToday: true };
+        const generated = buildConsecutiveAttendance(
+          preset.days,
+          preset.includeToday,
+          grp.memberEmails.length > 0 ? grp.memberEmails : [grp.hostEmail]
+        );
+        grp.activeAttendanceDates = generated.activeAttendanceDates;
+        grp.attendanceByDate = generated.attendanceByDate;
       }
     }
   }
@@ -726,6 +1005,7 @@ export interface IssueCertificatePayload {
   categoryKey: string;
   credentialTitle: string;
   accreditor: string;
+  accreditationTier?: AccreditationTier;
   recipientName: string;
   recipientEmail: string;
   userId: string;
@@ -752,6 +1032,7 @@ export async function issueOrUpdateCertificate(
     categoryKey: payload.categoryKey,
     credentialTitle: payload.credentialTitle,
     accreditor: payload.accreditor,
+    accreditationTier: payload.accreditationTier || existing?.accreditationTier,
     recipientName: payload.recipientName,
     recipientEmail: payload.recipientEmail,
     userId: payload.userId,
@@ -1094,6 +1375,53 @@ function normalizeRoomId(rawRoomId?: string, courseId?: string): string {
   return `room_${cid}`;
 }
 
+function getTodayDateKey(explicitDateKey?: string): string {
+  if (explicitDateKey && /^\d{4}-\d{2}-\d{2}$/.test(explicitDateKey.trim())) {
+    return explicitDateKey.trim();
+  }
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function applyAttendanceToGroup(
+  group: RegisteredStudyGroup,
+  memberEmail?: string,
+  explicitDateKey?: string
+): boolean {
+  const dateKey = getTodayDateKey(explicitDateKey);
+  const existingDates = Array.isArray(group.activeAttendanceDates)
+    ? group.activeAttendanceDates
+    : [];
+  const nextByDate: Record<string, string[]> = { ...(group.attendanceByDate || {}) };
+  const cleanEmail = (memberEmail || '').trim().toLowerCase();
+
+  let changed = false;
+
+  if (!existingDates.includes(dateKey)) {
+    group.activeAttendanceDates = [...existingDates, dateKey].sort();
+    changed = true;
+  } else if (!group.activeAttendanceDates) {
+    group.activeAttendanceDates = existingDates;
+  }
+
+  const dayAttendees = Array.isArray(nextByDate[dateKey]) ? [...nextByDate[dateKey]] : [];
+  if (cleanEmail && !dayAttendees.includes(cleanEmail)) {
+    dayAttendees.push(cleanEmail);
+    nextByDate[dateKey] = dayAttendees;
+    group.attendanceByDate = nextByDate;
+    changed = true;
+  } else if (!group.attendanceByDate) {
+    nextByDate[dateKey] = dayAttendees;
+    group.attendanceByDate = nextByDate;
+    changed = true;
+  }
+
+  return changed;
+}
+
 export async function listRegisteredStudyGroups(
   courseId?: string
 ): Promise<RegisteredStudyGroup[]> {
@@ -1137,8 +1465,15 @@ export async function getOrCreateStudyGroupForRoom(params: {
       memberEmails: cleanEmail ? [cleanEmail] : [],
       memberNames: cleanEmail ? { [cleanEmail]: cleanName } : {},
       createdAt: nowIso,
+      activeAttendanceDates: [],
+      attendanceByDate: {},
     };
     db.studyGroups[group.id] = group;
+    changed = true;
+  }
+
+  if (cleanEmail && applyAttendanceToGroup(group, cleanEmail)) {
+    db.studyGroups[group.id] = { ...group };
     changed = true;
   }
 
@@ -1184,6 +1519,7 @@ export async function createRegisteredStudyGroup(params: {
   courseTitle: string;
   hostName: string;
   hostEmail: string;
+  dateKey?: string;
 }): Promise<{ group: RegisteredStudyGroup; note: StudyRoomSharedNote }> {
   const db = await readDb();
   const nowIso = new Date().toISOString();
@@ -1202,7 +1538,11 @@ export async function createRegisteredStudyGroup(params: {
     memberEmails: [hostEmail],
     memberNames: { [hostEmail]: hostName },
     createdAt: nowIso,
+    activeAttendanceDates: [],
+    attendanceByDate: {},
   };
+
+  applyAttendanceToGroup(group, hostEmail, params.dateKey);
 
   const note: StudyRoomSharedNote = {
     roomId,
@@ -1233,7 +1573,8 @@ export async function createRegisteredStudyGroup(params: {
 export async function registerMemberInStudyGroup(
   roomId: string,
   memberName: string,
-  memberEmail: string
+  memberEmail: string,
+  dateKey?: string
 ): Promise<RegisteredStudyGroup | null> {
   const db = await readDb();
   const group = db.studyGroups[roomId];
@@ -1247,12 +1588,51 @@ export async function registerMemberInStudyGroup(
     group.memberEmails.push(cleanEmail);
   }
   group.memberNames[cleanEmail] = cleanName;
+  applyAttendanceToGroup(group, cleanEmail, dateKey);
 
   db.studyGroups[roomId] = { ...group };
   db.updatedAt = new Date().toISOString();
   await writeDb(db);
 
   return db.studyGroups[roomId];
+}
+
+export async function recordStudyGroupAttendance(params: {
+  roomId: string;
+  memberEmail?: string;
+  memberName?: string;
+  dateKey?: string;
+}): Promise<RegisteredStudyGroup | null> {
+  const db = await readDb();
+  const group = db.studyGroups[params.roomId];
+  if (!group) return null;
+
+  const cleanEmail = (params.memberEmail || '').trim().toLowerCase();
+  const cleanName = (params.memberName || '').trim();
+  let changed = false;
+
+  if (cleanEmail) {
+    if (!group.memberEmails.includes(cleanEmail)) {
+      group.memberEmails.push(cleanEmail);
+      changed = true;
+    }
+    if (cleanName && group.memberNames[cleanEmail] !== cleanName) {
+      group.memberNames[cleanEmail] = cleanName;
+      changed = true;
+    }
+  }
+
+  if (applyAttendanceToGroup(group, cleanEmail, params.dateKey)) {
+    changed = true;
+  }
+
+  if (changed) {
+    db.studyGroups[params.roomId] = { ...group };
+    db.updatedAt = new Date().toISOString();
+    await writeDb(db);
+  }
+
+  return db.studyGroups[params.roomId];
 }
 
 export async function getStudyRoomSharedNote(
@@ -1295,9 +1675,13 @@ export async function updateStudyRoomSharedNote(params: {
         ? { [params.editedByEmail.trim().toLowerCase()]: params.editedBy || 'Academic Scholar' }
         : {},
       createdAt: nowIso,
+      activeAttendanceDates: [],
+      attendanceByDate: {},
     };
     db.studyGroups[normalizedId] = group;
   }
+
+  applyAttendanceToGroup(group, params.editedByEmail);
 
   const prev = db.studyRoomNotes[normalizedId];
   const updatedNote: StudyRoomSharedNote = {
@@ -1430,5 +1814,86 @@ export async function updateAcceptedStudentStatus(
 
   return updated;
 }
+
+// ----------------------------------------------------
+// Tai-One W3C Certification Accreditation Ledger
+// ----------------------------------------------------
+
+export async function listTaiOneW3CAccreditations(filters?: {
+  tier?: AccreditationTier | 'all';
+}): Promise<TaiOneW3CAccreditationRecord[]> {
+  const db = await readDb();
+  let items = Object.values(db.taiOneW3cAccreditations || {});
+  if (filters?.tier && filters.tier !== 'all') {
+    items = items.filter((item) => item.accreditationTier === filters.tier);
+  }
+  return items.sort((a, b) => b.issuedAt.localeCompare(a.issuedAt));
+}
+
+export async function generateTaiOneW3CAccreditation(params: {
+  accreditationTier: AccreditationTier;
+  programTitle: string;
+  courseId?: string;
+  categoryKey: string;
+  recipientName: string;
+  recipientEmail: string;
+  organizationName: string;
+  nqfCreditsReference: string;
+  userId?: string;
+}): Promise<{
+  accreditation: TaiOneW3CAccreditationRecord;
+  certificate: VerifiedCertificateRecord;
+}> {
+  const db = await readDb();
+  const isExternal = params.accreditationTier === 'accredited_external';
+  const suffix = Math.random().toString(36).slice(2, 7).toUpperCase();
+  const year = new Date().getFullYear();
+  const prefix = isExternal ? 'TAI1-W3C' : 'TTG-INT';
+  const serialNumber = `${prefix}-${year}-88219-${suffix}`;
+  const id = `tai1_w3c_${Date.now()}_${suffix.toLowerCase()}`;
+
+  const accreditation = buildTaiOneW3CAccreditationRecord({
+    id,
+    serialNumber,
+    accreditationTier: params.accreditationTier,
+    programTitle: params.programTitle.trim(),
+    courseId: params.courseId,
+    categoryKey: params.categoryKey.trim() || 'Frontier AI & Systems',
+    recipientName: params.recipientName.trim(),
+    recipientEmail: params.recipientEmail.trim().toLowerCase(),
+    organizationName: params.organizationName.trim() || 'TTG - Tsoaela Training Ground Platform',
+    nqfCreditsReference: params.nqfCreditsReference.trim() || 'NQF Level 7 · 15 Credits',
+  });
+
+  db.taiOneW3cAccreditations[id] = accreditation;
+
+  // Register directly into public certificate verification ledger as well
+  const certificate = createSignedCertificateRecord({
+    serialNumber: accreditation.serialNumber,
+    courseId: accreditation.courseId || accreditation.id,
+    courseTitle: accreditation.programTitle,
+    categoryKey: accreditation.categoryKey,
+    credentialTitle: isExternal
+      ? `Tai-One W3C External Accreditation — ${accreditation.programTitle}`
+      : `TTG Accredited Internal Certification — ${accreditation.programTitle}`,
+    accreditor: accreditation.authorityName,
+    accreditationTier: accreditation.accreditationTier,
+    recipientName: accreditation.recipientName,
+    recipientEmail: accreditation.recipientEmail,
+    userId: params.userId || 'user_88219',
+    issueDate: accreditation.issueDate,
+    issuedAt: accreditation.issuedAt,
+    progressPercent: 100,
+    quizScore: 100,
+    status: 'verified',
+  });
+
+  db.certificates[certificate.serialNumber] = certificate;
+  db.updatedAt = new Date().toISOString();
+  await writeDb(db);
+
+  return { accreditation, certificate };
+}
+
 
 

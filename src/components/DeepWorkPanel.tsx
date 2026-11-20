@@ -65,6 +65,7 @@ export const DeepWorkPanel: React.FC<DeepWorkPanelProps> = ({
     { minutes: 25, label: '25m Sprint' },
     { minutes: 50, label: '50m Deep Block' },
     { minutes: 90, label: '90m Ultradian' },
+    { minutes: 180, label: '180m Marathon' },
   ];
 
   return (

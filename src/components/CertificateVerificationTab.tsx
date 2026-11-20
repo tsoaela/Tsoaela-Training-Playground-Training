@@ -19,6 +19,7 @@ import {
   VerifiedCertificateRecord,
 } from '../types';
 import { AppealsPortalSection } from './AppealsPortalSection';
+import { TaiOneW3CAccreditationPanel } from './TaiOneW3CAccreditationPanel';
 
 export interface CertificateVerificationTabProps {
   user: UserProfile;
@@ -437,13 +438,41 @@ export const CertificateVerificationTab: React.FC<CertificateVerificationTabProp
               </div>
             )}
 
-            {/* Honest Statutory Scope Disclosure */}
+            {/* Accredited Tier Verification Disclosure */}
             <p className="text-[11px] text-stone-500 dark:text-stone-400 border-t border-stone-200 dark:border-stone-800 pt-3">
-              Statutory Disclosure: This verification confirms authenticity within the <strong>{cert.accreditor}</strong> internal completion ledger. It does not assert statutory registration by SAQA, QCTO, CHE, or external national education councils.
+              Accreditation Status:{' '}
+              {cert.accreditationTier === 'accredited_external' ||
+              /tai-one|w3c|external/i.test(cert.accreditor) ? (
+                <>
+                  <strong>Accredited External</strong> credential verified via{' '}
+                  <strong>{cert.accreditor}</strong> with W3C Verifiable Credentials v2.0 &amp;
+                  1EdTech Open Badges 3.0 cryptographic integrity.
+                </>
+              ) : (
+                <>
+                  <strong>Accredited Internal</strong> institutional credential verified via{' '}
+                  <strong>{cert.accreditor}</strong> under TTG Internal Accreditation Board
+                  standards.
+                </>
+              )}
             </p>
           </div>
         ) : null}
       </section>
+
+      {/* Tai-One W3C Certification Accreditation Generator & Registry */}
+      <TaiOneW3CAccreditationPanel
+        user={user}
+        studyGuides={studyGuides}
+        onAccreditationGenerated={() => {
+          void loadLedgerDirectory();
+        }}
+        onVerifySerial={(serial) => {
+          setSerialInput(serial);
+          void runVerificationLookup(serial);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      />
 
       {/* Learner Assessment & Verification Appeals Section */}
       <AppealsPortalSection

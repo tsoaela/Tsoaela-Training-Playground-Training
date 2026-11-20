@@ -1,9 +1,16 @@
 import React, { useMemo, useState } from 'react';
 import { Award, CheckCircle2, Download, Eye, Lock, ArrowUpRight, Layers, ShieldCheck } from 'lucide-react';
-import { ReadingProgress, StudyGuide, UserProfile } from '../types';
+import {
+  AccreditationTier,
+  CourseCertificateSpec,
+  ReadingProgress,
+  StudyGuide,
+  UserProfile,
+} from '../types';
 import {
   formatCertificateSerial,
   getCertificateForStudyGuide,
+  inferAccreditationTier,
   TAI_ONE_LOGO_URL,
 } from '../data/certificatesData';
 import { CourseCertificateCard } from './CourseCertificateCard';
@@ -28,44 +35,69 @@ export const UserProfileCertificatesSection: React.FC<UserProfileCertificatesSec
 }) => {
   const [previewGuide, setPreviewGuide] = useState<StudyGuide | null>(null);
   const [galleryTab, setGalleryTab] = useState<'earned' | 'templates'>('earned');
+  const [tierFilter, setTierFilter] = useState<'all' | AccreditationTier>('all');
 
   const courseEntries = useMemo(() => {
-    return studyGuides
-      .map((guide) => {
-        const prog = readingProgress[guide.id];
-        const scores = prog?.quizScores
-          ? Object.values(prog.quizScores).filter((v): v is number => typeof v === 'number')
-          : [];
-        const bestScore = scores.length > 0 ? Math.max(...scores) : undefined;
-        const pct = prog?.progressPercent || 0;
-        const passThreshold = guide.quizzes?.[0]?.minScoreToPass ?? 70;
-        const isEarned = Boolean(
-          prog?.isCompleted || pct >= 100 || (bestScore !== undefined && bestScore >= passThreshold)
-        );
-        const cert = getCertificateForStudyGuide(guide);
-        const serialNumber = formatCertificateSerial(cert.credentialCodePrefix, guide.id, user.id);
+    const entries: Array<{
+      guide: StudyGuide;
+      cert: CourseCertificateSpec;
+      accreditationTier: AccreditationTier;
+      pct: number;
+      bestScore: number | undefined;
+      isEarned: boolean;
+      serialNumber: string;
+      issueDate: string;
+    }> = [];
 
-        return {
-          guide,
-          cert,
-          pct,
-          bestScore,
-          isEarned,
-          serialNumber,
-          issueDate:
-            prog?.lastReadDate ||
-            new Date().toLocaleDateString('en-US', {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
-            }),
-        };
-      })
-      .sort((a, b) => Number(b.isEarned) - Number(a.isEarned) || b.pct - a.pct);
+    for (const guide of studyGuides) {
+      const cert = getCertificateForStudyGuide(guide);
+      if (!cert) continue;
+      const prog = readingProgress[guide.id];
+      const scores = prog?.quizScores
+        ? Object.values(prog.quizScores).filter((v): v is number => typeof v === 'number')
+        : [];
+      const bestScore = scores.length > 0 ? Math.max(...scores) : undefined;
+      const pct = prog?.progressPercent || 0;
+      const passThreshold = guide.quizzes?.[0]?.minScoreToPass ?? 70;
+      const isEarned = Boolean(
+        prog?.isCompleted || pct >= 100 || (bestScore !== undefined && bestScore >= passThreshold)
+      );
+      const serialNumber = formatCertificateSerial(cert.credentialCodePrefix, guide.id, user.id);
+
+      entries.push({
+        guide,
+        cert,
+        accreditationTier: inferAccreditationTier(cert.accreditor, cert.accreditationTier),
+        pct,
+        bestScore,
+        isEarned,
+        serialNumber,
+        issueDate:
+          prog?.lastReadDate ||
+          new Date().toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+          }),
+      });
+    }
+
+    return entries.sort((a, b) => Number(b.isEarned) - Number(a.isEarned) || b.pct - a.pct);
   }, [studyGuides, readingProgress, user.id]);
 
-  const earnedEntries = useMemo(() => courseEntries.filter((e) => e.isEarned), [courseEntries]);
-  const lockedEntries = useMemo(() => courseEntries.filter((e) => !e.isEarned), [courseEntries]);
+  const tierFilteredEntries = useMemo(() => {
+    if (tierFilter === 'all') return courseEntries;
+    return courseEntries.filter((e) => e.accreditationTier === tierFilter);
+  }, [courseEntries, tierFilter]);
+
+  const earnedEntries = useMemo(
+    () => tierFilteredEntries.filter((e) => e.isEarned),
+    [tierFilteredEntries]
+  );
+  const lockedEntries = useMemo(
+    () => tierFilteredEntries.filter((e) => !e.isEarned),
+    [tierFilteredEntries]
+  );
   const nearestInProgressEntry = lockedEntries[0] || null;
 
   const activePreviewEntry = useMemo(
@@ -112,37 +144,62 @@ export const UserProfileCertificatesSection: React.FC<UserProfileCertificatesSec
               My Certificates
             </h2>
             <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-400 mt-1 max-w-2xl">
-              Gallery of earned course completion certificates rendered in TTG&apos;s deep forest green, golden-green, and luminous lime palette (internal self-paced platform records).
+              Accredited Internal (TTG Board) and Accredited External (Tai-One W3C) course credentials. Non-credited certificates are excluded.
             </p>
           </div>
         </div>
 
-        {/* Earned Gallery vs Locked Templates Switcher */}
-        <div className="flex items-center gap-1 p-1 rounded-xl bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-xs shrink-0 self-start lg:self-auto">
-          <button
-            type="button"
-            onClick={() => setGalleryTab('earned')}
-            className={`px-3.5 py-2 rounded-lg font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap ${
-              galleryTab === 'earned'
-                ? 'bg-[#052e16] text-[#bef264] border border-[#84cc16]/60 shadow-xs'
-                : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
-            }`}
-          >
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>Earned Gallery ({earnedEntries.length})</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setGalleryTab('templates')}
-            className={`px-3.5 py-2 rounded-lg font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap ${
-              galleryTab === 'templates'
-                ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 shadow-xs'
-                : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
-            }`}
-          >
-            <Lock className="w-3.5 h-3.5" />
-            <span>Course Templates ({lockedEntries.length})</span>
-          </button>
+        {/* Tier & Earned Switcher */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 shrink-0 self-start lg:self-auto">
+          <div className="flex items-center gap-1 p-1 rounded-xl bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-[11px]">
+            {(
+              [
+                { id: 'all', label: 'All Accredited' },
+                { id: 'accredited_internal', label: 'Internal' },
+                { id: 'accredited_external', label: 'External (Tai-One W3C)' },
+              ] as const
+            ).map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setTierFilter(t.id)}
+                className={`px-2.5 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+                  tierFilter === t.id
+                    ? 'bg-emerald-700 text-white'
+                    : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-stone-100'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-1 p-1 rounded-xl bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-xs">
+            <button
+              type="button"
+              onClick={() => setGalleryTab('earned')}
+              className={`px-3.5 py-2 rounded-lg font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap ${
+                galleryTab === 'earned'
+                  ? 'bg-[#052e16] text-[#bef264] border border-[#84cc16]/60 shadow-xs'
+                  : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
+              }`}
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>Earned Gallery ({earnedEntries.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setGalleryTab('templates')}
+              className={`px-3.5 py-2 rounded-lg font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap ${
+                galleryTab === 'templates'
+                  ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 shadow-xs'
+                  : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
+              }`}
+            >
+              <Lock className="w-3.5 h-3.5" />
+              <span>Course Templates ({lockedEntries.length})</span>
+            </button>
+          </div>
         </div>
       </div>
 

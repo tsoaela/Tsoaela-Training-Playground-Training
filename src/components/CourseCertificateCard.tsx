@@ -37,6 +37,12 @@ export const CourseCertificateCard: React.FC<CourseCertificateCardProps> = ({
   const displayRecipient = isEarned ? recipientName : '[LEARNER NAME · TEMPLATE PREVIEW]';
   const displaySerial = isEarned ? serialNumber : 'TTG-TEMPLATE-LOCKED';
   const displayIssueDate = isEarned ? issueDate : 'ISSUED UPON 100% COURSE COMPLETION';
+  const isExternalAccredited =
+    certificate.accreditationTier === 'accredited_external' ||
+    /tai-one|w3c|fpac|iocc|ascr|ivcab|gdlab|cosv|external/i.test(certificate.accreditor || '');
+  const tierSummaryLabel = isExternalAccredited
+    ? 'Accredited External · Tai-One W3C'
+    : 'Accredited Internal · TTG Board';
 
   return (
     <div
@@ -153,12 +159,10 @@ export const CourseCertificateCard: React.FC<CourseCertificateCardProps> = ({
                 TTG - Tsoaela Training Ground Platform
               </div>
               <div className="text-xs sm:text-sm font-bold text-[#fefce8] tracking-wide">
-                {/tai-one\s+ai\s+standard\s+board/i.test(certificate.accreditor)
-                  ? 'TTG - Tsoaela Training Ground Platform'
-                  : certificate.accreditor}
+                {certificate.accreditor}
               </div>
               <div className="text-[11px] text-[#a3e635]/90 font-mono">
-                Category: {certificate.categoryKey}
+                Category: {certificate.categoryKey} · {certificate.w3cStandard || tierSummaryLabel}
               </div>
             </div>
           </div>
@@ -168,7 +172,7 @@ export const CourseCertificateCard: React.FC<CourseCertificateCardProps> = ({
               {isEarned ? (
                 <>
                   <CheckCircle2 className="w-3.5 h-3.5 text-[#a3e635]" />
-                  <span>Completed (Internal Record)</span>
+                  <span>{tierSummaryLabel}</span>
                 </>
               ) : (
                 <>
@@ -193,8 +197,10 @@ export const CourseCertificateCard: React.FC<CourseCertificateCardProps> = ({
           </h3>
           <p className="text-xs text-[#d9f99d]/85 max-w-2xl mx-auto">
             {isEarned
-              ? 'This internal platform completion certificate records self-paced study by'
-              : 'Sample certification layout — upon completion this credential is awarded to'}
+              ? isExternalAccredited
+                ? 'This accredited external Tai-One W3C credential certifies mastery and completion by'
+                : 'This accredited internal institutional credential certifies mastery and completion by'
+              : 'Accredited certification layout — upon completion this credential is awarded to'}
           </p>
 
           <div className="pt-1 pb-1">
@@ -240,10 +246,10 @@ export const CourseCertificateCard: React.FC<CourseCertificateCardProps> = ({
             </div>
             <div className="text-[#d9f99d]/80">
               {!isEarned
-                ? 'Template Specimen · Exports & Personal Issuance Locked Until Completion'
+                ? 'Accredited Template Specimen · Exports & Personal Issuance Locked Until Completion'
                 : quizScore !== undefined
-                ? `Self-Assessment Score: ${quizScore}% · Non-Accredited Platform Record`
-                : `Internal Completion Record · Non-Accredited`}
+                ? `Assessment Score: ${quizScore}% · ${tierSummaryLabel}`
+                : tierSummaryLabel}
             </div>
           </div>
 
@@ -252,7 +258,7 @@ export const CourseCertificateCard: React.FC<CourseCertificateCardProps> = ({
             <div className="text-right">
               <div className="text-xs font-bold text-[#fef08a]">{certificate.sealTitle}</div>
               <div className="text-[10px] font-mono text-[#bef264]/80">
-                {isEarned ? 'Internal Completion Record · Non-Accredited' : 'Certification Template Preview'}
+                {isEarned ? tierSummaryLabel : 'Accredited Certification Template Preview'}
               </div>
             </div>
             <div

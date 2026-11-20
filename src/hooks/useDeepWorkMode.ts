@@ -19,7 +19,97 @@ interface UseDeepWorkModeOptions {
   onCompleteSession?: (minutes: number, guideId: string, guideTitle: string) => void;
 }
 
-function createInitialState(defaultGuideId: string): DeepWorkState {
+function formatLocalDateOffset(daysAgo: number, hour: number, minute = 0): string {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  d.setHours(hour, minute, 0, 0);
+  return d.toISOString();
+}
+
+function addMinutesIso(startIso: string, minutes: number): string {
+  const dt = new Date(startIso);
+  dt.setMinutes(dt.getMinutes() + minutes);
+  return dt.toISOString();
+}
+
+function createSeedDeepWorkHistory(studyGuides: StudyGuide[]): DeepWorkSessionRecord[] {
+  const fallbackTitles = [
+    {
+      id: studyGuides[0]?.id || 'sg_ai_test_time_search',
+      title:
+        studyGuides[0]?.title ||
+        'Test-Time Search & Process-Supervised Reasoning Architectures',
+    },
+    {
+      id: studyGuides[1]?.id || 'sg_ai_swarm_consensus',
+      title:
+        studyGuides[1]?.title ||
+        'Decentralized Agent Swarms & Byzantine Consensus Verification',
+    },
+    {
+      id: studyGuides[2]?.id || 'sg_cog_first_principles_01',
+      title:
+        studyGuides[2]?.title ||
+        'First-Principles Cognitive Architecture & Systems Boundaries',
+    },
+    {
+      id: studyGuides[3]?.id || 'sg_econ_sovereign_01',
+      title:
+        studyGuides[3]?.title ||
+        'Sovereign Economics, Base-Load Energy & Compute Equilibrium',
+    },
+  ];
+
+  // Ensure current week has realistic accumulated progress (~4.75h toward 10 Hours of Deep Work)
+  // and past 30 days highlight morning (09:00-11:00) & evening (19:00-21:00) peak focus windows
+  const blueprint: Array<{
+    daysAgo: number;
+    hour: number;
+    plannedMinutes: number;
+    elapsedMinutes: number;
+    status: 'completed' | 'interrupted';
+    guideIdx: number;
+    distractionsBlockedCount: number;
+  }> = [
+    { daysAgo: 0, hour: 9, plannedMinutes: 50, elapsedMinutes: 50, status: 'completed', guideIdx: 0, distractionsBlockedCount: 3 },
+    { daysAgo: 1, hour: 9, plannedMinutes: 90, elapsedMinutes: 90, status: 'completed', guideIdx: 0, distractionsBlockedCount: 5 },
+    { daysAgo: 1, hour: 19, plannedMinutes: 50, elapsedMinutes: 50, status: 'completed', guideIdx: 1, distractionsBlockedCount: 2 },
+    { daysAgo: 2, hour: 10, plannedMinutes: 50, elapsedMinutes: 50, status: 'completed', guideIdx: 2, distractionsBlockedCount: 4 },
+    { daysAgo: 3, hour: 9, plannedMinutes: 50, elapsedMinutes: 45, status: 'completed', guideIdx: 3, distractionsBlockedCount: 2 },
+    { daysAgo: 5, hour: 20, plannedMinutes: 50, elapsedMinutes: 50, status: 'completed', guideIdx: 1, distractionsBlockedCount: 3 },
+    { daysAgo: 6, hour: 9, plannedMinutes: 90, elapsedMinutes: 90, status: 'completed', guideIdx: 0, distractionsBlockedCount: 6 },
+    { daysAgo: 8, hour: 10, plannedMinutes: 50, elapsedMinutes: 50, status: 'completed', guideIdx: 2, distractionsBlockedCount: 2 },
+    { daysAgo: 9, hour: 19, plannedMinutes: 50, elapsedMinutes: 28, status: 'interrupted', guideIdx: 3, distractionsBlockedCount: 1 },
+    { daysAgo: 11, hour: 9, plannedMinutes: 90, elapsedMinutes: 90, status: 'completed', guideIdx: 0, distractionsBlockedCount: 4 },
+    { daysAgo: 12, hour: 14, plannedMinutes: 50, elapsedMinutes: 50, status: 'completed', guideIdx: 1, distractionsBlockedCount: 2 },
+    { daysAgo: 14, hour: 9, plannedMinutes: 50, elapsedMinutes: 50, status: 'completed', guideIdx: 2, distractionsBlockedCount: 3 },
+    { daysAgo: 16, hour: 20, plannedMinutes: 90, elapsedMinutes: 90, status: 'completed', guideIdx: 0, distractionsBlockedCount: 5 },
+    { daysAgo: 18, hour: 10, plannedMinutes: 50, elapsedMinutes: 50, status: 'completed', guideIdx: 3, distractionsBlockedCount: 2 },
+    { daysAgo: 20, hour: 9, plannedMinutes: 50, elapsedMinutes: 50, status: 'completed', guideIdx: 1, distractionsBlockedCount: 3 },
+    { daysAgo: 22, hour: 15, plannedMinutes: 50, elapsedMinutes: 32, status: 'interrupted', guideIdx: 2, distractionsBlockedCount: 1 },
+    { daysAgo: 24, hour: 9, plannedMinutes: 90, elapsedMinutes: 90, status: 'completed', guideIdx: 0, distractionsBlockedCount: 4 },
+    { daysAgo: 26, hour: 19, plannedMinutes: 50, elapsedMinutes: 50, status: 'completed', guideIdx: 1, distractionsBlockedCount: 2 },
+    { daysAgo: 28, hour: 10, plannedMinutes: 50, elapsedMinutes: 50, status: 'completed', guideIdx: 3, distractionsBlockedCount: 3 },
+  ];
+
+  return blueprint.map((item, idx) => {
+    const startedAt = formatLocalDateOffset(item.daysAgo, item.hour, (idx * 7) % 35);
+    const guide = fallbackTitles[item.guideIdx % fallbackTitles.length];
+    return {
+      id: `dw_seed_${idx + 1}`,
+      guideId: guide.id,
+      guideTitle: guide.title,
+      plannedMinutes: item.plannedMinutes,
+      elapsedMinutes: item.elapsedMinutes,
+      status: item.status,
+      startedAt,
+      endedAt: addMinutesIso(startedAt, item.elapsedMinutes),
+      distractionsBlockedCount: item.distractionsBlockedCount,
+    };
+  });
+}
+
+function createInitialState(defaultGuideId: string, studyGuides: StudyGuide[]): DeepWorkState {
   const plannedMinutes = 50;
   return {
     isActive: false,
@@ -30,19 +120,23 @@ function createInitialState(defaultGuideId: string): DeepWorkState {
     linkedGuideId: defaultGuideId,
     startedAt: null,
     suppressedDistractionsCount: 0,
-    sessionsHistory: [],
+    sessionsHistory: createSeedDeepWorkHistory(studyGuides),
   };
 }
 
-function loadDeepWorkState(defaultGuideId: string): DeepWorkState {
+function loadDeepWorkState(defaultGuideId: string, studyGuides: StudyGuide[]): DeepWorkState {
   try {
     const raw = localStorage.getItem(DEEP_WORK_STORAGE_KEY);
-    if (!raw) return createInitialState(defaultGuideId);
+    if (!raw) return createInitialState(defaultGuideId, studyGuides);
     const parsed = JSON.parse(raw) as Partial<DeepWorkState>;
     const plannedMinutes =
       typeof parsed.plannedMinutes === 'number' && parsed.plannedMinutes >= 15
         ? parsed.plannedMinutes
         : 50;
+    const loadedHistory =
+      Array.isArray(parsed.sessionsHistory) && parsed.sessionsHistory.length > 0
+        ? parsed.sessionsHistory
+        : createSeedDeepWorkHistory(studyGuides);
 
     if (parsed.isActive && !parsed.isPaused && parsed.targetEndAt) {
       const remaining = Math.max(0, Math.ceil((parsed.targetEndAt - Date.now()) / 1000));
@@ -55,7 +149,7 @@ function loadDeepWorkState(defaultGuideId: string): DeepWorkState {
         linkedGuideId: parsed.linkedGuideId || defaultGuideId,
         startedAt: remaining > 0 ? parsed.startedAt || new Date().toISOString() : null,
         suppressedDistractionsCount: Number(parsed.suppressedDistractionsCount) || 0,
-        sessionsHistory: Array.isArray(parsed.sessionsHistory) ? parsed.sessionsHistory : [],
+        sessionsHistory: loadedHistory,
       };
     }
 
@@ -71,10 +165,10 @@ function loadDeepWorkState(defaultGuideId: string): DeepWorkState {
       linkedGuideId: parsed.linkedGuideId || defaultGuideId,
       startedAt: parsed.startedAt ?? null,
       suppressedDistractionsCount: Number(parsed.suppressedDistractionsCount) || 0,
-      sessionsHistory: Array.isArray(parsed.sessionsHistory) ? parsed.sessionsHistory : [],
+      sessionsHistory: loadedHistory,
     };
   } catch {
-    return createInitialState(defaultGuideId);
+    return createInitialState(defaultGuideId, studyGuides);
   }
 }
 
@@ -87,7 +181,9 @@ export function useDeepWorkMode({
   onCompleteSession,
 }: UseDeepWorkModeOptions) {
   const defaultGuideId = studyGuides[0]?.id || 'sg_ai_test_time_search';
-  const [state, setState] = useState<DeepWorkState>(() => loadDeepWorkState(defaultGuideId));
+  const [state, setState] = useState<DeepWorkState>(() =>
+    loadDeepWorkState(defaultGuideId, studyGuides)
+  );
 
   const studyGuidesRef = useRef(studyGuides);
   studyGuidesRef.current = studyGuides;
@@ -157,7 +253,7 @@ export function useDeepWorkMode({
           targetEndAt: null,
           startedAt: null,
           suppressedDistractionsCount: 0,
-          sessionsHistory: [completedRecord, ...prev.sessionsHistory].slice(0, 60),
+          sessionsHistory: [completedRecord, ...prev.sessionsHistory].slice(0, 120),
         };
       });
 
@@ -227,7 +323,7 @@ export function useDeepWorkMode({
       if (!prev.isActive) return prev;
       const totalSeconds = Math.max(60, prev.plannedMinutes * 60);
       const elapsedSeconds = Math.max(0, totalSeconds - prev.remainingSeconds);
-      const elapsedMinutes = Math.max(1, Math.round(elapsedSeconds / 60) || prev.plannedMinutes);
+      const elapsedMinutes = Math.max(prev.plannedMinutes, Math.round(elapsedSeconds / 60));
       const guideTitle = resolveGuideTitle(prev.linkedGuideId);
       const nowIso = new Date().toISOString();
 
@@ -257,7 +353,7 @@ export function useDeepWorkMode({
         targetEndAt: null,
         startedAt: null,
         suppressedDistractionsCount: 0,
-        sessionsHistory: [completedRecord, ...prev.sessionsHistory].slice(0, 60),
+        sessionsHistory: [completedRecord, ...prev.sessionsHistory].slice(0, 120),
       };
     });
 
@@ -293,7 +389,7 @@ export function useDeepWorkMode({
                 distractionsBlockedCount: prev.suppressedDistractionsCount,
               },
               ...prev.sessionsHistory,
-            ].slice(0, 60)
+            ].slice(0, 120)
           : prev.sessionsHistory;
 
       return {
@@ -318,7 +414,7 @@ export function useDeepWorkMode({
   }, [state.isActive, endDeepWorkEarly, startDeepWork]);
 
   const setPlannedMinutes = useCallback((minutes: number) => {
-    const safeMinutes = Math.min(120, Math.max(15, minutes));
+    const safeMinutes = Math.min(240, Math.max(15, minutes));
     setState((prev) => {
       if (prev.isActive) return prev;
       return {

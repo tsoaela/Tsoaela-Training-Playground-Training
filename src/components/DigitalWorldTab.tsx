@@ -1521,6 +1521,7 @@ export const DigitalWorldTab: React.FC<DigitalWorldTabProps> = ({
                     {/* Attached Category Certificate Line */}
                     {(() => {
                       const certSpec = getCertificateForEducationCourse(course);
+                      if (!certSpec) return null;
                       return (
                         <div className="pt-2 flex items-center justify-between gap-2 text-[11px] px-3 py-2 rounded-xl bg-[#022c22] text-[#ecfccb] border border-[#84cc16]/45">
                           <div className="flex items-center gap-2 min-w-0">

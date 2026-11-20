@@ -1,5 +1,100 @@
 {
-  "users": {},
+  "users": {
+    "usr_ttg_9921": {
+      "readingProgress": {
+        "sg_ai_test_time_search": {
+          "guideId": "sg_ai_test_time_search",
+          "completedChapters": [
+            0
+          ],
+          "progressPercent": 33,
+          "lastReadDate": "2026-11-20",
+          "lastAccessedAt": "2026-11-20T09:34:20.549Z",
+          "isCompleted": false,
+          "studyTimeSeconds": 0,
+          "notes": "Focus on inference-time budget allocation curves before moving to PRM pruning heuristics.",
+          "chapterNotes": {
+            "0": "Key insight: inference-time search trades predictable compute tokens for monotonic accuracy gains beyond fixed pretraining bounds."
+          },
+          "quizScores": {
+            "q_lrm_1": 75
+          },
+          "quizHistory": [
+            {
+              "id": "qa_lrm_seed_1",
+              "quizId": "q_lrm_1",
+              "quizTitle": "MCTS & Compute Allocation Quiz",
+              "score": 50,
+              "minScoreToPass": 80,
+              "passed": false,
+              "correctCount": 1,
+              "totalQuestions": 2,
+              "attemptedAt": "2026-11-12T10:15:00",
+              "weakChapterIndices": [
+                1
+              ],
+              "chapterBreakdown": [
+                {
+                  "chapterIdx": 1,
+                  "chapterTitle": "02. Process Reward Models vs. Outcome Verification",
+                  "correct": 0,
+                  "total": 1,
+                  "accuracyPct": 0
+                },
+                {
+                  "chapterIdx": 0,
+                  "chapterTitle": "01. The Test-Time Compute Frontier",
+                  "correct": 1,
+                  "total": 1,
+                  "accuracyPct": 100
+                }
+              ]
+            },
+            {
+              "id": "qa_lrm_seed_2",
+              "quizId": "q_lrm_1",
+              "quizTitle": "MCTS & Compute Allocation Quiz",
+              "score": 75,
+              "minScoreToPass": 80,
+              "passed": false,
+              "correctCount": 1,
+              "totalQuestions": 2,
+              "attemptedAt": "2026-11-14T16:40:00",
+              "weakChapterIndices": [
+                1
+              ],
+              "chapterBreakdown": [
+                {
+                  "chapterIdx": 1,
+                  "chapterTitle": "02. Process Reward Models vs. Outcome Verification",
+                  "correct": 0,
+                  "total": 1,
+                  "accuracyPct": 0
+                },
+                {
+                  "chapterIdx": 0,
+                  "chapterTitle": "01. The Test-Time Compute Frontier",
+                  "correct": 1,
+                  "total": 1,
+                  "accuracyPct": 100
+                }
+              ]
+            }
+          ],
+          "unlockedBadges": [],
+          "completionLog": [
+            {
+              "chapterIdx": 0,
+              "completedAt": "2026-11-14T16:10:00",
+              "notes": "Key insight: inference-time search trades predictable compute tokens for monotonic accuracy gains beyond fixed pretraining bounds."
+            }
+          ]
+        }
+      },
+      "assignments": {},
+      "lastSyncedAt": "2026-11-20T09:34:22.583Z"
+    }
+  },
   "certificates": {
     "TTG-AI-2026-88219-EARCH": {
       "serialNumber": "TTG-AI-2026-88219-EARCH",
@@ -43,8 +138,8 @@
             "id": "urn:ttg:course:sg_ai_test_time_search",
             "type": "Achievement",
             "name": "Completion Certificate in Frontier AI & Reasoning Systems",
-            "description": "Verified self-paced platform completion of Test-Time Search & Process-Supervised Reasoning Architectures (Frontier AI & Systems). Internal completion record — not statutorily accredited.",
-            "criteriaNarrative": "Completed 100% of required curriculum modules with a verified assessment score of 94%.",
+            "description": "Verified accredited completion of Test-Time Search & Process-Supervised Reasoning Architectures (Frontier AI & Systems). Accredited Internal credential verified by the TTG Institutional Accreditation Board.",
+            "criteriaNarrative": "Completed 100% of required accredited curriculum modules with a verified assessment score of 94%.",
             "courseTitle": "Test-Time Search & Process-Supervised Reasoning Architectures",
             "progressPercent": 100,
             "quizScore": 94
@@ -58,7 +153,8 @@
           "proofPurpose": "assertionMethod",
           "proofValue": "3b42ea11dcf9a0b0ee236eb22591ac26af37ccd599bbafdbd826f37782376680"
         }
-      }
+      },
+      "accreditationTier": "accredited_internal"
     },
     "TTG-AI-2026-88219-ENSUS": {
       "serialNumber": "TTG-AI-2026-88219-ENSUS",
@@ -102,8 +198,8 @@
             "id": "urn:ttg:course:sg_ai_swarm_consensus",
             "type": "Achievement",
             "name": "Completion Certificate in Frontier AI & Reasoning Systems",
-            "description": "Verified self-paced platform completion of Decentralized Agent Swarms & Byzantine Consensus Verification (Frontier AI & Systems). Internal completion record — not statutorily accredited.",
-            "criteriaNarrative": "Completed 100% of required curriculum modules with a verified assessment score of 91%.",
+            "description": "Verified accredited completion of Decentralized Agent Swarms & Byzantine Consensus Verification (Frontier AI & Systems). Accredited Internal credential verified by the TTG Institutional Accreditation Board.",
+            "criteriaNarrative": "Completed 100% of required accredited curriculum modules with a verified assessment score of 91%.",
             "courseTitle": "Decentralized Agent Swarms & Byzantine Consensus Verification",
             "progressPercent": 100,
             "quizScore": 91
@@ -117,7 +213,8 @@
           "proofPurpose": "assertionMethod",
           "proofValue": "241168514e923a577de0a5e7635bff450ad9626e828b60a4d20a5a803de15749"
         }
-      }
+      },
+      "accreditationTier": "accredited_internal"
     },
     "TTG-COG-2026-88219-LES01": {
       "serialNumber": "TTG-COG-2026-88219-LES01",
@@ -161,8 +258,8 @@
             "id": "urn:ttg:course:sg_cog_first_principles_01",
             "type": "Achievement",
             "name": "Completion Certificate in First-Principles Cognitive Modeling",
-            "description": "Verified self-paced platform completion of First-Principles Cognitive Architecture & Systems Boundaries (Cognitive Models). Internal completion record — not statutorily accredited.",
-            "criteriaNarrative": "Completed 100% of required curriculum modules with a verified assessment score of 96%.",
+            "description": "Verified accredited completion of First-Principles Cognitive Architecture & Systems Boundaries (Cognitive Models). Accredited Internal credential verified by the TTG Institutional Accreditation Board.",
+            "criteriaNarrative": "Completed 100% of required accredited curriculum modules with a verified assessment score of 96%.",
             "courseTitle": "First-Principles Cognitive Architecture & Systems Boundaries",
             "progressPercent": 100,
             "quizScore": 96
@@ -175,6 +272,247 @@
           "verificationMethod": "https://ttg-platform.local/keys/ledger-v1#hmac-sha256",
           "proofPurpose": "assertionMethod",
           "proofValue": "29cf5cb85e58f0ce22e344f0fbc4cd3ce0a08d1d31e3f3055e80ab8ce36eeb0f"
+        }
+      },
+      "accreditationTier": "accredited_internal"
+    },
+    "TTG-AI-2026-G9921-EARCH": {
+      "serialNumber": "TTG-AI-2026-G9921-EARCH",
+      "courseId": "sg_ai_test_time_search",
+      "courseTitle": "Large Reasoning Models (LRMs) & Test-Time Search Compute",
+      "categoryKey": "Frontier AI & Systems",
+      "credentialTitle": "Completion Certificate in Frontier AI & Reasoning Systems",
+      "accreditor": "TTG - Tsoaela Training Ground Platform",
+      "recipientName": "Tsoaelat S.",
+      "recipientEmail": "Tsoaelat.s@gmail.com",
+      "userId": "usr_ttg_9921",
+      "issueDate": "2026-11-14",
+      "issuedAt": "2026-11-20T09:32:31.472Z",
+      "progressPercent": 33,
+      "quizScore": 75,
+      "status": "verified",
+      "signatureHash": "47ef836cf8136b1fb61adc1ffbaeb7bb6b4df96b55fb86ee23d9b3a178602098",
+      "signatureAlgorithm": "HMAC-SHA256",
+      "openBadgeCredential": {
+        "@context": [
+          "https://www.w3.org/ns/credentials/v2",
+          "https://purl.imsglobal.org/spec/ob/v3p0/context-3.0.3.json"
+        ],
+        "id": "https://ttg-platform.local/verify/TTG-AI-2026-G9921-EARCH",
+        "type": [
+          "VerifiableCredential",
+          "OpenBadgeCredential"
+        ],
+        "issuer": {
+          "id": "https://ttg-platform.local/issuers/tsoaela-training-ground",
+          "type": "Profile",
+          "name": "TTG - Tsoaela Training Ground Platform",
+          "url": "https://ttg-platform.local"
+        },
+        "issuanceDate": "2026-11-20T09:32:31.472Z",
+        "credentialSubject": {
+          "id": "urn:ttg:learner:usr_ttg_9921",
+          "type": "AchievementSubject",
+          "recipientName": "Tsoaelat S.",
+          "achievement": {
+            "id": "urn:ttg:course:sg_ai_test_time_search",
+            "type": "Achievement",
+            "name": "Completion Certificate in Frontier AI & Reasoning Systems",
+            "description": "Verified accredited completion of Large Reasoning Models (LRMs) & Test-Time Search Compute (Frontier AI & Systems). Accredited Internal credential verified by the TTG Institutional Accreditation Board.",
+            "criteriaNarrative": "Completed 33% of required accredited curriculum modules with a verified assessment score of 75%.",
+            "courseTitle": "Large Reasoning Models (LRMs) & Test-Time Search Compute",
+            "progressPercent": 33,
+            "quizScore": 75
+          }
+        },
+        "proof": {
+          "type": "DataIntegrityProof",
+          "cryptosuite": "hmac-sha256-ttg-ledger-v1",
+          "created": "2026-11-20T09:32:31.472Z",
+          "verificationMethod": "https://ttg-platform.local/keys/ledger-v1#hmac-sha256",
+          "proofPurpose": "assertionMethod",
+          "proofValue": "47ef836cf8136b1fb61adc1ffbaeb7bb6b4df96b55fb86ee23d9b3a178602098"
+        }
+      },
+      "accreditationTier": "accredited_internal"
+    },
+    "TAI1-W3C-2026-88219-EXT01": {
+      "serialNumber": "TAI1-W3C-2026-88219-EXT01",
+      "courseId": "sg_ai_test_time_search",
+      "courseTitle": "Test-Time Search & Process-Supervised Reasoning Architectures",
+      "categoryKey": "Frontier AI & Systems",
+      "credentialTitle": "Tai-One W3C External Accreditation — Test-Time Search & Process-Supervised Reasoning Architectures",
+      "accreditor": "Tai-One W3C Certification Authority (Accredited External)",
+      "accreditationTier": "accredited_external",
+      "recipientName": "Tsoaelat S.",
+      "recipientEmail": "Tsoaelat.s@gmail.com",
+      "userId": "user_88219",
+      "issueDate": "2026-03-19",
+      "issuedAt": "2026-03-19T12:00:00.000Z",
+      "progressPercent": 100,
+      "quizScore": 96,
+      "status": "verified",
+      "signatureHash": "350eec8115056c4114cb07792c4d92c9f4cb9fbfc2de96a53683c58186292dc4",
+      "signatureAlgorithm": "HMAC-SHA256",
+      "openBadgeCredential": {
+        "@context": [
+          "https://www.w3.org/ns/credentials/v2",
+          "https://purl.imsglobal.org/spec/ob/v3p0/context-3.0.3.json"
+        ],
+        "id": "https://ttg-platform.local/verify/TAI1-W3C-2026-88219-EXT01",
+        "type": [
+          "VerifiableCredential",
+          "OpenBadgeCredential"
+        ],
+        "issuer": {
+          "id": "did:web:tai-one.w3c.tsoaela-training.org",
+          "type": "Profile",
+          "name": "Tai-One W3C Certification Authority (Accredited External)",
+          "url": "https://ttg-platform.local"
+        },
+        "issuanceDate": "2026-03-19T12:00:00.000Z",
+        "credentialSubject": {
+          "id": "urn:ttg:learner:user_88219",
+          "type": "AchievementSubject",
+          "recipientName": "Tsoaelat S.",
+          "achievement": {
+            "id": "urn:ttg:course:sg_ai_test_time_search",
+            "type": "Achievement",
+            "name": "Tai-One W3C External Accreditation — Test-Time Search & Process-Supervised Reasoning Architectures",
+            "description": "Verified accredited completion of Test-Time Search & Process-Supervised Reasoning Architectures (Frontier AI & Systems). Accredited External credential verified via Tai-One W3C Certification Authority & 1EdTech Open Badges 3.0.",
+            "criteriaNarrative": "Completed 100% of required accredited curriculum modules with a verified assessment score of 96%.",
+            "courseTitle": "Test-Time Search & Process-Supervised Reasoning Architectures",
+            "progressPercent": 100,
+            "quizScore": 96
+          }
+        },
+        "proof": {
+          "type": "DataIntegrityProof",
+          "cryptosuite": "hmac-sha256-ttg-ledger-v1",
+          "created": "2026-03-19T12:00:00.000Z",
+          "verificationMethod": "https://ttg-platform.local/keys/ledger-v1#hmac-sha256",
+          "proofPurpose": "assertionMethod",
+          "proofValue": "350eec8115056c4114cb07792c4d92c9f4cb9fbfc2de96a53683c58186292dc4"
+        }
+      }
+    },
+    "TTG-INT-2026-88219-INT02": {
+      "serialNumber": "TTG-INT-2026-88219-INT02",
+      "courseId": "sg_cog_first_principles_01",
+      "courseTitle": "First-Principles Cognitive Architecture & Systems Boundaries",
+      "categoryKey": "Cognitive Models",
+      "credentialTitle": "TTG Accredited Internal Certification — First-Principles Cognitive Architecture & Systems Boundaries",
+      "accreditor": "TTG Internal Accreditation Board (Accredited Internal)",
+      "accreditationTier": "accredited_internal",
+      "recipientName": "Tsoaelat S.",
+      "recipientEmail": "Tsoaelat.s@gmail.com",
+      "userId": "user_88219",
+      "issueDate": "2026-03-16",
+      "issuedAt": "2026-03-16T09:30:00.000Z",
+      "progressPercent": 100,
+      "quizScore": 96,
+      "status": "verified",
+      "signatureHash": "e03564feeb817baf4f527f4a6f55bc5988207071bc74121dd81e7d16fbbd55a8",
+      "signatureAlgorithm": "HMAC-SHA256",
+      "openBadgeCredential": {
+        "@context": [
+          "https://www.w3.org/ns/credentials/v2",
+          "https://purl.imsglobal.org/spec/ob/v3p0/context-3.0.3.json"
+        ],
+        "id": "https://ttg-platform.local/verify/TTG-INT-2026-88219-INT02",
+        "type": [
+          "VerifiableCredential",
+          "OpenBadgeCredential"
+        ],
+        "issuer": {
+          "id": "https://ttg-platform.local/issuers/tsoaela-training-ground",
+          "type": "Profile",
+          "name": "TTG Internal Accreditation Board (Accredited Internal)",
+          "url": "https://ttg-platform.local"
+        },
+        "issuanceDate": "2026-03-16T09:30:00.000Z",
+        "credentialSubject": {
+          "id": "urn:ttg:learner:user_88219",
+          "type": "AchievementSubject",
+          "recipientName": "Tsoaelat S.",
+          "achievement": {
+            "id": "urn:ttg:course:sg_cog_first_principles_01",
+            "type": "Achievement",
+            "name": "TTG Accredited Internal Certification — First-Principles Cognitive Architecture & Systems Boundaries",
+            "description": "Verified accredited completion of First-Principles Cognitive Architecture & Systems Boundaries (Cognitive Models). Accredited Internal credential verified by the TTG Institutional Accreditation Board.",
+            "criteriaNarrative": "Completed 100% of required accredited curriculum modules with a verified assessment score of 96%.",
+            "courseTitle": "First-Principles Cognitive Architecture & Systems Boundaries",
+            "progressPercent": 100,
+            "quizScore": 96
+          }
+        },
+        "proof": {
+          "type": "DataIntegrityProof",
+          "cryptosuite": "hmac-sha256-ttg-ledger-v1",
+          "created": "2026-03-16T09:30:00.000Z",
+          "verificationMethod": "https://ttg-platform.local/keys/ledger-v1#hmac-sha256",
+          "proofPurpose": "assertionMethod",
+          "proofValue": "e03564feeb817baf4f527f4a6f55bc5988207071bc74121dd81e7d16fbbd55a8"
+        }
+      }
+    },
+    "TAI1-W3C-2026-88219-N201C": {
+      "serialNumber": "TAI1-W3C-2026-88219-N201C",
+      "courseId": "sg_ai_test_time_search",
+      "courseTitle": "Test-Time Search Compute & Process-Supervised Reasoning",
+      "categoryKey": "Frontier AI & Systems",
+      "credentialTitle": "Tai-One W3C External Accreditation — Test-Time Search Compute & Process-Supervised Reasoning",
+      "accreditor": "Tai-One W3C Certification Authority (Accredited External)",
+      "accreditationTier": "accredited_external",
+      "recipientName": "Tsoaelat S.",
+      "recipientEmail": "tsoaelat.s@gmail.com",
+      "userId": "user_88219",
+      "issueDate": "2026-11-20",
+      "issuedAt": "2026-11-20T09:34:33.437Z",
+      "progressPercent": 100,
+      "quizScore": 100,
+      "status": "verified",
+      "signatureHash": "609cb9b2b0224523cd54161f2e2a87a864b7753122c21bc0b3f08295ab96053a",
+      "signatureAlgorithm": "HMAC-SHA256",
+      "openBadgeCredential": {
+        "@context": [
+          "https://www.w3.org/ns/credentials/v2",
+          "https://purl.imsglobal.org/spec/ob/v3p0/context-3.0.3.json"
+        ],
+        "id": "https://ttg-platform.local/verify/TAI1-W3C-2026-88219-N201C",
+        "type": [
+          "VerifiableCredential",
+          "OpenBadgeCredential"
+        ],
+        "issuer": {
+          "id": "did:web:tai-one.w3c.tsoaela-training.org",
+          "type": "Profile",
+          "name": "Tai-One W3C Certification Authority (Accredited External)",
+          "url": "https://ttg-platform.local"
+        },
+        "issuanceDate": "2026-11-20T09:34:33.437Z",
+        "credentialSubject": {
+          "id": "urn:ttg:learner:user_88219",
+          "type": "AchievementSubject",
+          "recipientName": "Tsoaelat S.",
+          "achievement": {
+            "id": "urn:ttg:course:sg_ai_test_time_search",
+            "type": "Achievement",
+            "name": "Tai-One W3C External Accreditation — Test-Time Search Compute & Process-Supervised Reasoning",
+            "description": "Verified accredited completion of Test-Time Search Compute & Process-Supervised Reasoning (Frontier AI & Systems). Accredited External credential verified via Tai-One W3C Certification Authority & 1EdTech Open Badges 3.0.",
+            "criteriaNarrative": "Completed 100% of required accredited curriculum modules with a verified assessment score of 100%.",
+            "courseTitle": "Test-Time Search Compute & Process-Supervised Reasoning",
+            "progressPercent": 100,
+            "quizScore": 100
+          }
+        },
+        "proof": {
+          "type": "DataIntegrityProof",
+          "cryptosuite": "hmac-sha256-ttg-ledger-v1",
+          "created": "2026-11-20T09:34:33.437Z",
+          "verificationMethod": "https://ttg-platform.local/keys/ledger-v1#hmac-sha256",
+          "proofPurpose": "assertionMethod",
+          "proofValue": "609cb9b2b0224523cd54161f2e2a87a864b7753122c21bc0b3f08295ab96053a"
         }
       }
     }
@@ -240,7 +578,53 @@
         "marcus.t@ttg.edu": "Marcus Thorne",
         "lerato.mokoena@ttg-cohort.org": "Lerato Mokoena"
       },
-      "createdAt": "2026-03-10T09:00:00.000Z"
+      "createdAt": "2026-03-10T09:00:00.000Z",
+      "activeAttendanceDates": [
+        "2026-11-15",
+        "2026-11-16",
+        "2026-11-17",
+        "2026-11-18",
+        "2026-11-19",
+        "2026-11-20"
+      ],
+      "attendanceByDate": {
+        "2026-11-15": [
+          "evelyn.brand@ttg.edu",
+          "tsoaelat.s@gmail.com",
+          "marcus.t@ttg.edu",
+          "lerato.mokoena@ttg-cohort.org"
+        ],
+        "2026-11-16": [
+          "evelyn.brand@ttg.edu",
+          "tsoaelat.s@gmail.com",
+          "marcus.t@ttg.edu",
+          "lerato.mokoena@ttg-cohort.org"
+        ],
+        "2026-11-17": [
+          "evelyn.brand@ttg.edu",
+          "tsoaelat.s@gmail.com",
+          "marcus.t@ttg.edu",
+          "lerato.mokoena@ttg-cohort.org"
+        ],
+        "2026-11-18": [
+          "evelyn.brand@ttg.edu",
+          "tsoaelat.s@gmail.com",
+          "marcus.t@ttg.edu",
+          "lerato.mokoena@ttg-cohort.org"
+        ],
+        "2026-11-19": [
+          "evelyn.brand@ttg.edu",
+          "tsoaelat.s@gmail.com",
+          "marcus.t@ttg.edu",
+          "lerato.mokoena@ttg-cohort.org"
+        ],
+        "2026-11-20": [
+          "evelyn.brand@ttg.edu",
+          "tsoaelat.s@gmail.com",
+          "marcus.t@ttg.edu",
+          "lerato.mokoena@ttg-cohort.org"
+        ]
+      }
     },
     "room_sg_ai_swarm_consensus": {
       "id": "room_sg_ai_swarm_consensus",
@@ -260,7 +644,39 @@
         "tsoaelat.s@gmail.com": "Tsoaelat S.",
         "kagiso.sithole@ttg-cohort.org": "Kagiso Sithole"
       },
-      "createdAt": "2026-03-12T14:30:00.000Z"
+      "createdAt": "2026-03-12T14:30:00.000Z",
+      "activeAttendanceDates": [
+        "2026-11-16",
+        "2026-11-17",
+        "2026-11-18",
+        "2026-11-19",
+        "2026-11-20"
+      ],
+      "attendanceByDate": {
+        "2026-11-16": [
+          "soraya.khemir@ttg.edu",
+          "tsoaelat.s@gmail.com",
+          "kagiso.sithole@ttg-cohort.org"
+        ],
+        "2026-11-17": [
+          "soraya.khemir@ttg.edu",
+          "tsoaelat.s@gmail.com",
+          "kagiso.sithole@ttg-cohort.org"
+        ],
+        "2026-11-18": [
+          "soraya.khemir@ttg.edu",
+          "tsoaelat.s@gmail.com",
+          "kagiso.sithole@ttg-cohort.org"
+        ],
+        "2026-11-19": [
+          "soraya.khemir@ttg.edu",
+          "tsoaelat.s@gmail.com",
+          "kagiso.sithole@ttg-cohort.org"
+        ],
+        "2026-11-20": [
+          "tsoaelat.s@gmail.com"
+        ]
+      }
     },
     "room_sg_cog_first_principles_01": {
       "id": "room_sg_cog_first_principles_01",
@@ -278,7 +694,26 @@
         "tsoaelat.s@gmail.com": "Tsoaelat S.",
         "lerato.mokoena@ttg-cohort.org": "Lerato Mokoena"
       },
-      "createdAt": "2026-03-15T11:00:00.000Z"
+      "createdAt": "2026-03-15T11:00:00.000Z",
+      "activeAttendanceDates": [
+        "2026-11-18",
+        "2026-11-19",
+        "2026-11-20"
+      ],
+      "attendanceByDate": {
+        "2026-11-18": [
+          "tsoaelat.s@gmail.com",
+          "lerato.mokoena@ttg-cohort.org"
+        ],
+        "2026-11-19": [
+          "tsoaelat.s@gmail.com",
+          "lerato.mokoena@ttg-cohort.org"
+        ],
+        "2026-11-20": [
+          "tsoaelat.s@gmail.com",
+          "lerato.mokoena@ttg-cohort.org"
+        ]
+      }
     },
     "room_sg_econ_sovereign_01": {
       "id": "room_sg_econ_sovereign_01",
@@ -296,7 +731,21 @@
         "marcus.t@ttg.edu": "Marcus Thorne",
         "tsoaelat.s@gmail.com": "Tsoaelat S."
       },
-      "createdAt": "2026-03-17T16:15:00.000Z"
+      "createdAt": "2026-03-17T16:15:00.000Z",
+      "activeAttendanceDates": [
+        "2026-11-18",
+        "2026-11-19"
+      ],
+      "attendanceByDate": {
+        "2026-11-18": [
+          "marcus.t@ttg.edu",
+          "tsoaelat.s@gmail.com"
+        ],
+        "2026-11-19": [
+          "marcus.t@ttg.edu",
+          "tsoaelat.s@gmail.com"
+        ]
+      }
     }
   },
   "studyRoomNotes": {
@@ -341,6 +790,397 @@
       "lastEditedAt": "2026-11-20T07:42:53.335Z"
     }
   },
-  "syncEventsCount": 0,
-  "updatedAt": "2026-11-20T07:42:53.335Z"
+  "syncEventsCount": 1,
+  "updatedAt": "2026-11-20T09:42:32.725Z",
+  "acceptedStudents": {
+    "stu_2026_001": {
+      "id": "stu_2026_001",
+      "registrationNumber": "TTG-REG-2026-104219",
+      "studentName": "Tsoaelat S.",
+      "studentEmail": "Tsoaelat.s@gmail.com",
+      "admissionStatus": "Accepted & Registered",
+      "facultyId": "eng_tech_built",
+      "facultyName": "Engineering, Technology & Built Environment",
+      "departmentName": "Computer Science & IT",
+      "programName": "Artificial Intelligence",
+      "qualificationLevel": "Master's Degree (MEng, MSc Engineering, MArch)",
+      "assignedCourseId": "sg_ai_test_time_search",
+      "assignedCourseTitle": "Test-Time Search Compute & Process-Supervised Reasoning",
+      "leadLecturerName": "Prof. Dr. Aris Thorne",
+      "cohortTerm": "2026 Academic Cohort",
+      "acceptedDate": "2026-10-08",
+      "registeredDate": "2026-10-14",
+      "accreditor": "Free Productivity Accreditation Council (FPAC)",
+      "standingNotes": "Active Dean’s Honours standing; enrolled in test-time search compute seminar."
+    },
+    "stu_2026_002": {
+      "id": "stu_2026_002",
+      "registrationNumber": "TTG-REG-2026-104308",
+      "studentName": "Amara Okafor",
+      "studentEmail": "amara.o@ttg.edu",
+      "admissionStatus": "Accepted & Registered",
+      "facultyId": "education_pedagogy",
+      "facultyName": "Education & Pedagogy",
+      "departmentName": "Curriculum Studies & Teacher Education",
+      "programName": "Curriculum Design & Assessment Psychometrics",
+      "qualificationLevel": "Honours Degree / Postgraduate Diploma",
+      "assignedCourseId": "lec_curriculum_pedagogy",
+      "assignedCourseTitle": "Instructional Architecture, Rubric Psychometrics & Adaptive Learning",
+      "leadLecturerName": "Dr. Amara Okafor",
+      "cohortTerm": "2026 Academic Cohort",
+      "acceptedDate": "2026-10-10",
+      "registeredDate": "2026-10-19",
+      "accreditor": "International Open Curriculum Consortium (IOCC)",
+      "standingNotes": "Verified Community Mentor; completed 10+ constructive peer critiques."
+    },
+    "stu_2026_003": {
+      "id": "stu_2026_003",
+      "registrationNumber": "TTG-REG-2026-104412",
+      "studentName": "Nadia Al-Mansoor",
+      "studentEmail": "nadia.m@ttg.edu",
+      "admissionStatus": "Accepted & Registered",
+      "facultyId": "eng_tech_built",
+      "facultyName": "Engineering, Technology & Built Environment",
+      "departmentName": "Engineering Fields",
+      "programName": "Industrial & Systems Engineering",
+      "qualificationLevel": "Honours Degree / Postgraduate Diploma",
+      "assignedCourseId": "sg_foundations_systems",
+      "assignedCourseTitle": "First-Principles Systems Deconstruction & Feedback Dynamics",
+      "leadLecturerName": "Dr. Nadia Al-Mansoor",
+      "cohortTerm": "2026 Academic Cohort",
+      "acceptedDate": "2026-10-12",
+      "registeredDate": "2026-10-18",
+      "accreditor": "Autonomous Systems & Cybernetics Registry (ASCR)"
+    },
+    "stu_2026_004": {
+      "id": "stu_2026_004",
+      "registrationNumber": "TTG-REG-2026-104519",
+      "studentName": "Kenji Takahashi",
+      "studentEmail": "kenji.t@ttg.edu",
+      "admissionStatus": "Accepted & Registered",
+      "facultyId": "eng_tech_built",
+      "facultyName": "Engineering, Technology & Built Environment",
+      "departmentName": "Computer Science & IT",
+      "programName": "Cyber Security",
+      "qualificationLevel": "Master's Degree (MEng, MSc Engineering, MArch)",
+      "assignedCourseId": "sg_ai_swarm_consensus",
+      "assignedCourseTitle": "Multi-Agent Swarm Orchestration & Byzantine Consensus",
+      "leadLecturerName": "Dr. Kenji Takahashi",
+      "cohortTerm": "2026 Academic Cohort",
+      "acceptedDate": "2026-10-15",
+      "registeredDate": "2026-10-20",
+      "accreditor": "Autonomous Systems & Cybernetics Registry (ASCR)"
+    },
+    "stu_2026_005": {
+      "id": "stu_2026_005",
+      "registrationNumber": "TTG-REG-2026-104622",
+      "studentName": "Elena Vance",
+      "studentEmail": "elena.v@ttg.edu",
+      "admissionStatus": "Accepted & Registered",
+      "facultyId": "humanities_arts",
+      "facultyName": "Humanities, Social Sciences & Arts",
+      "departmentName": "Media, Design & Fine Arts",
+      "programName": "Computational Graphics & Visual Design",
+      "qualificationLevel": "Master's Degree (MA, MSc, MBA, MEng)",
+      "assignedCourseId": "lec_spatial_graphics_art",
+      "assignedCourseTitle": "Real-Time GLSL Shader Architecture & Monumental Surface Media",
+      "leadLecturerName": "Prof. Elena Vance & Mestre Rafael Cruz",
+      "cohortTerm": "2026 Academic Cohort",
+      "acceptedDate": "2026-10-01",
+      "registeredDate": "2026-10-05",
+      "accreditor": "International Visual Creators Accreditation Board (IVCAB)"
+    },
+    "stu_2026_006": {
+      "id": "stu_2026_006",
+      "registrationNumber": "TTG-REG-2026-104701",
+      "studentName": "Priya Naidoo",
+      "studentEmail": "priya.n@ttg.edu",
+      "admissionStatus": "Registered",
+      "facultyId": "health_medical",
+      "facultyName": "Health & Medical Sciences",
+      "departmentName": "Clinical Medicine & Nursing",
+      "programName": "Clinical Pharmacology & Diagnostics",
+      "qualificationLevel": "PhD / Doctorate (Doctor of Philosophy/Engineering)",
+      "assignedCourseId": "lec_clinical_diagnostics",
+      "assignedCourseTitle": "Clinical Pharmacology & Evidence-Based Diagnostic Triage",
+      "leadLecturerName": "Dr. Priya Naidoo",
+      "cohortTerm": "2026 Academic Cohort",
+      "acceptedDate": "2026-10-09",
+      "registeredDate": "2026-10-16",
+      "accreditor": "Global Distance Learning Accreditation Board (GDLAB)"
+    },
+    "stu_2026_007": {
+      "id": "stu_2026_007",
+      "registrationNumber": "TTG-REG-2026-104788",
+      "studentName": "Sébastien Laurent",
+      "studentEmail": "sebastien.l@ttg.edu",
+      "admissionStatus": "Accepted & Registered",
+      "facultyId": "business_commerce_law",
+      "facultyName": "Business, Commerce & Law",
+      "departmentName": "Finance & Accounting",
+      "programName": "Sovereign Treasury & Risk Management",
+      "qualificationLevel": "Master's Degree (MA, MSc, MBA, MEng)",
+      "assignedCourseId": "sg_long_term_leadership",
+      "assignedCourseTitle": "Global Institutional Leadership & Sovereign Capital Strategy",
+      "leadLecturerName": "Prof. Sébastien Laurent",
+      "cohortTerm": "2026 Academic Cohort",
+      "acceptedDate": "2026-10-03",
+      "registeredDate": "2026-10-08",
+      "accreditor": "Free Productivity Accreditation Council (FPAC)"
+    },
+    "stu_2026_008": {
+      "id": "stu_2026_008",
+      "registrationNumber": "TTG-REG-2026-104845",
+      "studentName": "Lindiwe Khumalo",
+      "studentEmail": "lindiwe.k@ttg.edu",
+      "admissionStatus": "Registered",
+      "facultyId": "science_agriculture",
+      "facultyName": "Science & Agriculture",
+      "departmentName": "Biological & Agricultural Sciences",
+      "programName": "Biotechnology & Genomics",
+      "qualificationLevel": "Master's Degree (MA, MSc, MBA, MEng)",
+      "assignedCourseId": "lec_genomic_biotech",
+      "assignedCourseTitle": "Molecular Biotechnology & Computational Genomics Protocols",
+      "leadLecturerName": "Dr. Lindiwe Khumalo",
+      "cohortTerm": "2026 Academic Cohort",
+      "acceptedDate": "2026-10-20",
+      "registeredDate": "2026-10-28",
+      "accreditor": "Centre for Open Scientific Verification (COSV)"
+    },
+    "stu_2026_009": {
+      "id": "stu_2026_009",
+      "registrationNumber": "TTG-REG-2026-104910",
+      "studentName": "Sofia Rossi",
+      "studentEmail": "sofia.r@ttg.edu",
+      "admissionStatus": "Accepted",
+      "facultyId": "eng_tech_built",
+      "facultyName": "Engineering, Technology & Built Environment",
+      "departmentName": "Built Environment",
+      "programName": "Urban & Regional Planning",
+      "qualificationLevel": "Bachelor's Degree (BA, BSc, BCom, BEng)",
+      "assignedCourseId": "sg_foundations_systems",
+      "assignedCourseTitle": "First-Principles Systems Deconstruction & Feedback Dynamics",
+      "leadLecturerName": "Dr. Nadia Al-Mansoor",
+      "cohortTerm": "2026 Academic Cohort",
+      "acceptedDate": "2026-11-12",
+      "accreditor": "Global Distance Learning Accreditation Board (GDLAB)",
+      "standingNotes": "Admitted for Spring Intake; pending module enrollment confirmation."
+    },
+    "stu_2026_010": {
+      "id": "stu_2026_010",
+      "registrationNumber": "TTG-REG-2026-104954",
+      "studentName": "Tariq Mensah",
+      "studentEmail": "tariq.m@ttg.edu",
+      "admissionStatus": "Accepted",
+      "facultyId": "business_commerce_law",
+      "facultyName": "Business, Commerce & Law",
+      "departmentName": "Economics & Public Policy",
+      "programName": "Quantitative Macroeconomics",
+      "qualificationLevel": "Honours Degree / Postgraduate Diploma",
+      "assignedCourseId": "sg_long_term_leadership",
+      "assignedCourseTitle": "Global Institutional Leadership & Sovereign Capital Strategy",
+      "leadLecturerName": "Prof. Sébastien Laurent",
+      "cohortTerm": "2026 Academic Cohort",
+      "acceptedDate": "2026-11-15",
+      "accreditor": "Free Productivity Accreditation Council (FPAC)",
+      "standingNotes": "Admissions offer accepted; awaiting syllabus track registration."
+    }
+  },
+  "taiOneW3cAccreditations": {
+    "tai1_w3c_ext_2026_01": {
+      "id": "tai1_w3c_ext_2026_01",
+      "serialNumber": "TAI1-W3C-2026-88219-EXT01",
+      "accreditationTier": "accredited_external",
+      "authorityName": "Tai-One W3C Certification Authority (Accredited External)",
+      "issuerDid": "did:web:tai-one.w3c.tsoaela-training.org",
+      "programTitle": "Test-Time Search & Process-Supervised Reasoning Architectures",
+      "courseId": "sg_ai_test_time_search",
+      "categoryKey": "Frontier AI & Systems",
+      "recipientName": "Tsoaelat S.",
+      "recipientEmail": "Tsoaelat.s@gmail.com",
+      "organizationName": "TTG - Tsoaela Training Ground Platform",
+      "nqfCreditsReference": "NQF Level 7 · 18 Credits (W3C External Accredited)",
+      "w3cSpecVersion": "W3C Verifiable Credentials v2.0 · Open Badges 3.0",
+      "issuedAt": "2026-03-19T12:00:00.000Z",
+      "issueDate": "2026-03-19",
+      "validUntil": "2029-03-19T12:00:00.000Z",
+      "signatureHash": "35c4083f43a499e60215e09ed7366dc97fe930f00b0b5b07ab1fa82b3eb696fc",
+      "status": "active",
+      "w3cVerifiableCredential": {
+        "@context": [
+          "https://www.w3.org/ns/credentials/v2",
+          "https://purl.imsglobal.org/spec/ob/v3p0/context-3.0.3.json"
+        ],
+        "id": "https://ttg-platform.local/verify/TAI1-W3C-2026-88219-EXT01",
+        "type": [
+          "VerifiableCredential",
+          "TaiOneAccreditationCredential",
+          "OpenBadgeCredential"
+        ],
+        "issuer": {
+          "id": "did:web:tai-one.w3c.tsoaela-training.org",
+          "type": "Profile",
+          "name": "Tai-One W3C Certification Authority (Accredited External)",
+          "url": "https://ttg-platform.local/verify",
+          "accreditationTier": "accredited_external"
+        },
+        "validFrom": "2026-03-19T12:00:00.000Z",
+        "validUntil": "2029-03-19T12:00:00.000Z",
+        "credentialSubject": {
+          "id": "urn:tai-one:accreditation:TAI1-W3C-2026-88219-EXT01",
+          "type": "AccreditedProgramSubject",
+          "recipientName": "Tsoaelat S.",
+          "organizationName": "TTG - Tsoaela Training Ground Platform",
+          "accreditationTier": "accredited_external",
+          "programTitle": "Test-Time Search & Process-Supervised Reasoning Architectures",
+          "categoryKey": "Frontier AI & Systems",
+          "nqfCreditsReference": "NQF Level 7 · 18 Credits (W3C External Accredited)",
+          "complianceStandards": [
+            "W3C Verifiable Credentials Data Model v2.0",
+            "1EdTech Open Badges 3.0 Context",
+            "Tai-One External Cross-Border Assessment Rubric",
+            "HMAC-SHA256 Public Ledger Assertion Proof"
+          ]
+        },
+        "proof": {
+          "type": "DataIntegrityProof",
+          "cryptosuite": "hmac-sha256-tai-one-w3c-v2",
+          "created": "2026-03-19T12:00:00.000Z",
+          "verificationMethod": "did:web:tai-one.w3c.tsoaela-training.org#ledger-key-1",
+          "proofPurpose": "assertionMethod",
+          "proofValue": "35c4083f43a499e60215e09ed7366dc97fe930f00b0b5b07ab1fa82b3eb696fc"
+        }
+      }
+    },
+    "tai1_w3c_int_2026_02": {
+      "id": "tai1_w3c_int_2026_02",
+      "serialNumber": "TTG-INT-2026-88219-INT02",
+      "accreditationTier": "accredited_internal",
+      "authorityName": "TTG Internal Accreditation Board (Accredited Internal)",
+      "issuerDid": "did:web:board.tsoaela-training.org",
+      "programTitle": "First-Principles Cognitive Architecture & Systems Boundaries",
+      "courseId": "sg_cog_first_principles_01",
+      "categoryKey": "Cognitive Models",
+      "recipientName": "Tsoaelat S.",
+      "recipientEmail": "Tsoaelat.s@gmail.com",
+      "organizationName": "TTG Systems Curriculum Division",
+      "nqfCreditsReference": "NQF Level 6 · 12 Internal Accredited Credits",
+      "w3cSpecVersion": "W3C Verifiable Credentials v2.0 · Open Badges 3.0",
+      "issuedAt": "2026-03-16T09:30:00.000Z",
+      "issueDate": "2026-03-16",
+      "validUntil": "2029-03-16T09:30:00.000Z",
+      "signatureHash": "b5ef7dde057b3952badf42929fa754888033c3f2af76bd6e7f9dff110e129d3f",
+      "status": "active",
+      "w3cVerifiableCredential": {
+        "@context": [
+          "https://www.w3.org/ns/credentials/v2",
+          "https://purl.imsglobal.org/spec/ob/v3p0/context-3.0.3.json"
+        ],
+        "id": "https://ttg-platform.local/verify/TTG-INT-2026-88219-INT02",
+        "type": [
+          "VerifiableCredential",
+          "TaiOneAccreditationCredential",
+          "OpenBadgeCredential"
+        ],
+        "issuer": {
+          "id": "did:web:board.tsoaela-training.org",
+          "type": "Profile",
+          "name": "TTG Internal Accreditation Board (Accredited Internal)",
+          "url": "https://ttg-platform.local/verify",
+          "accreditationTier": "accredited_internal"
+        },
+        "validFrom": "2026-03-16T09:30:00.000Z",
+        "validUntil": "2029-03-16T09:30:00.000Z",
+        "credentialSubject": {
+          "id": "urn:tai-one:accreditation:TTG-INT-2026-88219-INT02",
+          "type": "AccreditedProgramSubject",
+          "recipientName": "Tsoaelat S.",
+          "organizationName": "TTG Systems Curriculum Division",
+          "accreditationTier": "accredited_internal",
+          "programTitle": "First-Principles Cognitive Architecture & Systems Boundaries",
+          "categoryKey": "Cognitive Models",
+          "nqfCreditsReference": "NQF Level 6 · 12 Internal Accredited Credits",
+          "complianceStandards": [
+            "TTG Accredited Internal Curriculum & Syllabus Standard",
+            "1EdTech Open Badges 3.0 Context",
+            "Structured Outcome & Assessment Rubric Moderation",
+            "HMAC-SHA256 Public Ledger Assertion Proof"
+          ]
+        },
+        "proof": {
+          "type": "DataIntegrityProof",
+          "cryptosuite": "hmac-sha256-tai-one-w3c-v2",
+          "created": "2026-03-16T09:30:00.000Z",
+          "verificationMethod": "did:web:board.tsoaela-training.org#ledger-key-1",
+          "proofPurpose": "assertionMethod",
+          "proofValue": "b5ef7dde057b3952badf42929fa754888033c3f2af76bd6e7f9dff110e129d3f"
+        }
+      }
+    },
+    "tai1_w3c_1795167273437_n201c": {
+      "id": "tai1_w3c_1795167273437_n201c",
+      "serialNumber": "TAI1-W3C-2026-88219-N201C",
+      "accreditationTier": "accredited_external",
+      "authorityName": "Tai-One W3C Certification Authority (Accredited External)",
+      "issuerDid": "did:web:tai-one.w3c.tsoaela-training.org",
+      "programTitle": "Test-Time Search Compute & Process-Supervised Reasoning",
+      "courseId": "sg_ai_test_time_search",
+      "categoryKey": "Frontier AI & Systems",
+      "recipientName": "Tsoaelat S.",
+      "recipientEmail": "tsoaelat.s@gmail.com",
+      "organizationName": "TTG - Tsoaela Training Ground Platform",
+      "nqfCreditsReference": "NQF Level 8 · 20 Accredited Credits",
+      "w3cSpecVersion": "W3C Verifiable Credentials v2.0 · Open Badges 3.0",
+      "issuedAt": "2026-11-20T09:34:33.437Z",
+      "issueDate": "2026-11-20",
+      "validUntil": "2029-11-20T09:34:33.437Z",
+      "signatureHash": "1a89d474add145ecbd709b55bcacb1b287684ea0ebfb4de941f3f201add82e36",
+      "status": "active",
+      "w3cVerifiableCredential": {
+        "@context": [
+          "https://www.w3.org/ns/credentials/v2",
+          "https://purl.imsglobal.org/spec/ob/v3p0/context-3.0.3.json"
+        ],
+        "id": "https://ttg-platform.local/verify/TAI1-W3C-2026-88219-N201C",
+        "type": [
+          "VerifiableCredential",
+          "TaiOneAccreditationCredential",
+          "OpenBadgeCredential"
+        ],
+        "issuer": {
+          "id": "did:web:tai-one.w3c.tsoaela-training.org",
+          "type": "Profile",
+          "name": "Tai-One W3C Certification Authority (Accredited External)",
+          "url": "https://ttg-platform.local/verify",
+          "accreditationTier": "accredited_external"
+        },
+        "validFrom": "2026-11-20T09:34:33.437Z",
+        "validUntil": "2029-11-20T09:34:33.437Z",
+        "credentialSubject": {
+          "id": "urn:tai-one:accreditation:TAI1-W3C-2026-88219-N201C",
+          "type": "AccreditedProgramSubject",
+          "recipientName": "Tsoaelat S.",
+          "organizationName": "TTG - Tsoaela Training Ground Platform",
+          "accreditationTier": "accredited_external",
+          "programTitle": "Test-Time Search Compute & Process-Supervised Reasoning",
+          "categoryKey": "Frontier AI & Systems",
+          "nqfCreditsReference": "NQF Level 8 · 20 Accredited Credits",
+          "complianceStandards": [
+            "W3C Verifiable Credentials Data Model v2.0",
+            "1EdTech Open Badges 3.0 Context",
+            "Tai-One External Cross-Border Assessment Rubric",
+            "HMAC-SHA256 Public Ledger Assertion Proof"
+          ]
+        },
+        "proof": {
+          "type": "DataIntegrityProof",
+          "cryptosuite": "hmac-sha256-tai-one-w3c-v2",
+          "created": "2026-11-20T09:34:33.437Z",
+          "verificationMethod": "did:web:tai-one.w3c.tsoaela-training.org#ledger-key-1",
+          "proofPurpose": "assertionMethod",
+          "proofValue": "1a89d474add145ecbd709b55bcacb1b287684ea0ebfb4de941f3f201add82e36"
+        }
+      }
+    }
+  }
 }

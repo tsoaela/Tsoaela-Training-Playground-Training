@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   UserProfile, 
@@ -66,11 +66,33 @@ import {
 import { useNotifications } from './hooks/useNotifications';
 import { useBackgroundSync } from './hooks/useBackgroundSync';
 import { usePomodoroTimer } from './hooks/usePomodoroTimer';
+import { useRealtimeStudyProgress } from './hooks/useRealtimeStudyProgress';
+import { useDeepWorkMode } from './hooks/useDeepWorkMode';
+import { useAcceptedStudents } from './hooks/useAcceptedStudents';
+import { FACULTY_LECTURE_SERIES } from './data/lecturesAndSyllabuses';
+import { CertificateVerificationTab } from './components/CertificateVerificationTab';
+import { formatCertificateSerial, getCertificateForStudyGuide } from './data/certificatesData';
 import { useOnlineStatus, cacheAllStudyGuidesLocally } from './utils/offlineStorage';
 import { AuthorDocument, MusicTrack, MusicLicenseTier, PhotoItem, VideoItem, BookItem, ApplicationCategory, ApplicationPrefillData } from './types';
 import { CheckCircle2, ShieldCheck, Award, BookOpen, Video, X } from 'lucide-react';
 import { TTG_LOGO_URL } from './utils/pdfBranding';
 import { recordPlatformSaleForCreator } from './utils/creatorStoreSystem';
+
+function extractVerifySerialFromLocation(): string | null {
+  try {
+    const pathMatch = window.location.pathname.match(/^\/verify\/([^/?#]+)/i);
+    if (pathMatch && pathMatch[1]) {
+      return decodeURIComponent(pathMatch[1]).trim().toUpperCase();
+    }
+    const paramSerial = new URLSearchParams(window.location.search).get('verify');
+    if (paramSerial && paramSerial.trim()) {
+      return paramSerial.trim().toUpperCase();
+    }
+  } catch {
+    // Ignore restricted location access
+  }
+  return null;
+}
 
 export default function App() {
   // Persisted Theme Mode ('system' | 'light' | 'dark') with live OS scheme listener
@@ -303,8 +325,34 @@ export default function App() {
   const [isRemindersOpen, setIsRemindersOpen] = useState(false);
   const [reminderTargetTitle, setReminderTargetTitle] = useState('');
 
-  // Active navigation tab (Compiled Education Platform + Multi-Modal Stores)
-  const [activeTab, setActiveTab] = useState<AppNavigationTab>('education');
+  // Active navigation tab (supports direct /verify/:serial entry URLs)
+  const [verifySerialTarget, setVerifySerialTarget] = useState<string | null>(() =>
+    extractVerifySerialFromLocation()
+  );
+  const [appealPrefillTarget, setAppealPrefillTarget] = useState<{
+    courseId?: string | null;
+    courseTitle?: string | null;
+    serialNumber?: string | null;
+  } | null>(null);
+  const [activeTab, setActiveTab] = useState<AppNavigationTab>(() =>
+    extractVerifySerialFromLocation() ? 'verify' : 'education'
+  );
+
+  // Selected study course tracking for real-time progress streaming
+  const [selectedStudyGuideId, setSelectedStudyGuideId] = useState<string | null>(null);
+  const [selectedStudyChapterIdx, setSelectedStudyChapterIdx] = useState<number>(0);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const serial = extractVerifySerialFromLocation();
+      if (serial) {
+        setVerifySerialTarget(serial);
+        setActiveTab('verify');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // User Authentication & RBAC Role State
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
@@ -366,6 +414,8 @@ export default function App() {
     }
   }, [enrollments]);
 
+  const acceptedStudentsHook = useAcceptedStudents();
+
   // Custom Hook Notification System (graded assignments, new chapters, study groups in registered courses)
   const {
     notifications,
@@ -414,11 +464,13 @@ export default function App() {
   const handleLogout = () => {
     setIsAuthenticated(false);
     setUserRole('student');
+    setSelectedStudyGuideId(null);
+    setSelectedStudyChapterIdx(0);
     try {
       localStorage.removeItem('ttg_is_authenticated');
       localStorage.removeItem('ttg_user_role');
     } catch {}
-    setToastMessage('Signed out. Browsing as Guest.');
+    setToastMessage('Signed out. Real-time study sync paused — browsing as Guest.');
     setTimeout(() => setToastMessage(null), 3000);
   };
 
@@ -461,7 +513,11 @@ export default function App() {
   const [applicationPrefill, setApplicationPrefill] = useState<ApplicationPrefillData | null>(null);
 
   // Study Group Live Video Room State
-  const [activeStudyRoom, setActiveStudyRoom] = useState<{ courseTitle: string; courseId: string } | null>(null);
+  const [activeStudyRoom, setActiveStudyRoom] = useState<{
+    courseTitle: string;
+    courseId: string;
+    roomId?: string;
+  } | null>(null);
 
   // Network and Offline Storage Status (Service Worker & Cache API Strategy)
   const { isOnline } = useOnlineStatus();
@@ -518,6 +574,166 @@ export default function App() {
     cacheAllStudyGuidesLocally(studyGuides);
   }, [studyGuides]);
 
+  // Auto-persist earned completion certificates to the server Verification Ledger
+  const issuedLedgerKeysRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    studyGuides.forEach((guide) => {
+      const prog = readingProgress[guide.id];
+      if (!prog) return;
+      const scores = prog.quizScores
+        ? Object.values(prog.quizScores).filter((v): v is number => typeof v === 'number')
+        : [];
+      const bestScore = scores.length > 0 ? Math.max(...scores) : undefined;
+      const pct = prog.progressPercent || 0;
+      const passThreshold = guide.quizzes?.[0]?.minScoreToPass ?? 70;
+      const isEarned = Boolean(
+        prog.isCompleted || pct >= 100 || (bestScore !== undefined && bestScore >= passThreshold)
+      );
+      if (!isEarned) return;
+
+      const certSpec = getCertificateForStudyGuide(guide);
+      const serial = formatCertificateSerial(certSpec.credentialCodePrefix, guide.id, user.id);
+      const dedupeKey = `${serial}:${pct}:${bestScore ?? ''}:${user.name}`;
+      if (issuedLedgerKeysRef.current.has(dedupeKey)) return;
+      issuedLedgerKeysRef.current.add(dedupeKey);
+
+      fetch('/api/certificates/issue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          serialNumber: serial,
+          courseId: guide.id,
+          courseTitle: guide.title,
+          categoryKey: certSpec.categoryKey,
+          credentialTitle: certSpec.credentialTitle,
+          accreditor: certSpec.accreditor,
+          recipientName: user.name || 'Academic Scholar',
+          recipientEmail: user.email || 'scholar@ttg-platform.local',
+          userId: user.id || 'user_88219',
+          issueDate: prog.lastReadDate || new Date().toISOString().slice(0, 10),
+          progressPercent: pct,
+          quizScore: bestScore,
+        }),
+      }).catch(() => {
+        issuedLedgerKeysRef.current.delete(dedupeKey);
+      });
+    });
+  }, [readingProgress, studyGuides, user.id, user.name, user.email]);
+
+  const handleSelectedStudyGuideChange = useCallback(
+    (guideId: string | null, chapterIdx?: number) => {
+      setSelectedStudyGuideId(guideId);
+      if (typeof chapterIdx === 'number') {
+        setSelectedStudyChapterIdx(chapterIdx);
+      } else if (!guideId) {
+        setSelectedStudyChapterIdx(0);
+      }
+    },
+    []
+  );
+
+  const handleTickRealtimeStudySeconds = useCallback(
+    (courseId: string, deltaSeconds: number, chapterIdx?: number) => {
+      const nowIso = new Date().toISOString();
+      const todayDate = nowIso.slice(0, 10);
+      setReadingProgress((prev) => {
+        const existing = prev[courseId] || {
+          guideId: courseId,
+          completedChapters: [],
+          progressPercent: 0,
+          lastReadDate: todayDate,
+          lastAccessedAt: nowIso,
+          isCompleted: false,
+          studyTimeSeconds: 0,
+        };
+        return {
+          ...prev,
+          [courseId]: {
+            ...existing,
+            studyTimeSeconds: (existing.studyTimeSeconds || 0) + deltaSeconds,
+            activeChapterIdx:
+              typeof chapterIdx === 'number' ? chapterIdx : existing.activeChapterIdx,
+            lastAccessedAt: nowIso,
+            lastReadDate: todayDate,
+          },
+        };
+      });
+    },
+    []
+  );
+
+  const handleHydrateServerReadingProgress = useCallback(
+    (serverProgress: Record<string, ReadingProgress>) => {
+      setReadingProgress((prev) => {
+        const merged = { ...prev };
+        Object.entries(serverProgress).forEach(([guideId, remote]) => {
+          const local = merged[guideId];
+          if (!local) {
+            merged[guideId] = remote;
+          } else {
+            const chapterSet = new Set([
+              ...(local.completedChapters || []),
+              ...(remote.completedChapters || []),
+            ]);
+            merged[guideId] = {
+              ...remote,
+              ...local,
+              completedChapters: Array.from(chapterSet).sort((a, b) => a - b),
+              progressPercent: Math.max(local.progressPercent || 0, remote.progressPercent || 0),
+              studyTimeSeconds: Math.max(local.studyTimeSeconds || 0, remote.studyTimeSeconds || 0),
+              isCompleted: Boolean(local.isCompleted || remote.isCompleted),
+            };
+          }
+        });
+        return merged;
+      });
+    },
+    []
+  );
+
+  const selectedStudyGuideObj = studyGuides.find((g) => g.id === selectedStudyGuideId) || null;
+  const activeSelectedProgress = selectedStudyGuideId
+    ? readingProgress[selectedStudyGuideId]
+    : undefined;
+
+  // Real-Time Study Progress: activates strictly when logged in AND a course is selected
+  const { telemetry: realtimeStudyTelemetry } = useRealtimeStudyProgress({
+    isAuthenticated,
+    userId: user.id || 'user_88219',
+    selectedCourseId: selectedStudyGuideId,
+    selectedCourseTitle: selectedStudyGuideObj?.title || null,
+    activeChapterIdx: selectedStudyChapterIdx,
+    currentProgressPercent: activeSelectedProgress?.progressPercent || 0,
+    baseCourseStudySeconds: activeSelectedProgress?.studyTimeSeconds || 0,
+    onTickStudySeconds: handleTickRealtimeStudySeconds,
+    onHydrateServerProgress: handleHydrateServerReadingProgress,
+  });
+
+  const handleOpenVerifySerial = (serial?: string) => {
+    const clean = serial?.trim().toUpperCase() || null;
+    if (clean) {
+      setVerifySerialTarget(clean);
+      try {
+        window.history.replaceState({}, '', `/verify/${encodeURIComponent(clean)}`);
+      } catch {}
+    } else {
+      setVerifySerialTarget(null);
+    }
+    setActiveTab('verify');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleOpenAppealForCourse = (serial: string, courseId: string, courseTitle: string) => {
+    setVerifySerialTarget(serial);
+    setAppealPrefillTarget({ serialNumber: serial, courseId, courseTitle });
+    setActiveTab('verify');
+    window.setTimeout(() => {
+      document
+        .getElementById('learner-appeals-section')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 120);
+  };
+
   // Pending Document to load into Document Editor
   const [pendingEditorDocument, setPendingEditorDocument] = useState<Partial<AuthorDocument> | null>(null);
 
@@ -535,6 +751,27 @@ export default function App() {
       setTimeout(() => setToastMessage(null), 4000);
     }
   );
+
+  // Deep Work Mode Timer, Distraction Shield & Focus Intensity Score
+  const deepWork = useDeepWorkMode({
+    studyGuides,
+    readingProgress,
+    syncedFocusMinutes: pomodoro.syncedFocusMinutes,
+    completedPomodoroSessions: pomodoro.completedSessions,
+    pomodoroLogs: pomodoro.sessionLogs,
+    onCompleteSession: (minutes, guideId, guideTitle) => {
+      pomodoro.recordExternalFocusSession(minutes, guideId, guideTitle);
+    },
+  });
+
+  const blockedAlertIdsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (deepWork.state.isActive && activeAlert && !blockedAlertIdsRef.current.has(activeAlert.id)) {
+      blockedAlertIdsRef.current.add(activeAlert.id);
+      deepWork.incrementBlockedDistractions(1);
+      dismissActiveAlert();
+    }
+  }, [deepWork.state.isActive, activeAlert, deepWork.incrementBlockedDistractions, dismissActiveAlert]);
 
   // Saved Academic Programs (Bookmarked Qualifications) & Side-by-Side Comparison (up to 3)
   const [savedPrograms, setSavedPrograms] = useState<SavedAcademicProgram[]>(() => {
@@ -1225,7 +1462,31 @@ export default function App() {
         };
         return [newRecord, ...prev];
       });
-      triggerToast(`Enrolled in "${guide.title}"! Course Leaderboard unlocked.`);
+      const matchedLecture = FACULTY_LECTURE_SERIES.find(
+        (l) => l.linkedGuideId === guide.id
+      );
+      void acceptedStudentsHook.addStudent({
+        studentName: user.name,
+        studentEmail: user.email,
+        admissionStatus: 'Accepted & Registered',
+        facultyId:
+          matchedLecture?.facultyKey === 'Business'
+            ? 'business_commerce_law'
+            : 'eng_tech_built',
+        facultyName: guide.field || guide.category,
+        departmentName: matchedLecture?.departmentName || guide.category,
+        programName: guide.title,
+        qualificationLevel:
+          matchedLecture?.nqfLevel || 'Enrolled TTG Scholar',
+        assignedCourseId: guide.id,
+        assignedCourseTitle: matchedLecture?.title || guide.title,
+        leadLecturerName: matchedLecture?.lecturerName || 'TTG Faculty Chair',
+        cohortTerm: '2026 Academic Cohort',
+        acceptedDate: new Date().toISOString().slice(0, 10),
+        registeredDate: new Date().toISOString().slice(0, 10),
+        accreditor: guide.accreditor_name || 'Free Productivity Accreditation Council (FPAC)',
+      });
+      triggerToast(`Enrolled in "${guide.title}"! Course Leaderboard & Registration unlocked.`);
     }, `Sign in to enroll in "${guide.title}" and access its Top 5 Course Leaderboard.`);
   };
 
@@ -1474,6 +1735,11 @@ export default function App() {
       lastReadDate: todayDate,
       lastAccessedAt: nowIso,
       isCompleted: chapterIdx >= 0 ? isCompleted : isCompleted || current.isCompleted,
+      studyTimeSeconds: current.studyTimeSeconds || 0,
+      activeChapterIdx:
+        typeof options?.activeChapterIdx === 'number'
+          ? options.activeChapterIdx
+          : current.activeChapterIdx,
       notes: notes !== undefined ? notes : current.notes,
       chapterNotes: existingChapterNotes,
       quizScores: newQuizScores,
@@ -1662,9 +1928,9 @@ export default function App() {
   return (
     <div className="min-h-screen overflow-x-clip bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 flex flex-col font-sans transition-colors duration-150">
       
-      {/* Live Course Alert Banner (from useNotifications hook) */}
+      {/* Live Course Alert Banner (from useNotifications hook, suppressed during Deep Work) */}
       <AnimatePresence>
-        {activeAlert && (
+        {!deepWork.state.isActive && activeAlert && (
           <motion.div
             key={activeAlert.id}
             initial={{ opacity: 0, y: 20, scale: 0.96 }}
@@ -1776,6 +2042,9 @@ export default function App() {
         syncStatus={syncStatus}
         lastSyncedAt={lastSyncedAt}
         onTriggerManualSync={triggerManualSync}
+        isDeepWorkActive={deepWork.state.isActive}
+        deepWorkRemainingSeconds={deepWork.state.remainingSeconds}
+        onExitDeepWork={deepWork.endDeepWorkEarly}
       />
 
       {/* Main Viewport Content */}
@@ -1821,9 +2090,9 @@ export default function App() {
             onClearPendingDocument={() => setPendingEditorDocument(null)}
             isAuthenticated={isAuthenticated}
             onRequireAuth={requireAuth}
-            onStartStudyRoom={(title, id) => {
+            onStartStudyRoom={(title, id, roomId) => {
               requireAuth(() => {
-                setActiveStudyRoom({ courseTitle: title, courseId: id });
+                setActiveStudyRoom({ courseTitle: title, courseId: id, roomId });
                 notifyStudyGroupInitiated({
                   courseId: id,
                   courseTitle: title,
@@ -1856,6 +2125,23 @@ export default function App() {
                 priceZar: guide.course_price_zar || 145,
               })
             }
+            realtimeStudy={realtimeStudyTelemetry}
+            onSelectedGuideChange={handleSelectedStudyGuideChange}
+            onOpenVerificationPortal={handleOpenVerifySerial}
+            onOpenAuthModal={() => {
+              setAuthGuardMessage('Sign in to activate real-time study streaming and persistent server progress.');
+              setPendingAuthAction(null);
+              setAuthModalMode('login');
+              setIsAuthModalOpen(true);
+            }}
+            acceptedStudents={acceptedStudentsHook.students}
+            isLoadingAcceptedStudents={acceptedStudentsHook.isLoading}
+            onAddAcceptedStudent={acceptedStudentsHook.addStudent}
+            onUpdateAcceptedStudentStatus={acceptedStudentsHook.updateStudentStatus}
+            deepWork={{
+              state: deepWork.state,
+              focusIntensity: deepWork.focusIntensity,
+            }}
           />
         )}
 
@@ -1906,9 +2192,9 @@ export default function App() {
               setTargetStudyGuideId(guideId);
               setActiveTab('educare');
             }}
-            onStartStudyRoom={(title, id) => {
+            onStartStudyRoom={(title, id, roomId) => {
               requireAuth(() => {
-                setActiveStudyRoom({ courseTitle: title, courseId: id });
+                setActiveStudyRoom({ courseTitle: title, courseId: id, roomId });
                 notifyStudyGroupInitiated({
                   courseId: id,
                   courseTitle: title,
@@ -1933,6 +2219,34 @@ export default function App() {
             onRefreshActiveCourses={() => refreshActiveCoursesAndCleanPassed(true)}
             onRemovePassedActivities={() => refreshActiveCoursesAndCleanPassed(true)}
             onOpenStudentFeedback={handleOpenStudentFeedback}
+            realtimeStudy={realtimeStudyTelemetry}
+            isAuthenticated={isAuthenticated}
+            onOpenAuthModal={() => {
+              setAuthGuardMessage('Sign in to stream real-time study hours to your dashboard.');
+              setPendingAuthAction(null);
+              setAuthModalMode('login');
+              setIsAuthModalOpen(true);
+            }}
+            onVerifySerial={(serial) => handleOpenVerifySerial(serial)}
+            onAppealSerial={handleOpenAppealForCourse}
+            deepWork={{
+              state: deepWork.state,
+              focusIntensity: deepWork.focusIntensity,
+              onToggleDeepWork: deepWork.toggleDeepWork,
+              onStartDeepWork: deepWork.startDeepWork,
+              onPauseResume: deepWork.pauseResumeDeepWork,
+              onCompleteSession: deepWork.completeDeepWorkSession,
+              onEndEarly: deepWork.endDeepWorkEarly,
+              onSelectPlannedMinutes: deepWork.setPlannedMinutes,
+              onSelectLinkedGuide: deepWork.setLinkedGuideId,
+            }}
+            pomodoroLive={{
+              phase: pomodoro.phase,
+              isRunning: pomodoro.isRunning,
+              remainingSeconds: pomodoro.remainingSeconds,
+              totalPhaseSeconds: pomodoro.totalPhaseSeconds,
+              onStartPause: pomodoro.startPause,
+            }}
           />
         )}
 
@@ -1953,6 +2267,25 @@ export default function App() {
             onNewChapterAdded={handleNewChapterAdded}
             onGradeAssignment={handleGradeAssignment}
             onAddPeerReview={handleAddPeerReview}
+            onVerifySerial={(serial) => handleOpenVerifySerial(serial)}
+            acceptedStudents={acceptedStudentsHook.students}
+            isLoadingAcceptedStudents={acceptedStudentsHook.isLoading}
+            onAddAcceptedStudent={acceptedStudentsHook.addStudent}
+            onUpdateAcceptedStudentStatus={acceptedStudentsHook.updateStudentStatus}
+          />
+        )}
+
+        {activeTab === 'verify' && (
+          <CertificateVerificationTab
+            user={user}
+            isAuthenticated={isAuthenticated}
+            studyGuides={studyGuides}
+            initialSerial={verifySerialTarget}
+            initialAppealCourseId={appealPrefillTarget?.courseId}
+            initialAppealCourseTitle={appealPrefillTarget?.courseTitle}
+            onClearInitialSerial={() => setVerifySerialTarget(null)}
+            onRequireAuth={requireAuth}
+            onOpenAccreditationModal={() => setIsAccreditationPortalOpen(true)}
           />
         )}
 
@@ -2121,6 +2454,7 @@ export default function App() {
         onClose={() => setIsAccreditationPortalOpen(false)}
         user={user}
         onAccreditationSuccess={handleAccreditationSuccess}
+        onOpenVerificationPortal={() => handleOpenVerifySerial()}
       />
 
       {/* Course & Multi-Category Application & Registration Modal */}
@@ -2134,18 +2468,43 @@ export default function App() {
         initialCategory={applicationInitialCategory}
         initialPrefill={applicationPrefill}
         onRegistrationComplete={(reg) => {
+          void acceptedStudentsHook.addStudent({
+            registrationNumber: reg.registrationNumber,
+            studentName: reg.applicantName,
+            studentEmail: reg.applicantEmail,
+            admissionStatus:
+              reg.status === 'Under Institutional Review'
+                ? 'Accepted'
+                : 'Accepted & Registered',
+            facultyId: applicationPrefill?.facultyId || 'eng_tech_built',
+            facultyName:
+              reg.categoryTitle || 'Engineering, Technology & Built Environment',
+            departmentName: reg.category,
+            programName:
+              applicationPrefill?.programName || reg.trackType,
+            qualificationLevel: reg.qualificationLevel,
+            assignedCourseId: FACULTY_LECTURE_SERIES[0]?.id,
+            assignedCourseTitle: FACULTY_LECTURE_SERIES[0]?.title,
+            leadLecturerName: FACULTY_LECTURE_SERIES[0]?.lecturerName,
+            cohortTerm: '2026 Academic Cohort',
+            acceptedDate: new Date().toISOString().slice(0, 10),
+            registeredDate: new Date().toISOString().slice(0, 10),
+            accreditor: reg.accreditor,
+            standingNotes: reg.statementOfIntent,
+          });
           setToastMessage(`Enrolled! Registration ID: ${reg.registrationNumber}`);
           setTimeout(() => setToastMessage(null), 5000);
         }}
       />
 
-      {/* Study Group Live Video Room Modal (WebRTC P2P Room) */}
+      {/* Study Group Live Video & Real-Time Shared Notes Room Modal */}
       {activeStudyRoom && (
         <StudyGroupVideoRoomModal
           isOpen={!!activeStudyRoom}
           onClose={() => setActiveStudyRoom(null)}
           courseTitle={activeStudyRoom.courseTitle}
           courseId={activeStudyRoom.courseId}
+          roomId={activeStudyRoom.roomId}
           user={user}
         />
       )}
@@ -2187,27 +2546,29 @@ export default function App() {
         onSubmitCourseFeedback={handleSubmitCourseFeedback}
       />
 
-      {/* Persistent TAI Tutor Floating Sidebar */}
-      <ResearchCornerAiTutorSidebar
-        activePageLabel={
-          activeTab === 'educare' || activeTab === 'education'
-            ? 'Educare Study Guides'
-            : activeTab === 'research'
-            ? 'Research Corner'
-            : activeTab === 'digital_world'
-            ? 'Digital World Academy'
-            : activeTab === 'activity'
-            ? 'User Activity Dashboard'
-            : activeTab === 'faculty_portal'
-            ? 'Faculty Portal'
-            : activeTab === 'careers'
-            ? 'Career Roadmap'
-            : activeTab === 'retreats'
-            ? 'TTG Retreats'
-            : 'TTG Learning Platform'
-        }
-        activeStudyContext={activeStudyContext}
-      />
+      {/* Persistent TAI Tutor Floating Sidebar (hidden during Deep Work) */}
+      {!deepWork.state.isActive && (
+        <ResearchCornerAiTutorSidebar
+          activePageLabel={
+            activeTab === 'educare' || activeTab === 'education'
+              ? 'Educare Study Guides'
+              : activeTab === 'research'
+              ? 'Research Corner'
+              : activeTab === 'digital_world'
+              ? 'Digital World Academy'
+              : activeTab === 'activity'
+              ? 'User Activity Dashboard'
+              : activeTab === 'faculty_portal'
+              ? 'Faculty Portal'
+              : activeTab === 'careers'
+              ? 'Career Roadmap'
+              : activeTab === 'retreats'
+              ? 'TTG Retreats'
+              : 'TTG Learning Platform'
+          }
+          activeStudyContext={activeStudyContext}
+        />
+      )}
 
     </div>
   );

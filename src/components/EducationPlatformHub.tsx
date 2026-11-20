@@ -14,7 +14,8 @@ import {
   Award,
   ArrowDown,
   ShieldCheck,
-  GitBranch
+  GitBranch,
+  Flame
 } from 'lucide-react';
 import {
   ACADEMIC_CATEGORY_FILTERS,
@@ -37,8 +38,19 @@ import {
   PomodoroIntervalConfig,
   PomodoroPhase,
   PomodoroSessionLog,
-  ApplicationPrefillData
+  ApplicationPrefillData,
+  RealtimeStudyTelemetry,
+  AcceptedRegisteredStudent,
+  StudentAdmissionStatus,
+  DeepWorkState,
+  FocusIntensityMetrics
 } from '../types';
+import { AddAcceptedStudentPayload } from '../hooks/useAcceptedStudents';
+import { FACULTY_LECTURE_SERIES } from '../data/lecturesAndSyllabuses';
+import { AcceptedStudentsRosterPanel } from './AcceptedStudentsRosterPanel';
+import { LecturesAndSyllabusesPanel } from './LecturesAndSyllabusesPanel';
+import { TopFocusedStudentsLeaderboard } from './TopFocusedStudentsLeaderboard';
+import { RealtimeStudyBanner } from './RealtimeStudyBanner';
 import { EducareTab } from './EducareTab';
 import { ResearchCornerTab } from './ResearchCornerTab';
 import { DigitalWorldTab } from './DigitalWorldTab';
@@ -65,7 +77,7 @@ import {
 import { CheckoutMode } from './StripeCheckoutModal';
 import { TTG_LOGO_URL } from '../utils/pdfBranding';
 
-export type EducationSubTab = 'educare' | 'community' | 'research' | 'digital_world' | 'careers' | 'retreats';
+export type EducationSubTab = 'educare' | 'lectures' | 'students' | 'community' | 'research' | 'digital_world' | 'careers' | 'retreats';
 
 interface EducationPlatformHubProps {
   user: UserProfile;
@@ -97,7 +109,7 @@ interface EducationPlatformHubProps {
   onClearPendingDocument?: () => void;
   isAuthenticated?: boolean;
   onRequireAuth?: (action: () => void, message: string) => void;
-  onStartStudyRoom?: (courseTitle: string, courseId: string) => void;
+  onStartStudyRoom?: (courseTitle: string, courseId: string, roomId?: string) => void;
   onSubmitAssignment?: (courseId: string, courseTitle: string, assignmentTitle: string, content: string) => void;
   offlineAssignments?: OfflineAssignmentSubmission[];
   enrollments?: EnrolledStudentRecord[];
@@ -137,6 +149,18 @@ interface EducationPlatformHubProps {
   onActiveStudyContextChange?: (context: { courseTitle?: string; chapterTitle?: string } | null) => void;
   unlockedLongCourseIds?: string[];
   onUnlockLongCourse?: (guide: StudyGuide) => void;
+  realtimeStudy?: RealtimeStudyTelemetry;
+  onSelectedGuideChange?: (guideId: string | null, chapterIdx?: number) => void;
+  onOpenVerificationPortal?: (serial?: string) => void;
+  onOpenAuthModal?: () => void;
+  acceptedStudents?: AcceptedRegisteredStudent[];
+  isLoadingAcceptedStudents?: boolean;
+  onAddAcceptedStudent?: (payload: AddAcceptedStudentPayload) => Promise<AcceptedRegisteredStudent | null>;
+  onUpdateAcceptedStudentStatus?: (id: string, status: StudentAdmissionStatus) => Promise<AcceptedRegisteredStudent | null>;
+  deepWork?: {
+    state: DeepWorkState;
+    focusIntensity: FocusIntensityMetrics;
+  };
 }
 
 export const EducationPlatformHub: React.FC<EducationPlatformHubProps> = ({
@@ -189,17 +213,27 @@ export const EducationPlatformHub: React.FC<EducationPlatformHubProps> = ({
   onActiveStudyContextChange,
   unlockedLongCourseIds = [],
   onUnlockLongCourse,
+  realtimeStudy,
+  onSelectedGuideChange,
+  onOpenVerificationPortal,
+  onOpenAuthModal,
+  acceptedStudents = [],
+  isLoadingAcceptedStudents = false,
+  onAddAcceptedStudent,
+  onUpdateAcceptedStudentStatus,
+  deepWork,
 }) => {
   const [subTab, setSubTab] = useState<EducationSubTab>(initialSubTab);
   const [selectedAcademicCategory, setSelectedAcademicCategory] = useState<'all' | AcademicCategoryKey>('all');
   const [leaderboardGuideId, setLeaderboardGuideId] = useState<string>(studyGuides[0]?.id || '');
   const [roadmapTargetGuideId, setRoadmapTargetGuideId] = useState<string | null>(null);
+  const [selectedLectureId, setSelectedLectureId] = useState<string | null>(null);
   const [bannerAction, setBannerAction] = useState<{
     guideId: string;
     chapterIdx?: number;
     launchQuizId?: string;
   } | null>(null);
-  const [activeInsightPanel, setActiveInsightPanel] = useState<'none' | 'study_roadmap' | 'velocity' | 'leaderboard' | 'roadmap' | 'workflow'>('study_roadmap');
+  const [activeInsightPanel, setActiveInsightPanel] = useState<'none' | 'study_roadmap' | 'velocity' | 'leaderboard' | 'top_focused' | 'roadmap' | 'workflow'>('study_roadmap');
   const [educareFilters, setEducareFilters] = useState<CatalogMultiFilterState>(EMPTY_CATALOG_FILTERS);
   const [researchFilters, setResearchFilters] = useState<CatalogMultiFilterState>(EMPTY_CATALOG_FILTERS);
   const [catalogSortBy, setCatalogSortBy] = useState<CatalogSortBy>('recommended');
@@ -283,6 +317,8 @@ export const EducationPlatformHub: React.FC<EducationPlatformHubProps> = ({
 
   const navItems = [
     { id: 'educare' as const, label: 'Educare Systems', icon: GraduationCap, badge: `${studyGuides.length} Modules` },
+    { id: 'lectures' as const, label: 'Lectures & Syllabuses', icon: BookOpen, badge: `${FACULTY_LECTURE_SERIES.length} Series` },
+    { id: 'students' as const, label: 'Accepted & Registered', icon: Users, badge: `${acceptedStudents.length} Students` },
     { id: 'community' as const, label: 'Community Feed', icon: Users, badge: 'Showcases & Debates' },
     { id: 'research' as const, label: 'Research Corner', icon: FileText, badge: `${researchPapers.length} Briefs` },
     { id: 'digital_world' as const, label: 'Digital World', icon: Globe, badge: 'Audio/Visual DSP' },
@@ -389,6 +425,7 @@ export const EducationPlatformHub: React.FC<EducationPlatformHubProps> = ({
                 { id: 'study_roadmap' as const, label: 'Study Roadmap', icon: GitBranch },
                 { id: 'velocity' as const, label: 'Learning Velocity', icon: BarChart3 },
                 { id: 'leaderboard' as const, label: 'Course Leaderboards', icon: Trophy },
+                { id: 'top_focused' as const, label: 'Top Focused Students', icon: Flame },
                 { id: 'roadmap' as const, label: 'Career Roadmap', icon: Map },
                 { id: 'workflow' as const, label: 'Accreditation Workflow', icon: ShieldCheck },
               ].map((panel) => {
@@ -471,7 +508,19 @@ export const EducationPlatformHub: React.FC<EducationPlatformHubProps> = ({
         onUpdateConfig={pomodoro.updateConfig}
         onSyncSession={pomodoro.syncElapsedFocusSession}
         onOpenActivityDashboard={onOpenActivityDashboard}
+        realtimeStudy={realtimeStudy}
       />
+
+      {realtimeStudy && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <RealtimeStudyBanner
+            isAuthenticated={Boolean(isAuthenticated)}
+            telemetry={realtimeStudy}
+            onOpenAuthModal={onOpenAuthModal}
+            onOpenCourseCatalog={() => setSubTab('educare')}
+          />
+        </div>
+      )}
 
       {/* Personalized Next Best Step Banner */}
       <NextBestStepBanner
@@ -599,6 +648,19 @@ export const EducationPlatformHub: React.FC<EducationPlatformHubProps> = ({
             </div>
           )}
 
+          {activeInsightPanel === 'top_focused' && (
+            <TopFocusedStudentsLeaderboard
+              user={user}
+              enrollments={enrollments}
+              acceptedStudents={acceptedStudents}
+              deepWorkState={deepWork?.state}
+              focusIntensity={deepWork?.focusIntensity}
+              pomodoroLogs={pomodoro.sessionLogs}
+              syncedFocusMinutes={pomodoro.syncedFocusMinutes}
+              onOpenActivityDashboard={onOpenActivityDashboard}
+            />
+          )}
+
           {activeInsightPanel === 'roadmap' && (
             <CareerRoadmapPanel
               studyGuides={studyGuides}
@@ -615,6 +677,7 @@ export const EducationPlatformHub: React.FC<EducationPlatformHubProps> = ({
           {activeInsightPanel === 'workflow' && (
             <AccreditationWorkflowSection
               onOpenAccreditationModal={onOpenAccreditation}
+              onOpenVerificationPortal={onOpenVerificationPortal ? () => onOpenVerificationPortal() : undefined}
               onJumpToQualifications={() => {
                 setActiveInsightPanel('none');
                 handleSelectAcademicCategory('all', true);
@@ -713,14 +776,61 @@ export const EducationPlatformHub: React.FC<EducationPlatformHubProps> = ({
                 setCatalogSortBy('recommended');
                 setCatalogSortDirection('desc');
               }}
+              realtimeStudy={realtimeStudy}
+              onSelectedGuideChange={onSelectedGuideChange}
             />
+
+            {activeInsightPanel !== 'top_focused' && (
+              <TopFocusedStudentsLeaderboard
+                user={user}
+                enrollments={enrollments}
+                acceptedStudents={acceptedStudents}
+                deepWorkState={deepWork?.state}
+                focusIntensity={deepWork?.focusIntensity}
+                pomodoroLogs={pomodoro.sessionLogs}
+                syncedFocusMinutes={pomodoro.syncedFocusMinutes}
+                onOpenActivityDashboard={onOpenActivityDashboard}
+              />
+            )}
 
             {activeInsightPanel !== 'workflow' && (
               <AccreditationWorkflowSection
                 onOpenAccreditationModal={onOpenAccreditation}
+                onOpenVerificationPortal={onOpenVerificationPortal ? () => onOpenVerificationPortal() : undefined}
                 onJumpToQualifications={() => handleSelectAcademicCategory('all', true)}
               />
             )}
+          </div>
+        )}
+
+        {subTab === 'lectures' && (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <LecturesAndSyllabusesPanel
+              acceptedStudents={acceptedStudents}
+              selectedLectureId={selectedLectureId}
+              onOpenStudyGuide={(guideId) => {
+                setRoadmapTargetGuideId(guideId);
+                setSubTab('educare');
+              }}
+              onOpenStudentsRoster={() => setSubTab('students')}
+            />
+          </div>
+        )}
+
+        {subTab === 'students' && (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <AcceptedStudentsRosterPanel
+              students={acceptedStudents}
+              isLoading={isLoadingAcceptedStudents}
+              user={user}
+              canManageRoster={true}
+              onAddStudent={onAddAcceptedStudent || (async () => null)}
+              onUpdateStudentStatus={onUpdateAcceptedStudentStatus || (async () => null)}
+              onOpenLectureSyllabus={(lectureId) => {
+                setSelectedLectureId(lectureId);
+                setSubTab('lectures');
+              }}
+            />
           </div>
         )}
 
@@ -728,6 +838,7 @@ export const EducationPlatformHub: React.FC<EducationPlatformHubProps> = ({
           <CommunityFeedTab
             user={user}
             isAuthenticated={isAuthenticated}
+            studyGuides={studyGuides}
             onRequireAuth={onRequireAuth}
             onNavigateToCourse={(guideId) => {
               const guide = studyGuides.find(g => g.id === guideId);

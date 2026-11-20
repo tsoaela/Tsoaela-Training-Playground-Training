@@ -5,7 +5,7 @@ import { CourseLeaderboardWidget } from './CourseLeaderboardWidget';
 import { AcademicDirectorySection } from './AcademicDirectorySection';
 import { AcademicCategoryKey, AcademicFaculty, AcademicQualificationLevel } from '../data/academicCatalog';
 import { CATALOG_STATS, STUDENT_BADGES, GLOBAL_LEADERBOARD, LIBRARY_RESOURCES, STUDY_ACTIVITY, INITIAL_DOCUMENTS } from '../data/mockData';
-import { StudyGuide, UserProfile, ReadingProgress, ReadingProgressUpdateOptions, ChapterQuizPerformance, Quiz, StudentBadge, MediaItem, AuthorDocument, StudyActivity, OfflineAssignmentSubmission, EnrolledStudentRecord, ApplicationPrefillData } from '../types';
+import { StudyGuide, UserProfile, ReadingProgress, ReadingProgressUpdateOptions, ChapterQuizPerformance, Quiz, StudentBadge, MediaItem, AuthorDocument, StudyActivity, OfflineAssignmentSubmission, EnrolledStudentRecord, ApplicationPrefillData, RealtimeStudyTelemetry } from '../types';
 import { QuizHistoryTimeline } from './QuizHistoryTimeline';
 import { ReadingProgress as ReadingProgressIndicator } from './ReadingProgress';
 import { analyzeDocumentText, applySuggestion, fixAllSafeSuggestions, calculateReadability, TextSuggestion } from '../utils/textQualityEngine';
@@ -58,7 +58,7 @@ interface EducareTabProps {
   onApplyQualification?: (prefill: ApplicationPrefillData) => void;
   pendingEditorDocument?: Partial<AuthorDocument> | null;
   onClearPendingDocument?: () => void;
-  onStartStudyRoom?: (courseTitle: string, courseId: string) => void;
+  onStartStudyRoom?: (courseTitle: string, courseId: string, roomId?: string) => void;
   isAuthenticated?: boolean;
   onRequireAuth?: (action: () => void, message: string) => void;
   onSubmitAssignment?: (courseId: string, courseTitle: string, assignmentTitle: string, content: string) => void;
@@ -82,6 +82,10 @@ interface EducareTabProps {
   sortBy?: CatalogSortBy;
   sortDirection?: CatalogSortDirection;
   onResetExternalFilters?: () => void;
+  realtimeStudy?: RealtimeStudyTelemetry;
+  onSelectedGuideChange?: (guideId: string | null, chapterIdx?: number) => void;
+  onVerifySerial?: (serial: string) => void;
+  onAppealCourse?: (courseId: string, courseTitle: string, serial?: string) => void;
 }
 
 export const EducareTab: React.FC<EducareTabProps> = ({
@@ -127,22 +131,44 @@ export const EducareTab: React.FC<EducareTabProps> = ({
   sortBy = 'recommended',
   sortDirection = 'desc',
   onResetExternalFilters,
+  realtimeStudy,
+  onSelectedGuideChange,
+  onVerifySerial,
+  onAppealCourse,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeGuide, setActiveGuide] = useState<StudyGuide | null>(null);
+  const [activeChapterIdx, setActiveChapterIdx] = useState<number>(0);
+
+  useEffect(() => {
+    if (activeGuide) {
+      const savedIdx = readingProgress[activeGuide.id]?.activeChapterIdx;
+      const resolvedIdx = typeof savedIdx === 'number' ? savedIdx : 0;
+      setActiveChapterIdx(resolvedIdx);
+      onSelectedGuideChange?.(activeGuide.id, resolvedIdx);
+    } else {
+      onSelectedGuideChange?.(null, 0);
+    }
+  }, [activeGuide?.id]);
+
+  useEffect(() => {
+    if (activeGuide) {
+      onSelectedGuideChange?.(activeGuide.id, activeChapterIdx);
+    }
+  }, [activeChapterIdx, activeGuide?.id]);
 
   useEffect(() => {
     if (!onActiveStudyContextChange) return;
     if (activeGuide) {
       onActiveStudyContextChange({
         courseTitle: activeGuide.title,
-        chapterTitle: activeGuide.chapters?.[0]?.title,
+        chapterTitle: activeGuide.chapters?.[activeChapterIdx]?.title || activeGuide.chapters?.[0]?.title,
       });
     } else {
       onActiveStudyContextChange(null);
     }
-  }, [activeGuide, onActiveStudyContextChange]);
+  }, [activeGuide, activeChapterIdx, onActiveStudyContextChange]);
   const [expandedLeaderboardGuideId, setExpandedLeaderboardGuideId] = useState<string | null>(null);
   const [guideNote, setGuideNote] = useState<string>('');
   const [isNoteSaved, setIsNoteSaved] = useState<boolean>(false);
@@ -1943,6 +1969,7 @@ export const EducareTab: React.FC<EducareTabProps> = ({
                   studyGuides={studyGuides}
                   allReadingProgress={readingProgress}
                   learnerName={user.name}
+                  realtimeStudy={realtimeStudy}
                 />
               </div>
 
@@ -1990,7 +2017,12 @@ export const EducareTab: React.FC<EducareTabProps> = ({
                           <div className="flex items-start gap-2.5">
                             <button
                               type="button"
-                              onClick={() => onUpdateProgress(activeGuide.id, idx, totalCount, guideNote)}
+                              onClick={() => {
+                                setActiveChapterIdx(idx);
+                                onUpdateProgress(activeGuide.id, idx, totalCount, guideNote, undefined, undefined, {
+                                  activeChapterIdx: idx,
+                                });
+                              }}
                               className={`p-1 rounded transition-colors mt-0.5 ${
                                 isChapterDone 
                                   ? 'text-emerald-600 dark:text-emerald-400 hover:text-emerald-700' 

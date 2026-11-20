@@ -16,8 +16,10 @@ import {
   PomodoroIntervalConfig,
   PomodoroPhase,
   PomodoroSessionLog,
+  RealtimeStudyTelemetry,
   StudyGuide,
 } from '../types';
+import { formatStudyDuration } from './RealtimeStudyBanner';
 
 export interface PomodoroStudyTimerProps {
   phase: PomodoroPhase;
@@ -40,6 +42,7 @@ export interface PomodoroStudyTimerProps {
   onUpdateConfig: (partial: Partial<PomodoroIntervalConfig>) => void;
   onSyncSession: () => void;
   onOpenActivityDashboard?: () => void;
+  realtimeStudy?: RealtimeStudyTelemetry;
 }
 
 function formatClock(totalSeconds: number): string {
@@ -69,6 +72,7 @@ export const PomodoroStudyTimer: React.FC<PomodoroStudyTimerProps> = ({
   onUpdateConfig,
   onSyncSession,
   onOpenActivityDashboard,
+  realtimeStudy,
 }) => {
   const [isConfigOpen, setIsConfigOpen] = useState(false);
 
@@ -150,6 +154,12 @@ export const PomodoroStudyTimer: React.FC<PomodoroStudyTimerProps> = ({
                 </button>
               ))}
             </div>
+            {realtimeStudy?.isLiveActive && (
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-[11px] font-mono tabular-nums text-emerald-800 dark:text-emerald-300">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" aria-hidden="true" />
+                <span>Course Sync {formatStudyDuration(realtimeStudy.sessionElapsedSeconds)}</span>
+              </div>
+            )}
           </div>
 
           {/* Right: Linked Course + Controls */}

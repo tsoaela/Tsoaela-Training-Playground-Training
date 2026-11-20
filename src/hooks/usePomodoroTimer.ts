@@ -115,23 +115,29 @@ export function usePomodoroTimer(
     } catch {}
   }, [timerState]);
 
-  const recordCompletedFocus = useCallback((minutes: number, guideId: string) => {
-    const safeMinutes = Math.max(1, Math.round(minutes));
-    const guideTitle = getGuideTitleRef.current(guideId) || 'Independent Study Session';
-    const newLog: PomodoroSessionLog = {
-      id: `pomo_${Date.now()}`,
-      phase: 'focus',
-      durationMinutes: safeMinutes,
-      guideTitle,
-      completedAt: new Date().toISOString(),
-    };
-    setStats(prev => ({
-      syncedFocusMinutes: prev.syncedFocusMinutes + safeMinutes,
-      completedSessions: prev.completedSessions + 1,
-      logs: [newLog, ...prev.logs].slice(0, 500),
-    }));
-    onFocusSyncedRef.current?.(safeMinutes, guideTitle);
-  }, []);
+  const recordCompletedFocus = useCallback(
+    (minutes: number, guideId: string, guideTitleOverride?: string) => {
+      const safeMinutes = Math.max(1, Math.round(minutes));
+      const guideTitle =
+        guideTitleOverride ||
+        getGuideTitleRef.current(guideId) ||
+        'Independent Study Session';
+      const newLog: PomodoroSessionLog = {
+        id: `pomo_${Date.now()}`,
+        phase: 'focus',
+        durationMinutes: safeMinutes,
+        guideTitle,
+        completedAt: new Date().toISOString(),
+      };
+      setStats(prev => ({
+        syncedFocusMinutes: prev.syncedFocusMinutes + safeMinutes,
+        completedSessions: prev.completedSessions + 1,
+        logs: [newLog, ...prev.logs].slice(0, 500),
+      }));
+      onFocusSyncedRef.current?.(safeMinutes, guideTitle);
+    },
+    []
+  );
 
   // Drift-resistant interval tick
   useEffect(() => {
@@ -305,6 +311,13 @@ export function usePomodoroTimer(
     }));
   }, []);
 
+  const recordExternalFocusSession = useCallback(
+    (minutes: number, guideId: string, guideTitleOverride?: string) => {
+      recordCompletedFocus(minutes, guideId, guideTitleOverride);
+    },
+    [recordCompletedFocus]
+  );
+
   return {
     phase: timerState.phase,
     isRunning: timerState.isRunning,
@@ -325,5 +338,6 @@ export function usePomodoroTimer(
     updateConfig,
     syncElapsedFocusSession,
     clearCompletedSessionLogs,
+    recordExternalFocusSession,
   };
 }

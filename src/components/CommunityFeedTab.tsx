@@ -19,20 +19,23 @@ import {
   X,
   BookOpen
 } from 'lucide-react';
-import { CommunityPost, CommunityPostTag, CommunityComment, UserProfile } from '../types';
+import { CommunityPost, CommunityPostTag, CommunityComment, StudyGuide, UserProfile } from '../types';
 import { INITIAL_COMMUNITY_POSTS } from '../data/communityData';
+import { RegisteredStudyGroupsPanel } from './RegisteredStudyGroupsPanel';
 
 interface CommunityFeedTabProps {
   user: UserProfile;
   isAuthenticated: boolean;
+  studyGuides?: StudyGuide[];
   onRequireAuth: (action: () => void, message: string) => void;
   onNavigateToCourse?: (courseId: string) => void;
-  onStartStudyRoom?: (courseTitle: string, courseId: string) => void;
+  onStartStudyRoom?: (courseTitle: string, courseId: string, roomId?: string) => void;
 }
 
 export const CommunityFeedTab: React.FC<CommunityFeedTabProps> = ({
   user,
   isAuthenticated,
+  studyGuides = [],
   onRequireAuth,
   onNavigateToCourse,
   onStartStudyRoom,
@@ -210,6 +213,15 @@ export const CommunityFeedTab: React.FC<CommunityFeedTabProps> = ({
           <span>Publish Post or Showcase</span>
         </button>
       </div>
+
+      {/* Registered Study Groups & Real-Time Shared Notes */}
+      <RegisteredStudyGroupsPanel
+        user={user}
+        isAuthenticated={isAuthenticated}
+        studyGuides={studyGuides}
+        onRequireAuth={onRequireAuth}
+        onStartStudyRoom={onStartStudyRoom}
+      />
 
       {/* Filter and Search Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">

@@ -1,0 +1,346 @@
+{
+  "users": {},
+  "certificates": {
+    "TTG-AI-2026-88219-EARCH": {
+      "serialNumber": "TTG-AI-2026-88219-EARCH",
+      "courseId": "sg_ai_test_time_search",
+      "courseTitle": "Test-Time Search & Process-Supervised Reasoning Architectures",
+      "categoryKey": "Frontier AI & Systems",
+      "credentialTitle": "Completion Certificate in Frontier AI & Reasoning Systems",
+      "accreditor": "TTG - Tsoaela Training Ground Platform",
+      "recipientName": "Tsoaelat S.",
+      "recipientEmail": "Tsoaelat.s@gmail.com",
+      "userId": "user_88219",
+      "issueDate": "2026-03-14",
+      "issuedAt": "2026-03-14T16:40:00.000Z",
+      "progressPercent": 100,
+      "quizScore": 94,
+      "status": "verified",
+      "signatureHash": "3b42ea11dcf9a0b0ee236eb22591ac26af37ccd599bbafdbd826f37782376680",
+      "signatureAlgorithm": "HMAC-SHA256",
+      "openBadgeCredential": {
+        "@context": [
+          "https://www.w3.org/ns/credentials/v2",
+          "https://purl.imsglobal.org/spec/ob/v3p0/context-3.0.3.json"
+        ],
+        "id": "https://ttg-platform.local/verify/TTG-AI-2026-88219-EARCH",
+        "type": [
+          "VerifiableCredential",
+          "OpenBadgeCredential"
+        ],
+        "issuer": {
+          "id": "https://ttg-platform.local/issuers/tsoaela-training-ground",
+          "type": "Profile",
+          "name": "TTG - Tsoaela Training Ground Platform",
+          "url": "https://ttg-platform.local"
+        },
+        "issuanceDate": "2026-03-14T16:40:00.000Z",
+        "credentialSubject": {
+          "id": "urn:ttg:learner:user_88219",
+          "type": "AchievementSubject",
+          "recipientName": "Tsoaelat S.",
+          "achievement": {
+            "id": "urn:ttg:course:sg_ai_test_time_search",
+            "type": "Achievement",
+            "name": "Completion Certificate in Frontier AI & Reasoning Systems",
+            "description": "Verified self-paced platform completion of Test-Time Search & Process-Supervised Reasoning Architectures (Frontier AI & Systems). Internal completion record — not statutorily accredited.",
+            "criteriaNarrative": "Completed 100% of required curriculum modules with a verified assessment score of 94%.",
+            "courseTitle": "Test-Time Search & Process-Supervised Reasoning Architectures",
+            "progressPercent": 100,
+            "quizScore": 94
+          }
+        },
+        "proof": {
+          "type": "DataIntegrityProof",
+          "cryptosuite": "hmac-sha256-ttg-ledger-v1",
+          "created": "2026-03-14T16:40:00.000Z",
+          "verificationMethod": "https://ttg-platform.local/keys/ledger-v1#hmac-sha256",
+          "proofPurpose": "assertionMethod",
+          "proofValue": "3b42ea11dcf9a0b0ee236eb22591ac26af37ccd599bbafdbd826f37782376680"
+        }
+      }
+    },
+    "TTG-AI-2026-88219-ENSUS": {
+      "serialNumber": "TTG-AI-2026-88219-ENSUS",
+      "courseId": "sg_ai_swarm_consensus",
+      "courseTitle": "Decentralized Agent Swarms & Byzantine Consensus Verification",
+      "categoryKey": "Frontier AI & Systems",
+      "credentialTitle": "Completion Certificate in Frontier AI & Reasoning Systems",
+      "accreditor": "TTG - Tsoaela Training Ground Platform",
+      "recipientName": "Tsoaelat S.",
+      "recipientEmail": "Tsoaelat.s@gmail.com",
+      "userId": "user_88219",
+      "issueDate": "2026-03-18",
+      "issuedAt": "2026-03-18T11:20:00.000Z",
+      "progressPercent": 100,
+      "quizScore": 91,
+      "status": "verified",
+      "signatureHash": "241168514e923a577de0a5e7635bff450ad9626e828b60a4d20a5a803de15749",
+      "signatureAlgorithm": "HMAC-SHA256",
+      "openBadgeCredential": {
+        "@context": [
+          "https://www.w3.org/ns/credentials/v2",
+          "https://purl.imsglobal.org/spec/ob/v3p0/context-3.0.3.json"
+        ],
+        "id": "https://ttg-platform.local/verify/TTG-AI-2026-88219-ENSUS",
+        "type": [
+          "VerifiableCredential",
+          "OpenBadgeCredential"
+        ],
+        "issuer": {
+          "id": "https://ttg-platform.local/issuers/tsoaela-training-ground",
+          "type": "Profile",
+          "name": "TTG - Tsoaela Training Ground Platform",
+          "url": "https://ttg-platform.local"
+        },
+        "issuanceDate": "2026-03-18T11:20:00.000Z",
+        "credentialSubject": {
+          "id": "urn:ttg:learner:user_88219",
+          "type": "AchievementSubject",
+          "recipientName": "Tsoaelat S.",
+          "achievement": {
+            "id": "urn:ttg:course:sg_ai_swarm_consensus",
+            "type": "Achievement",
+            "name": "Completion Certificate in Frontier AI & Reasoning Systems",
+            "description": "Verified self-paced platform completion of Decentralized Agent Swarms & Byzantine Consensus Verification (Frontier AI & Systems). Internal completion record — not statutorily accredited.",
+            "criteriaNarrative": "Completed 100% of required curriculum modules with a verified assessment score of 91%.",
+            "courseTitle": "Decentralized Agent Swarms & Byzantine Consensus Verification",
+            "progressPercent": 100,
+            "quizScore": 91
+          }
+        },
+        "proof": {
+          "type": "DataIntegrityProof",
+          "cryptosuite": "hmac-sha256-ttg-ledger-v1",
+          "created": "2026-03-18T11:20:00.000Z",
+          "verificationMethod": "https://ttg-platform.local/keys/ledger-v1#hmac-sha256",
+          "proofPurpose": "assertionMethod",
+          "proofValue": "241168514e923a577de0a5e7635bff450ad9626e828b60a4d20a5a803de15749"
+        }
+      }
+    },
+    "TTG-COG-2026-88219-LES01": {
+      "serialNumber": "TTG-COG-2026-88219-LES01",
+      "courseId": "sg_cog_first_principles_01",
+      "courseTitle": "First-Principles Cognitive Architecture & Systems Boundaries",
+      "categoryKey": "Cognitive Models",
+      "credentialTitle": "Completion Certificate in First-Principles Cognitive Modeling",
+      "accreditor": "TTG Systems Curriculum Division (Internal)",
+      "recipientName": "Lerato Mokoena",
+      "recipientEmail": "lerato.mokoena@ttg-cohort.org",
+      "userId": "enr_cohort_02",
+      "issueDate": "2026-03-12",
+      "issuedAt": "2026-03-12T09:15:00.000Z",
+      "progressPercent": 100,
+      "quizScore": 96,
+      "status": "verified",
+      "signatureHash": "29cf5cb85e58f0ce22e344f0fbc4cd3ce0a08d1d31e3f3055e80ab8ce36eeb0f",
+      "signatureAlgorithm": "HMAC-SHA256",
+      "openBadgeCredential": {
+        "@context": [
+          "https://www.w3.org/ns/credentials/v2",
+          "https://purl.imsglobal.org/spec/ob/v3p0/context-3.0.3.json"
+        ],
+        "id": "https://ttg-platform.local/verify/TTG-COG-2026-88219-LES01",
+        "type": [
+          "VerifiableCredential",
+          "OpenBadgeCredential"
+        ],
+        "issuer": {
+          "id": "https://ttg-platform.local/issuers/tsoaela-training-ground",
+          "type": "Profile",
+          "name": "TTG Systems Curriculum Division (Internal)",
+          "url": "https://ttg-platform.local"
+        },
+        "issuanceDate": "2026-03-12T09:15:00.000Z",
+        "credentialSubject": {
+          "id": "urn:ttg:learner:enr_cohort_02",
+          "type": "AchievementSubject",
+          "recipientName": "Lerato Mokoena",
+          "achievement": {
+            "id": "urn:ttg:course:sg_cog_first_principles_01",
+            "type": "Achievement",
+            "name": "Completion Certificate in First-Principles Cognitive Modeling",
+            "description": "Verified self-paced platform completion of First-Principles Cognitive Architecture & Systems Boundaries (Cognitive Models). Internal completion record — not statutorily accredited.",
+            "criteriaNarrative": "Completed 100% of required curriculum modules with a verified assessment score of 96%.",
+            "courseTitle": "First-Principles Cognitive Architecture & Systems Boundaries",
+            "progressPercent": 100,
+            "quizScore": 96
+          }
+        },
+        "proof": {
+          "type": "DataIntegrityProof",
+          "cryptosuite": "hmac-sha256-ttg-ledger-v1",
+          "created": "2026-03-12T09:15:00.000Z",
+          "verificationMethod": "https://ttg-platform.local/keys/ledger-v1#hmac-sha256",
+          "proofPurpose": "assertionMethod",
+          "proofValue": "29cf5cb85e58f0ce22e344f0fbc4cd3ce0a08d1d31e3f3055e80ab8ce36eeb0f"
+        }
+      }
+    }
+  },
+  "appeals": {
+    "app_2026_101": {
+      "id": "app_2026_101",
+      "userId": "user_88219",
+      "appellantName": "Tsoaelat S.",
+      "appellantEmail": "Tsoaelat.s@gmail.com",
+      "courseId": "sg_ai_test_time_search",
+      "courseTitle": "Test-Time Search & Process-Supervised Reasoning Architectures",
+      "certificateSerial": "TTG-AI-2026-88219-EARCH",
+      "category": "Grade & Assessment Dispute",
+      "subject": "Request re-moderation on MCTS Branch Pruning short-answer rubric",
+      "statement": "Question 4 derived the exact UCT exploration bound using ln(N)/n_i, but automated keyword matching deducted 6% for notation spacing.",
+      "evidenceSummary": "Chapter 3 Study Notes & Quiz Attempt #qa_mcts_01 derivation log showing full UCT derivation.",
+      "requestedResolution": "Faculty moderator rubric review and adjustment of recorded quiz score from 94% to 100%.",
+      "status": "Under Moderator Review",
+      "submittedAt": "2026-03-20T10:15:00.000Z",
+      "slaDueDate": "2026-03-25",
+      "updatedAt": "2026-03-21T08:30:00.000Z",
+      "reviewedBy": "Prof. Thabo Ndlovu (Faculty Moderator)",
+      "moderatorNotes": "Assigned to Faculty Moderator queue for UCT derivation step verification against Rubric B."
+    },
+    "app_2026_102": {
+      "id": "app_2026_102",
+      "userId": "enr_cohort_03",
+      "appellantName": "Kagiso Sithole",
+      "appellantEmail": "kagiso.sithole@ttg-cohort.org",
+      "courseId": "sg_ai_swarm_consensus",
+      "courseTitle": "Decentralized Agent Swarms & Byzantine Consensus Verification",
+      "category": "External Regulatory Escalation",
+      "subject": "QCTO / Employer articulation letter request for completed AI Systems track",
+      "statement": "Employer HR requires a formal statutory disclosure & signed verification JSON-LD bundle confirming notional study hours completed.",
+      "evidenceSummary": "Completed 4/4 chapters + 88% quiz pass + capstone assignment graded 91%.",
+      "requestedResolution": "Issue signed Open Badges 3.0 verification bundle and attach QCTO Skills Programme alignment reference.",
+      "status": "Submitted",
+      "submittedAt": "2026-03-22T14:00:00.000Z",
+      "slaDueDate": "2026-03-27",
+      "updatedAt": "2026-03-22T14:00:00.000Z"
+    }
+  },
+  "liveStudySessions": {},
+  "studyGroups": {
+    "room_sg_ai_test_time_search": {
+      "id": "room_sg_ai_test_time_search",
+      "courseId": "sg_ai_test_time_search",
+      "courseTitle": "Test-Time Search & Process-Supervised Reasoning Architectures",
+      "name": "Test-Time Search & MCTS Peer Cohort",
+      "topic": "UCT Exploration Bounds & Process-Reward Verifiers",
+      "hostName": "Dr. Evelyn Brand",
+      "hostEmail": "evelyn.brand@ttg.edu",
+      "memberEmails": [
+        "evelyn.brand@ttg.edu",
+        "tsoaelat.s@gmail.com",
+        "marcus.t@ttg.edu",
+        "lerato.mokoena@ttg-cohort.org"
+      ],
+      "memberNames": {
+        "evelyn.brand@ttg.edu": "Dr. Evelyn Brand",
+        "tsoaelat.s@gmail.com": "Tsoaelat S.",
+        "marcus.t@ttg.edu": "Marcus Thorne",
+        "lerato.mokoena@ttg-cohort.org": "Lerato Mokoena"
+      },
+      "createdAt": "2026-03-10T09:00:00.000Z"
+    },
+    "room_sg_ai_swarm_consensus": {
+      "id": "room_sg_ai_swarm_consensus",
+      "courseId": "sg_ai_swarm_consensus",
+      "courseTitle": "Decentralized Agent Swarms & Byzantine Consensus Verification",
+      "name": "Byzantine Swarms Research Circle",
+      "topic": "Quorum Fault Tolerance & Stigmergic Task Allocation",
+      "hostName": "Soraya M. Khemir",
+      "hostEmail": "soraya.khemir@ttg.edu",
+      "memberEmails": [
+        "soraya.khemir@ttg.edu",
+        "tsoaelat.s@gmail.com",
+        "kagiso.sithole@ttg-cohort.org"
+      ],
+      "memberNames": {
+        "soraya.khemir@ttg.edu": "Soraya M. Khemir",
+        "tsoaelat.s@gmail.com": "Tsoaelat S.",
+        "kagiso.sithole@ttg-cohort.org": "Kagiso Sithole"
+      },
+      "createdAt": "2026-03-12T14:30:00.000Z"
+    },
+    "room_sg_cog_first_principles_01": {
+      "id": "room_sg_cog_first_principles_01",
+      "courseId": "sg_cog_first_principles_01",
+      "courseTitle": "First-Principles Cognitive Architecture & Systems Boundaries",
+      "name": "First-Principles Cognitive Lab",
+      "topic": "Attention Allocation & Epistemic Boundary Mapping",
+      "hostName": "Tsoaelat S.",
+      "hostEmail": "tsoaelat.s@gmail.com",
+      "memberEmails": [
+        "tsoaelat.s@gmail.com",
+        "lerato.mokoena@ttg-cohort.org"
+      ],
+      "memberNames": {
+        "tsoaelat.s@gmail.com": "Tsoaelat S.",
+        "lerato.mokoena@ttg-cohort.org": "Lerato Mokoena"
+      },
+      "createdAt": "2026-03-15T11:00:00.000Z"
+    },
+    "room_sg_econ_sovereign_01": {
+      "id": "room_sg_econ_sovereign_01",
+      "courseId": "sg_econ_sovereign_01",
+      "courseTitle": "Sovereign Economics, Base-Load Energy & Compute Equilibrium",
+      "name": "Sovereign Economics Working Group",
+      "topic": "Energy-Compute Coupling & Long-Horizon Fiscal Modeling",
+      "hostName": "Marcus Thorne",
+      "hostEmail": "marcus.t@ttg.edu",
+      "memberEmails": [
+        "marcus.t@ttg.edu",
+        "tsoaelat.s@gmail.com"
+      ],
+      "memberNames": {
+        "marcus.t@ttg.edu": "Marcus Thorne",
+        "tsoaelat.s@gmail.com": "Tsoaelat S."
+      },
+      "createdAt": "2026-03-17T16:15:00.000Z"
+    }
+  },
+  "studyRoomNotes": {
+    "room_sg_ai_test_time_search": {
+      "roomId": "room_sg_ai_test_time_search",
+      "courseId": "sg_ai_test_time_search",
+      "title": "Test-Time Search & MCTS Peer Cohort — Collaborative Notes",
+      "content": "# Test-Time Search & MCTS Peer Cohort\nCourse: Test-Time Search & Process-Supervised Reasoning Architectures\nFocus Topic: UCT Exploration Bounds & Process-Reward Verifiers\n\n## Key Definitions & Derivations\n- Capture shared definitions, proofs, and open questions here.\n- Edits synchronize live across every peer currently in this study room.\n\n## Peer Discussion Action Items\n- [ ] Review Chapter 2 step-by-step rubric verification\n- [ ] Compare worked examples before next quiz attempt",
+      "version": 3,
+      "lastEditedBy": "Academic Scholar",
+      "lastEditedByEmail": "scholar@ttg-platform.local",
+      "lastEditedAt": "2026-11-20T07:41:58.795Z"
+    },
+    "room_sg_ai_swarm_consensus": {
+      "roomId": "room_sg_ai_swarm_consensus",
+      "courseId": "sg_ai_swarm_consensus",
+      "title": "Byzantine Swarms Research Circle — Collaborative Notes",
+      "content": "# Byzantine Swarms Research Circle\nCourse: Decentralized Agent Swarms & Byzantine Consensus Verification\nFocus Topic: Quorum Fault Tolerance & Stigmergic Task Allocation\n\n## Key Definitions & Derivations\n- Capture shared definitions, proofs, and open questions here.\n- Edits synchronize live across every peer currently in this study room.\n\n## Peer Discussion Action Items\n- [ ] Review Chapter 2 step-by-step rubric verification\n- [ ] Compare worked examples before next quiz attempt",
+      "version": 1,
+      "lastEditedBy": "Soraya M. Khemir",
+      "lastEditedByEmail": "soraya.khemir@ttg.edu",
+      "lastEditedAt": "2026-03-12T14:30:00.000Z"
+    },
+    "room_sg_cog_first_principles_01": {
+      "roomId": "room_sg_cog_first_principles_01",
+      "courseId": "sg_cog_first_principles_01",
+      "title": "First-Principles Cognitive Lab — Collaborative Notes",
+      "content": "# First-Principles Cognitive Lab\nCourse: First-Principles Cognitive Architecture & Systems Boundaries\nFocus Topic: Attention Allocation & Epistemic Boundary Mapping\n\n## Key Definitions & Derivations\n- Capture shared definitions, proofs, and open questions here.\n- Edits synchronize live across every peer currently in this study room.\n\n## Peer Discussion Action Items\n- [ ] Review Chapter 2 step-by-step rubric verification\n- [ ] Compare worked examples before next quiz attempt",
+      "version": 1,
+      "lastEditedBy": "Tsoaelat S.",
+      "lastEditedByEmail": "tsoaelat.s@gmail.com",
+      "lastEditedAt": "2026-03-15T11:00:00.000Z"
+    },
+    "room_sg_econ_sovereign_01": {
+      "roomId": "room_sg_econ_sovereign_01",
+      "courseId": "sg_econ_sovereign_01",
+      "title": "Sovereign Economics Working Group — Collaborative Notes",
+      "content": "# Sovereign Economics Working Group\nCourse: Sovereign Economics, Base-Load Energy & Compute Equilibrium\nFocus Topic: Energy-Compute Coupling & Long-Horizon Fiscal Modeling\n\n## Key Definitions & Derivations\n- Capture shared definitions, proofs, and open questions here.\n- Edits synchronize live across every peer currently in this study room.\n\n## Peer Discussion Action Items\n- [ ] Review Chapter 2 step-by-step rubric verification\n- [ ] Compare worked examples before next quiz attempt",
+      "version": 3,
+      "lastEditedBy": "Marcus Thorne",
+      "lastEditedByEmail": "marcus.t@ttg.edu",
+      "lastEditedAt": "2026-11-20T07:42:53.335Z"
+    }
+  },
+  "syncEventsCount": 0,
+  "updatedAt": "2026-11-20T07:42:53.335Z"
+}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Award, Download, Printer, X, CheckCircle2, Layers, ZoomIn, ZoomOut, Image as ImageIcon, Lock } from 'lucide-react';
+import { Award, Download, Printer, X, CheckCircle2, Layers, ZoomIn, ZoomOut, Image as ImageIcon, Lock, ShieldCheck, Scale } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { CourseCertificateSpec } from '../types';
 import { CourseCertificateCard } from './CourseCertificateCard';
@@ -17,6 +17,8 @@ interface CourseCertificateModalProps {
   progressPercent?: number;
   quizScore?: number;
   isEarned?: boolean;
+  onVerifyOnline?: (serialNumber: string) => void;
+  onAppealRecord?: (serialNumber: string) => void;
 }
 
 export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
@@ -30,6 +32,8 @@ export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
   progressPercent = 0,
   quizScore,
   isEarned = false,
+  onVerifyOnline,
+  onAppealRecord,
 }) => {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [isGeneratingPng, setIsGeneratingPng] = useState(false);
@@ -681,9 +685,37 @@ export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
               )}
             </span>
           </div>
-          <span className="font-mono text-[11px] tabular-nums">
-            {isEarned ? serialNumber : 'TTG-TEMPLATE-LOCKED'}
-          </span>
+          <div className="flex flex-wrap items-center gap-2.5">
+            {isEarned && onVerifyOnline && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onVerifyOnline(serialNumber);
+                }}
+                className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer whitespace-nowrap"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Verify Online</span>
+              </button>
+            )}
+            {onAppealRecord && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onAppealRecord(serialNumber);
+                }}
+                className="px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer whitespace-nowrap"
+              >
+                <Scale className="w-3.5 h-3.5" />
+                <span>Appeal Record</span>
+              </button>
+            )}
+            <span className="font-mono text-[11px] tabular-nums">
+              {isEarned ? serialNumber : 'TTG-TEMPLATE-LOCKED'}
+            </span>
+          </div>
         </div>
       </div>
     </div>

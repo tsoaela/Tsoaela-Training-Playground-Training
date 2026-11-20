@@ -53,7 +53,15 @@ import {
   PomodoroSessionLog,
   SavedAcademicProgram,
   ApplicationPrefillData,
+  RealtimeStudyTelemetry,
+  DeepWorkState,
+  FocusIntensityMetrics,
+  PomodoroPhase,
 } from '../types';
+import { DeepWorkPanel } from './DeepWorkPanel';
+import { DailyStudyGoalRingCard } from './DailyStudyGoalRingCard';
+import { useDailyStudyGoal } from '../hooks/useDailyStudyGoal';
+import { RealtimeStudyBanner } from './RealtimeStudyBanner';
 import { AcademicCategoryKey } from '../data/academicCatalog';
 import { AchievementBadgesSection } from './AchievementBadgesSection';
 import {
@@ -84,7 +92,7 @@ interface UserActivityDashboardTabProps {
   studyGuides: StudyGuide[];
   enrollments?: EnrolledStudentRecord[];
   onNavigateToCourse?: (guideId: string) => void;
-  onStartStudyRoom?: (courseTitle: string, courseId: string) => void;
+  onStartStudyRoom?: (courseTitle: string, courseId: string, roomId?: string) => void;
   onOpenFacultyPortal?: () => void;
   syncedFocusMinutes?: number;
   completedPomodoroSessions?: number;
@@ -100,6 +108,29 @@ interface UserActivityDashboardTabProps {
   onRefreshActiveCourses?: () => void;
   onRemovePassedActivities?: () => void;
   onOpenStudentFeedback?: (courseId?: string, moduleIndex?: number) => void;
+  realtimeStudy?: RealtimeStudyTelemetry;
+  isAuthenticated?: boolean;
+  onOpenAuthModal?: () => void;
+  onVerifySerial?: (serial: string) => void;
+  onAppealSerial?: (serial: string, courseId: string, courseTitle: string) => void;
+  deepWork?: {
+    state: DeepWorkState;
+    focusIntensity: FocusIntensityMetrics;
+    onToggleDeepWork: () => void;
+    onStartDeepWork: (minutes?: number, guideId?: string) => void;
+    onPauseResume: () => void;
+    onCompleteSession: () => void;
+    onEndEarly: () => void;
+    onSelectPlannedMinutes: (minutes: number) => void;
+    onSelectLinkedGuide: (guideId: string) => void;
+  };
+  pomodoroLive?: {
+    phase: PomodoroPhase;
+    isRunning: boolean;
+    remainingSeconds: number;
+    totalPhaseSeconds: number;
+    onStartPause?: () => void;
+  };
 }
 
 export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> = ({
@@ -124,7 +155,26 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
   onRefreshActiveCourses,
   onRemovePassedActivities,
   onOpenStudentFeedback,
+  realtimeStudy,
+  isAuthenticated = false,
+  onOpenAuthModal,
+  onVerifySerial,
+  onAppealSerial,
+  deepWork,
+  pomodoroLive,
 }) => {
+  const {
+    dailyGoalHours,
+    setDailyGoalHours,
+    metrics: dailyGoalMetrics,
+  } = useDailyStudyGoal({
+    userId: user.id || 'user_88219',
+    pomodoroLogs,
+    syncedFocusMinutes,
+    pomodoroLive,
+    deepWorkState: deepWork?.state,
+  });
+
   const [timeframe, setTimeframe] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
   const [velocityFilter, setVelocityFilter] = useState<'all' | 'active'>('all');
   const [focusAiEnabled, setFocusAiEnabled] = useState<boolean>(false);
@@ -132,6 +182,7 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
   const [isExportingPdf, setIsExportingPdf] = useState<boolean>(false);
   const [exportNotice, setExportNotice] = useState<string | null>(null);
   const [isAchievementOverlayOpen, setIsAchievementOverlayOpen] = useState<boolean>(false);
+  const isDeepWorkActive = Boolean(deepWork?.state.isActive);
   const [acknowledgedMilestoneIds, setAcknowledgedMilestoneIds] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('ttg_acknowledged_milestones_v1');
@@ -232,15 +283,15 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
     return Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length);
   }, [allScores]);
 
-  // Total Study Time calculated from completed chapters + synced Pomodoro focus minutes + baseline hours
+  // Total Study Time calculated from completed chapters + live study seconds + synced Pomodoro focus minutes + baseline hours
   const totalStudyHours = useMemo(() => {
     let totalMinutes = syncedFocusMinutes;
     studyGuides.forEach(g => {
       const p = readingProgress[g.id];
       if (p) {
         const completedCount = p.completedChapters?.length || 0;
-        // Each chapter averages ~45 minutes of deep focus & notes
-        totalMinutes += completedCount * 45;
+        // Each chapter averages ~45 minutes of deep focus & notes + real-time tracked seconds
+        totalMinutes += completedCount * 45 + ((p.studyTimeSeconds || 0) / 60);
       }
     });
     // Add baseline institutional hours
@@ -359,12 +410,12 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
     [unlockedMilestones, acknowledgedMilestoneIds]
   );
 
-  // Automatically surface Achievement Unlocked overlay when new milestones are earned
+  // Automatically surface Achievement Unlocked overlay when new milestones are earned (muted in Deep Work mode)
   useEffect(() => {
-    if (unacknowledgedMilestones.length > 0) {
+    if (!isDeepWorkActive && unacknowledgedMilestones.length > 0) {
       setIsAchievementOverlayOpen(true);
     }
-  }, [unacknowledgedMilestones.length]);
+  }, [unacknowledgedMilestones.length, isDeepWorkActive]);
 
   const handleAcknowledgeMilestones = useCallback((ids: string[]) => {
     setAcknowledgedMilestoneIds((prev) => {
@@ -589,7 +640,7 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
 
           {/* Header Controls: Milestone Replay + Export My Learning Record + Timeframe Filter */}
           <div className="flex flex-wrap items-center gap-3 shrink-0">
-            {unlockedMilestones.length > 0 && (
+            {!isDeepWorkActive && unlockedMilestones.length > 0 && (
               <button
                 type="button"
                 onClick={() => setIsAchievementOverlayOpen(true)}
@@ -734,20 +785,67 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
         )}
       </div>
 
-      {/* Focus AI Mode Toggle & Gemini Study Priority Recommendations */}
-      <FocusAiPanel
-        isEnabled={focusAiEnabled}
-        onToggle={() => setFocusAiEnabled((prev) => !prev)}
-        user={user}
-        studyGuides={studyGuides}
-        readingProgress={readingProgress}
-        syncedFocusMinutes={syncedFocusMinutes}
-        averageQuizScore={averageQuizScore}
-        onNavigateToCourse={onNavigateToCourse}
+      {/* Real-Time Study Stream Telemetry Banner */}
+      {realtimeStudy && (
+        <RealtimeStudyBanner
+          isAuthenticated={isAuthenticated}
+          telemetry={realtimeStudy}
+          onOpenAuthModal={onOpenAuthModal}
+          onOpenCourseCatalog={
+            studyGuides[0] && onNavigateToCourse
+              ? () => onNavigateToCourse(studyGuides[0].id)
+              : undefined
+          }
+        />
+      )}
+
+      {/* Deep Work Timer Toggle, Distraction Shield & Focus Intensity Score */}
+      {deepWork && (
+        <DeepWorkPanel
+          state={deepWork.state}
+          focusIntensity={deepWork.focusIntensity}
+          studyGuides={studyGuides}
+          onToggleDeepWork={deepWork.onToggleDeepWork}
+          onStartDeepWork={deepWork.onStartDeepWork}
+          onPauseResume={deepWork.onPauseResume}
+          onCompleteSession={deepWork.onCompleteSession}
+          onEndEarly={deepWork.onEndEarly}
+          onSelectPlannedMinutes={deepWork.onSelectPlannedMinutes}
+          onSelectLinkedGuide={deepWork.onSelectLinkedGuide}
+          onNavigateToCourse={onNavigateToCourse}
+        />
+      )}
+
+      {/* Daily Study Hour Goal & Real-Time Progress Ring (Pomodoro + Deep Work) */}
+      <DailyStudyGoalRingCard
+        metrics={dailyGoalMetrics}
+        onChangeGoalHours={setDailyGoalHours}
+        isDeepWorkActive={Boolean(deepWork?.state.isActive)}
+        isPomodoroRunning={Boolean(pomodoroLive?.isRunning && pomodoroLive.phase === 'focus')}
+        onStartDeepWork={
+          deepWork
+            ? () => deepWork.onStartDeepWork(deepWork.state.plannedMinutes, deepWork.state.linkedGuideId)
+            : undefined
+        }
+        onTogglePomodoro={pomodoroLive?.onStartPause}
       />
 
-      {/* Editable Scholar Profile Card */}
-      {onUpdateProfile && (
+      {/* Focus AI Mode Toggle & Gemini Study Priority Recommendations (muted during Deep Work) */}
+      {!isDeepWorkActive && (
+        <FocusAiPanel
+          isEnabled={focusAiEnabled}
+          onToggle={() => setFocusAiEnabled((prev) => !prev)}
+          user={user}
+          studyGuides={studyGuides}
+          readingProgress={readingProgress}
+          syncedFocusMinutes={syncedFocusMinutes}
+          averageQuizScore={averageQuizScore}
+          onNavigateToCourse={onNavigateToCourse}
+        />
+      )}
+
+      {/* Editable Scholar Profile Card (hidden during Deep Work) */}
+      {!isDeepWorkActive && onUpdateProfile && (
         <ProfileEditCard
           user={user}
           onUpdateProfile={onUpdateProfile}
@@ -756,8 +854,8 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
         />
       )}
 
-      {/* My Saved Programs Section (Bookmarked Academic Qualifications) */}
-      {onRemoveSavedProgram && (
+      {/* My Saved Programs Section (hidden during Deep Work) */}
+      {!isDeepWorkActive && onRemoveSavedProgram && (
         <SavedProgramsSection
           savedPrograms={savedPrograms}
           comparedProgramIds={comparedProgramIds}
@@ -889,12 +987,14 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
         )}
       </section>
 
-      {/* Gamified Milestone Progress Bar (Chapters + Unlocked Badges & Certificates Highlight) */}
-      <MilestoneProgressSection
-        studyGuides={studyGuides}
-        readingProgress={readingProgress}
-        onNavigateToCourse={onNavigateToCourse}
-      />
+      {/* Gamified Milestone Progress Bar (muted during Deep Work) */}
+      {!isDeepWorkActive && (
+        <MilestoneProgressSection
+          studyGuides={studyGuides}
+          readingProgress={readingProgress}
+          onNavigateToCourse={onNavigateToCourse}
+        />
+      )}
 
       {/* Active User Courses & Activity Controls */}
       <section className="rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 p-6 space-y-5 shadow-xs">
@@ -1121,19 +1221,25 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
 
       </div>
 
-      {/* 7-Day Daily Pomodoro Study Hours Consistency Trend Chart (Recharts) */}
-      <WeeklyPomodoroTrendChart
-        pomodoroLogs={pomodoroLogs}
-        syncedFocusMinutes={syncedFocusMinutes}
-      />
+      {/* 7-Day Daily Pomodoro Study Hours Consistency Trend Chart (muted during Deep Work) */}
+      {!isDeepWorkActive && (
+        <WeeklyPomodoroTrendChart
+          pomodoroLogs={pomodoroLogs}
+          syncedFocusMinutes={syncedFocusMinutes}
+          dailyGoalHours={dailyGoalHours}
+          onChangeDailyGoalHours={setDailyGoalHours}
+        />
+      )}
 
-      {/* 30-Day Weekly Learning Time & Completed Chapters Chart */}
-      <CourseProgressChart
-        readingProgress={readingProgress}
-        studyGuides={studyGuides}
-        syncedFocusMinutes={syncedFocusMinutes}
-        pomodoroLogs={pomodoroLogs}
-      />
+      {/* 30-Day Weekly Learning Time & Completed Chapters Chart (muted during Deep Work) */}
+      {!isDeepWorkActive && (
+        <CourseProgressChart
+          readingProgress={readingProgress}
+          studyGuides={studyGuides}
+          syncedFocusMinutes={syncedFocusMinutes}
+          pomodoroLogs={pomodoroLogs}
+        />
+      )}
 
       {/* Pomodoro Focus Session Logs & CSV Study Hours Report */}
       <section
@@ -1281,547 +1387,553 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
         )}
       </section>
 
-      {/* Reading Velocity Graph: User Average Time per Chapter vs Recommended Course Pace */}
-      <section
-        aria-labelledby="reading-velocity-heading"
-        className="p-6 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xs space-y-5"
-      >
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-stone-100 dark:border-stone-800 pb-4">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-purple-700 dark:text-purple-400 mb-1">
-              <Gauge className="w-4 h-4" />
-              <span>Reading Velocity · Speed Management</span>
+      {!isDeepWorkActive && (
+        <>
+          {/* Reading Velocity Graph: User Average Time per Chapter vs Recommended Course Pace */}
+          <section
+            aria-labelledby="reading-velocity-heading"
+            className="p-6 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xs space-y-5"
+          >
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-stone-100 dark:border-stone-800 pb-4">
+              <div>
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-purple-700 dark:text-purple-400 mb-1">
+                  <Gauge className="w-4 h-4" />
+                  <span>Reading Velocity · Speed Management</span>
+                </div>
+                <h2
+                  id="reading-velocity-heading"
+                  className="text-lg sm:text-xl font-bold tracking-tight text-stone-900 dark:text-stone-100"
+                >
+                  Average Reading Time per Chapter vs. Recommended Pace
+                </h2>
+                <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+                  Compare your minutes per chapter against each course&apos;s recommended study cadence to calibrate comprehension speed.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <div className="flex items-center gap-1 p-1 rounded-xl bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setVelocityFilter('all')}
+                    className={`px-3 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${
+                      velocityFilter === 'all'
+                        ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 shadow-2xs'
+                        : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
+                    }`}
+                  >
+                    All Courses
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setVelocityFilter('active')}
+                    className={`px-3 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${
+                      velocityFilter === 'active'
+                        ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 shadow-2xs'
+                        : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
+                    }`}
+                  >
+                    Active Only
+                  </button>
+                </div>
+              </div>
             </div>
-            <h2
-              id="reading-velocity-heading"
-              className="text-lg sm:text-xl font-bold tracking-tight text-stone-900 dark:text-stone-100"
-            >
-              Average Reading Time per Chapter vs. Recommended Pace
-            </h2>
-            <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
-              Compare your minutes per chapter against each course&apos;s recommended study cadence to calibrate comprehension speed.
-            </p>
-          </div>
 
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <div className="flex items-center gap-1 p-1 rounded-xl bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-xs">
-              <button
-                type="button"
-                onClick={() => setVelocityFilter('all')}
-                className={`px-3 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${
-                  velocityFilter === 'all'
-                    ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 shadow-2xs'
-                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
-                }`}
-              >
-                All Courses
-              </button>
-              <button
-                type="button"
-                onClick={() => setVelocityFilter('active')}
-                className={`px-3 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${
-                  velocityFilter === 'active'
-                    ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 shadow-2xs'
-                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
-                }`}
-              >
-                Active Only
-              </button>
-            </div>
-          </div>
-        </div>
+            {/* Reading Velocity Summary Strip */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 text-xs">
+              <div className="p-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950/60">
+                <span className="text-stone-500 dark:text-stone-400 block">
+                  Your Avg Time / Chapter
+                </span>
+                <span className="text-2xl font-extrabold font-mono tabular-nums text-purple-700 dark:text-purple-400 mt-0.5 block">
+                  {readingVelocityTelemetry.overallUserAvg} min
+                </span>
+              </div>
 
-        {/* Reading Velocity Summary Strip */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 text-xs">
-          <div className="p-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950/60">
-            <span className="text-stone-500 dark:text-stone-400 block">
-              Your Avg Time / Chapter
-            </span>
-            <span className="text-2xl font-extrabold font-mono tabular-nums text-purple-700 dark:text-purple-400 mt-0.5 block">
-              {readingVelocityTelemetry.overallUserAvg} min
-            </span>
-          </div>
+              <div className="p-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950/60">
+                <span className="text-stone-500 dark:text-stone-400 block">
+                  Recommended Course Pace
+                </span>
+                <span className="text-2xl font-extrabold font-mono tabular-nums text-emerald-700 dark:text-emerald-400 mt-0.5 block">
+                  {readingVelocityTelemetry.overallRecommendedAvg} min
+                </span>
+              </div>
 
-          <div className="p-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950/60">
-            <span className="text-stone-500 dark:text-stone-400 block">
-              Recommended Course Pace
-            </span>
-            <span className="text-2xl font-extrabold font-mono tabular-nums text-emerald-700 dark:text-emerald-400 mt-0.5 block">
-              {readingVelocityTelemetry.overallRecommendedAvg} min
-            </span>
-          </div>
-
-          <div className="p-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950/60">
-            <span className="text-stone-500 dark:text-stone-400 block">
-              Study Speed Balance
-            </span>
-            <span
-              className={`text-lg font-extrabold font-mono tabular-nums mt-1 block ${
-                readingVelocityTelemetry.overallDelta <= 0
-                  ? 'text-emerald-700 dark:text-emerald-400'
-                  : 'text-amber-700 dark:text-amber-400'
-              }`}
-            >
-              {readingVelocityTelemetry.overallDelta === 0
-                ? 'On Recommended Pace'
-                : readingVelocityTelemetry.overallDelta < 0
-                ? `${Math.abs(readingVelocityTelemetry.overallDelta)} min/ch Faster`
-                : `+${readingVelocityTelemetry.overallDelta} min/ch Deeper Review`}
-            </span>
-          </div>
-        </div>
-
-        {/* Composed Bar + Line Reading Velocity Chart */}
-        <div className="h-80 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart
-              data={readingVelocityTelemetry.rows}
-              margin={{ top: 10, right: 16, left: -12, bottom: 10 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888820" />
-              <XAxis
-                dataKey="course"
-                tick={{ fontSize: 10 }}
-                tickLine={false}
-                axisLine={false}
-              />
-              <YAxis
-                tick={{ fontSize: 11 }}
-                tickLine={false}
-                axisLine={false}
-                unit="m"
-              />
-              <Tooltip
-                formatter={(value: unknown, name: unknown) => [
-                  `${value} min / chapter`,
-                  String(name),
-                ]}
-                labelFormatter={(_, payload) =>
-                  payload?.[0]?.payload?.fullTitle || 'Course'
-                }
-                contentStyle={{
-                  backgroundColor: '#1c1917',
-                  borderColor: '#292524',
-                  borderRadius: '0.75rem',
-                  color: '#fafaf9',
-                  fontSize: '12px',
-                }}
-              />
-              <Legend wrapperStyle={{ fontSize: '12px' }} />
-              <Bar
-                dataKey="userAvgPace"
-                name="Your Avg Reading Time (min/ch)"
-                fill="#8b5cf6"
-                radius={[6, 6, 0, 0]}
-                barSize={30}
-              />
-              <Line
-                type="monotone"
-                dataKey="recommendedPace"
-                name="Course Recommended Pace (min/ch)"
-                stroke="#10b981"
-                strokeWidth={2.5}
-                dot={{ r: 4, fill: '#10b981' }}
-              />
-            </ComposedChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Per-Course Pace Breakdown Table */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2 border-t border-stone-100 dark:border-stone-800 text-xs">
-          {readingVelocityTelemetry.rows.map((row) => (
-            <div
-              key={row.guideId}
-              className="p-3 rounded-xl border border-stone-200/80 dark:border-stone-800 bg-stone-50/40 dark:bg-stone-950/40 space-y-1.5"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-bold text-stone-900 dark:text-stone-100 truncate">
-                  {row.course}
+              <div className="p-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950/60">
+                <span className="text-stone-500 dark:text-stone-400 block">
+                  Study Speed Balance
                 </span>
                 <span
-                  className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold shrink-0 ${
-                    row.paceStatus === 'Faster'
-                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
-                      : row.paceStatus === 'Deeper Study'
-                      ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
-                      : 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300'
+                  className={`text-lg font-extrabold font-mono tabular-nums mt-1 block ${
+                    readingVelocityTelemetry.overallDelta <= 0
+                      ? 'text-emerald-700 dark:text-emerald-400'
+                      : 'text-amber-700 dark:text-amber-400'
                   }`}
                 >
-                  {row.paceStatus}
+                  {readingVelocityTelemetry.overallDelta === 0
+                    ? 'On Recommended Pace'
+                    : readingVelocityTelemetry.overallDelta < 0
+                    ? `${Math.abs(readingVelocityTelemetry.overallDelta)} min/ch Faster`
+                    : `+${readingVelocityTelemetry.overallDelta} min/ch Deeper Review`}
                 </span>
               </div>
-              <div className="flex items-center justify-between font-mono text-[11px] text-stone-600 dark:text-stone-400">
-                <span>You: {row.userAvgPace}m/ch</span>
-                <span>Target: {row.recommendedPace}m/ch</span>
-              </div>
             </div>
-          ))}
-        </div>
-      </section>
 
-      {/* D3 Peer Interaction Map: Co-Enrolled Learners, Collaborative Study Groups & Shared Interests */}
-      <PeerInteractionMap
-        user={user}
-        enrollments={enrollments}
-        studyGuides={studyGuides}
-        onNavigateToCourse={onNavigateToCourse}
-        onStartStudyRoom={onStartStudyRoom}
-      />
-
-      {/* D3 Interactive Course Knowledge Graph: Mastered Concepts (Blue) vs Knowledge Gaps (Red) */}
-      <KnowledgeGraphSection
-        user={user}
-        studyGuides={studyGuides}
-        readingProgress={readingProgress}
-        enrollments={enrollments}
-        onNavigateToCourse={onNavigateToCourse}
-      />
-
-      {/* Row 1: Time Spent Studying (Area Chart) & Subject Distribution (Pie Chart) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Study Hours Over Time Area Chart */}
-        <div className="lg:col-span-2 p-6 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xs">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="text-sm font-bold flex items-center gap-2">
-                <Clock className="w-4 h-4 text-blue-600" />
-                Time Spent Studying Over Time (Hours)
-              </h3>
-              <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
-                Active reading, research synthesis, and laboratory problem solving
-              </p>
-            </div>
-            <span className="text-xs font-mono font-semibold px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-              Target: 2.0h / day
-            </span>
-          </div>
-
-          <div className="h-72 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={dailyStudyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="studyHoursGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4}/>
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.0}/>
-                  </linearGradient>
-                  <linearGradient id="targetGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888820" />
-                <XAxis dataKey="day" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} unit="h" />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#1c1917', 
-                    borderColor: '#292524', 
-                    borderRadius: '0.75rem', 
-                    color: '#fafaf9',
-                    fontSize: '12px' 
-                  }} 
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="hours" 
-                  name="Study Hours"
-                  stroke="#3b82f6" 
-                  strokeWidth={2.5} 
-                  fillOpacity={1} 
-                  fill="url(#studyHoursGradient)" 
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="target" 
-                  name="Baseline Target"
-                  stroke="#10b981" 
-                  strokeDasharray="4 4"
-                  strokeWidth={1.5} 
-                  fillOpacity={1} 
-                  fill="url(#targetGradient)" 
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Cognitive Balance & Discipline Focus (Pie Chart) */}
-        <div className="p-6 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xs flex flex-col justify-between">
-          <div>
-            <h3 className="text-sm font-bold flex items-center gap-2">
-              <Target className="w-4 h-4 text-purple-600" />
-              Discipline Focus Distribution
-            </h3>
-            <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
-              Cognitive time allocation across faculties
-            </p>
-          </div>
-
-          <div className="h-56 w-full my-auto">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={subjectDistributionData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={75}
-                  paddingAngle={4}
-                  dataKey="value"
+            {/* Composed Bar + Line Reading Velocity Chart */}
+            <div className="h-80 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart
+                  data={readingVelocityTelemetry.rows}
+                  margin={{ top: 10, right: 16, left: -12, bottom: 10 }}
                 >
-                  {subjectDistributionData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip 
-                  formatter={(val: any) => [`${val}%`, 'Allocation']}
-                  contentStyle={{ 
-                    backgroundColor: '#1c1917', 
-                    borderColor: '#292524', 
-                    borderRadius: '0.75rem', 
-                    color: '#fafaf9',
-                    fontSize: '11px' 
-                  }} 
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888820" />
+                  <XAxis
+                    dataKey="course"
+                    tick={{ fontSize: 10 }}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11 }}
+                    tickLine={false}
+                    axisLine={false}
+                    unit="m"
+                  />
+                  <Tooltip
+                    formatter={(value: unknown, name: unknown) => [
+                      `${value} min / chapter`,
+                      String(name),
+                    ]}
+                    labelFormatter={(_, payload) =>
+                      payload?.[0]?.payload?.fullTitle || 'Course'
+                    }
+                    contentStyle={{
+                      backgroundColor: '#1c1917',
+                      borderColor: '#292524',
+                      borderRadius: '0.75rem',
+                      color: '#fafaf9',
+                      fontSize: '12px',
+                    }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: '12px' }} />
+                  <Bar
+                    dataKey="userAvgPace"
+                    name="Your Avg Reading Time (min/ch)"
+                    fill="#8b5cf6"
+                    radius={[6, 6, 0, 0]}
+                    barSize={30}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="recommendedPace"
+                    name="Course Recommended Pace (min/ch)"
+                    stroke="#10b981"
+                    strokeWidth={2.5}
+                    dot={{ r: 4, fill: '#10b981' }}
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
 
-          <div className="space-y-1.5 pt-2 border-t border-stone-100 dark:border-stone-800 text-[11px]">
-            {subjectDistributionData.slice(0, 3).map((item, i) => (
-              <div key={i} className="flex items-center justify-between text-stone-600 dark:text-stone-400">
-                <span className="flex items-center gap-1.5 truncate">
-                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
-                  <span className="truncate">{item.name}</span>
+            {/* Per-Course Pace Breakdown Table */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2 border-t border-stone-100 dark:border-stone-800 text-xs">
+              {readingVelocityTelemetry.rows.map((row) => (
+                <div
+                  key={row.guideId}
+                  className="p-3 rounded-xl border border-stone-200/80 dark:border-stone-800 bg-stone-50/40 dark:bg-stone-950/40 space-y-1.5"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold text-stone-900 dark:text-stone-100 truncate">
+                      {row.course}
+                    </span>
+                    <span
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold shrink-0 ${
+                        row.paceStatus === 'Faster'
+                          ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                          : row.paceStatus === 'Deeper Study'
+                          ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
+                          : 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300'
+                      }`}
+                    >
+                      {row.paceStatus}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between font-mono text-[11px] text-stone-600 dark:text-stone-400">
+                    <span>You: {row.userAvgPace}m/ch</span>
+                    <span>Target: {row.recommendedPace}m/ch</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* D3 Peer Interaction Map: Co-Enrolled Learners, Collaborative Study Groups & Shared Interests */}
+          <PeerInteractionMap
+            user={user}
+            enrollments={enrollments}
+            studyGuides={studyGuides}
+            onNavigateToCourse={onNavigateToCourse}
+            onStartStudyRoom={onStartStudyRoom}
+          />
+
+          {/* D3 Interactive Course Knowledge Graph: Mastered Concepts (Blue) vs Knowledge Gaps (Red) */}
+          <KnowledgeGraphSection
+            user={user}
+            studyGuides={studyGuides}
+            readingProgress={readingProgress}
+            enrollments={enrollments}
+            onNavigateToCourse={onNavigateToCourse}
+          />
+
+          {/* Row 1: Time Spent Studying (Area Chart) & Subject Distribution (Pie Chart) */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            {/* Study Hours Over Time Area Chart */}
+            <div className="lg:col-span-2 p-6 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xs">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-sm font-bold flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-blue-600" />
+                    Time Spent Studying Over Time (Hours)
+                  </h3>
+                  <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+                    Active reading, research synthesis, and laboratory problem solving
+                  </p>
+                </div>
+                <span className="text-xs font-mono font-semibold px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                  Target: 2.0h / day
                 </span>
-                <span className="font-mono font-bold">{item.value}%</span>
               </div>
-            ))}
-          </div>
-        </div>
 
-      </div>
-
-      {/* Row 2: Progress Trends Over Time (Line Chart) & Faculty Course Completion (Bar Chart) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        {/* Progress Trends & Learning Velocity (LineChart) */}
-        <div className="p-6 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xs">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="text-sm font-bold flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-emerald-600" />
-                Cumulative Progress & Velocity Trends
-              </h3>
-              <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
-                Chapters mastered and retention velocity across course milestones
-              </p>
+              <div className="h-72 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={dailyStudyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="studyHoursGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4}/>
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.0}/>
+                      </linearGradient>
+                      <linearGradient id="targetGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888820" />
+                    <XAxis dataKey="day" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                    <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} unit="h" />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: '#1c1917', 
+                        borderColor: '#292524', 
+                        borderRadius: '0.75rem', 
+                        color: '#fafaf9',
+                        fontSize: '12px' 
+                      }} 
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="hours" 
+                      name="Study Hours"
+                      stroke="#3b82f6" 
+                      strokeWidth={2.5} 
+                      fillOpacity={1} 
+                      fill="url(#studyHoursGradient)" 
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="target" 
+                      name="Baseline Target"
+                      stroke="#10b981" 
+                      strokeDasharray="4 4"
+                      strokeWidth={1.5} 
+                      fillOpacity={1} 
+                      fill="url(#targetGradient)" 
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
             </div>
-            <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
-              Velocity: 96/100
-            </span>
-          </div>
 
-          <div className="h-72 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={progressTrendsData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888820" />
-                <XAxis dataKey="milestone" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#1c1917', 
-                    borderColor: '#292524', 
-                    borderRadius: '0.75rem', 
-                    color: '#fafaf9',
-                    fontSize: '12px' 
-                  }} 
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="cumulativeChapters" 
-                  name="Chapters Mastered" 
-                  stroke="#10b981" 
-                  strokeWidth={3} 
-                  dot={{ r: 4, fill: '#10b981' }} 
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="velocityIndex" 
-                  name="Velocity Index" 
-                  stroke="#8b5cf6" 
-                  strokeWidth={2} 
-                  strokeDasharray="4 4"
-                  dot={{ r: 3, fill: '#8b5cf6' }} 
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+            {/* Cognitive Balance & Discipline Focus (Pie Chart) */}
+            <div className="p-6 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xs flex flex-col justify-between">
+              <div>
+                <h3 className="text-sm font-bold flex items-center gap-2">
+                  <Target className="w-4 h-4 text-purple-600" />
+                  Discipline Focus Distribution
+                </h3>
+                <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+                  Cognitive time allocation across faculties
+                </p>
+              </div>
 
-        {/* Courses Completed by Faculty (BarChart) */}
-        <div className="p-6 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xs">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="text-sm font-bold flex items-center gap-2">
-                <Award className="w-4 h-4 text-amber-600" />
-                Course Completion by Academic Faculty
-              </h3>
-              <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
-                Completed vs in-progress modules across faculties
-              </p>
+              <div className="h-56 w-full my-auto">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={subjectDistributionData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={75}
+                      paddingAngle={4}
+                      dataKey="value"
+                    >
+                      {subjectDistributionData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(val: any) => [`${val}%`, 'Allocation']}
+                      contentStyle={{ 
+                        backgroundColor: '#1c1917', 
+                        borderColor: '#292524', 
+                        borderRadius: '0.75rem', 
+                        color: '#fafaf9',
+                        fontSize: '11px' 
+                      }} 
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="space-y-1.5 pt-2 border-t border-stone-100 dark:border-stone-800 text-[11px]">
+                {subjectDistributionData.slice(0, 3).map((item, i) => (
+                  <div key={i} className="flex items-center justify-between text-stone-600 dark:text-stone-400">
+                    <span className="flex items-center gap-1.5 truncate">
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                      <span className="truncate">{item.name}</span>
+                    </span>
+                    <span className="font-mono font-bold">{item.value}%</span>
+                  </div>
+                ))}
+              </div>
             </div>
-            <span className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400">
-              5 Faculties Active
-            </span>
+
           </div>
 
-          <div className="h-72 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={facultyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888820" />
-                <XAxis dataKey="faculty" tick={{ fontSize: 9 }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#1c1917', 
-                    borderColor: '#292524', 
-                    borderRadius: '0.75rem', 
-                    color: '#fafaf9',
-                    fontSize: '12px' 
-                  }} 
-                />
-                <Bar dataKey="completed" name="Completed Courses" fill="#10b981" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="inProgress" name="In-Progress" fill="#6366f1" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+          {/* Row 2: Progress Trends Over Time (Line Chart) & Faculty Course Completion (Bar Chart) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            {/* Progress Trends & Learning Velocity (LineChart) */}
+            <div className="p-6 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xs">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-sm font-bold flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-emerald-600" />
+                    Cumulative Progress & Velocity Trends
+                  </h3>
+                  <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+                    Chapters mastered and retention velocity across course milestones
+                  </p>
+                </div>
+                <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                  Velocity: 96/100
+                </span>
+              </div>
 
-      </div>
-
-      {/* Real-time Assessment & Test Monitoring Center */}
-      <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-sm space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-stone-200 dark:border-stone-800">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-1">
-              <ShieldCheck className="w-4 h-4" />
-              <span>Institutional Proctoring & Evaluation Telemetry</span>
+              <div className="h-72 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={progressTrendsData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888820" />
+                    <XAxis dataKey="milestone" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                    <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: '#1c1917', 
+                        borderColor: '#292524', 
+                        borderRadius: '0.75rem', 
+                        color: '#fafaf9',
+                        fontSize: '12px' 
+                      }} 
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="cumulativeChapters" 
+                      name="Chapters Mastered" 
+                      stroke="#10b981" 
+                      strokeWidth={3} 
+                      dot={{ r: 4, fill: '#10b981' }} 
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="velocityIndex" 
+                      name="Velocity Index" 
+                      stroke="#8b5cf6" 
+                      strokeWidth={2} 
+                      strokeDasharray="4 4"
+                      dot={{ r: 3, fill: '#8b5cf6' }} 
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
             </div>
-            <h2 className="text-xl sm:text-2xl font-black text-stone-900 dark:text-stone-100 tracking-tight">
-              Curriculum Tests & Assessment Monitor
-            </h2>
-            <p className="text-xs sm:text-sm text-stone-500 dark:text-stone-400 mt-0.5">
-              Continuous diagnostic testing logs, knowledge retention scores, and self-assessment checks across quality-verified study guides.
-            </p>
+
+            {/* Courses Completed by Faculty (BarChart) */}
+            <div className="p-6 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xs">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-sm font-bold flex items-center gap-2">
+                    <Award className="w-4 h-4 text-amber-600" />
+                    Course Completion by Academic Faculty
+                  </h3>
+                  <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+                    Completed vs in-progress modules across faculties
+                  </p>
+                </div>
+                <span className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400">
+                  5 Faculties Active
+                </span>
+              </div>
+
+              <div className="h-72 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={facultyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888820" />
+                    <XAxis dataKey="faculty" tick={{ fontSize: 9 }} tickLine={false} axisLine={false} />
+                    <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: '#1c1917', 
+                        borderColor: '#292524', 
+                        borderRadius: '0.75rem', 
+                        color: '#fafaf9',
+                        fontSize: '12px' 
+                      }} 
+                    />
+                    <Bar dataKey="completed" name="Completed Courses" fill="#10b981" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="inProgress" name="In-Progress" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
           </div>
 
-          <div className="text-xs font-mono text-stone-500 dark:text-stone-400">
-            {pendingAssessmentRows.length} Active Assessment{pendingAssessmentRows.length === 1 ? '' : 's'}
-          </div>
-        </div>
+          {/* Real-time Assessment & Test Monitoring Center */}
+          <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-sm space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-stone-200 dark:border-stone-800">
+              <div>
+                <div className="flex items-center gap-2 text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-1">
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>Institutional Proctoring & Evaluation Telemetry</span>
+                </div>
+                <h2 className="text-xl sm:text-2xl font-black text-stone-900 dark:text-stone-100 tracking-tight">
+                  Curriculum Tests & Assessment Monitor
+                </h2>
+                <p className="text-xs sm:text-sm text-stone-500 dark:text-stone-400 mt-0.5">
+                  Continuous diagnostic testing logs, knowledge retention scores, and self-assessment checks across quality-verified study guides.
+                </p>
+              </div>
 
-        {/* Assessment Records Table (Passed Activities Removed) */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-stone-200 dark:border-stone-800 text-stone-400 text-[10px] font-mono uppercase tracking-wider">
-                <th className="pb-3 font-semibold">Course & Assessment Module</th>
-                <th className="pb-3 font-semibold">Faculty Domain</th>
-                <th className="pb-3 font-semibold">Passing Threshold</th>
-                <th className="pb-3 font-semibold">Student Score</th>
-                <th className="pb-3 font-semibold">Validation Status</th>
-                <th className="pb-3 font-semibold text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stone-100 dark:divide-stone-800/80">
-              {pendingAssessmentRows.map(({ guide, quiz, score, hasTaken, minScore }) => {
-                return (
-                  <tr key={guide.id} className="hover:bg-stone-50/70 dark:hover:bg-stone-800/40 transition-colors">
-                    <td className="py-4 pr-4">
-                      <div className="font-bold text-stone-900 dark:text-stone-100 text-xs sm:text-sm">
-                        {guide.title}
-                      </div>
-                      <div className="text-[11px] text-stone-400 mt-0.5">
-                        {quiz?.title || 'Diagnostic Assessment'} · {quiz?.questions.length || 3} Questions
-                      </div>
-                    </td>
+              <div className="text-xs font-mono text-stone-500 dark:text-stone-400">
+                {pendingAssessmentRows.length} Active Assessment{pendingAssessmentRows.length === 1 ? '' : 's'}
+              </div>
+            </div>
 
-                    <td className="py-4 pr-4">
-                      <span className="font-medium text-stone-700 dark:text-stone-300">
-                        {guide.category}
-                      </span>
-                    </td>
-
-                    <td className="py-4 pr-4 font-mono font-bold text-stone-600 dark:text-stone-400">
-                      {minScore}%
-                    </td>
-
-                    <td className="py-4 pr-4 font-mono font-extrabold text-sm">
-                      {hasTaken ? (
-                        <span className="text-rose-600 dark:text-rose-400">
-                          {score}%
-                        </span>
-                      ) : (
-                        <span className="text-stone-400 font-normal italic">Pending</span>
-                      )}
-                    </td>
-
-                    <td className="py-4 pr-4">
-                      {hasTaken ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 font-bold text-[11px] border border-rose-200 dark:border-rose-800">
-                          <span>Requires Re-Test</span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 font-medium text-[11px]">
-                          <span>Pending Active Exam</span>
-                        </span>
-                      )}
-                    </td>
-
-                    <td className="py-4 text-right">
-                      <button
-                        type="button"
-                        onClick={() => onNavigateToCourse?.(guide.id)}
-                        className="px-3 py-1.5 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 font-semibold text-xs transition-colors cursor-pointer inline-flex items-center gap-1"
-                      >
-                        <span>{hasTaken ? 'Review Exam' : 'Launch Test'}</span>
-                        <ArrowUpRight className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
+            {/* Assessment Records Table (Passed Activities Removed) */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-stone-200 dark:border-stone-800 text-stone-400 text-[10px] font-mono uppercase tracking-wider">
+                    <th className="pb-3 font-semibold">Course & Assessment Module</th>
+                    <th className="pb-3 font-semibold">Faculty Domain</th>
+                    <th className="pb-3 font-semibold">Passing Threshold</th>
+                    <th className="pb-3 font-semibold">Student Score</th>
+                    <th className="pb-3 font-semibold">Validation Status</th>
+                    <th className="pb-3 font-semibold text-right">Action</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                </thead>
+                <tbody className="divide-y divide-stone-100 dark:divide-stone-800/80">
+                  {pendingAssessmentRows.map(({ guide, quiz, score, hasTaken, minScore }) => {
+                    return (
+                      <tr key={guide.id} className="hover:bg-stone-50/70 dark:hover:bg-stone-800/40 transition-colors">
+                        <td className="py-4 pr-4">
+                          <div className="font-bold text-stone-900 dark:text-stone-100 text-xs sm:text-sm">
+                            {guide.title}
+                          </div>
+                          <div className="text-[11px] text-stone-400 mt-0.5">
+                            {quiz?.title || 'Diagnostic Assessment'} · {quiz?.questions.length || 3} Questions
+                          </div>
+                        </td>
 
-      {/* Dynamic Achievement Badges Showcase */}
-      <div id="achievement-badges-section">
-        <AchievementBadgesSection
-          readingProgress={readingProgress}
-          studyGuides={studyGuides}
-          onNavigateToCourse={onNavigateToCourse}
-          userName={user.name}
-          userEmail={user.email}
-          enrollments={enrollments}
-          onOpenFacultyPortal={onOpenFacultyPortal}
-        />
-      </div>
+                        <td className="py-4 pr-4">
+                          <span className="font-medium text-stone-700 dark:text-stone-300">
+                            {guide.category}
+                          </span>
+                        </td>
 
-      {/* Branded Course Completion Certificates & Preview Modal */}
-      <UserProfileCertificatesSection
-        user={user}
-        studyGuides={studyGuides}
-        readingProgress={readingProgress}
-        onNavigateToCourse={onNavigateToCourse}
-      />
+                        <td className="py-4 pr-4 font-mono font-bold text-stone-600 dark:text-stone-400">
+                          {minScore}%
+                        </td>
+
+                        <td className="py-4 pr-4 font-mono font-extrabold text-sm">
+                          {hasTaken ? (
+                            <span className="text-rose-600 dark:text-rose-400">
+                              {score}%
+                            </span>
+                          ) : (
+                            <span className="text-stone-400 font-normal italic">Pending</span>
+                          )}
+                        </td>
+
+                        <td className="py-4 pr-4">
+                          {hasTaken ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 font-bold text-[11px] border border-rose-200 dark:border-rose-800">
+                              <span>Requires Re-Test</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 font-medium text-[11px]">
+                              <span>Pending Active Exam</span>
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="py-4 text-right">
+                          <button
+                            type="button"
+                            onClick={() => onNavigateToCourse?.(guide.id)}
+                            className="px-3 py-1.5 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 font-semibold text-xs transition-colors cursor-pointer inline-flex items-center gap-1"
+                          >
+                            <span>{hasTaken ? 'Review Exam' : 'Launch Test'}</span>
+                            <ArrowUpRight className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Dynamic Achievement Badges Showcase */}
+          <div id="achievement-badges-section">
+            <AchievementBadgesSection
+              readingProgress={readingProgress}
+              studyGuides={studyGuides}
+              onNavigateToCourse={onNavigateToCourse}
+              userName={user.name}
+              userEmail={user.email}
+              enrollments={enrollments}
+              onOpenFacultyPortal={onOpenFacultyPortal}
+            />
+          </div>
+
+          {/* Branded Course Completion Certificates & Preview Modal */}
+          <UserProfileCertificatesSection
+            user={user}
+            studyGuides={studyGuides}
+            readingProgress={readingProgress}
+            onNavigateToCourse={onNavigateToCourse}
+            onVerifySerial={onVerifySerial}
+            onAppealSerial={onAppealSerial}
+          />
+        </>
+      )}
 
       {/* Animated Milestone 'Achievement Unlocked' Overlay */}
       <AchievementUnlockedOverlay
-        isOpen={isAchievementOverlayOpen}
+        isOpen={!isDeepWorkActive && isAchievementOverlayOpen}
         milestones={overlayMilestones}
         learnerName={user.name}
         onClose={() => setIsAchievementOverlayOpen(false)}

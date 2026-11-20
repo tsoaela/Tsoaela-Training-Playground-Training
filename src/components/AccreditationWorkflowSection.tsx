@@ -24,6 +24,7 @@ import {
 interface AccreditationWorkflowSectionProps {
   onOpenAccreditationModal?: () => void;
   onJumpToQualifications?: () => void;
+  onOpenVerificationPortal?: () => void;
 }
 
 const STAGE_ICONS = [BookOpen, UserCheck, Building2, ClipboardCheck, Award];
@@ -67,6 +68,7 @@ function getStageStatusMeta(state: AccreditationWorkflowStage['currentState']) {
 export const AccreditationWorkflowSection: React.FC<AccreditationWorkflowSectionProps> = ({
   onOpenAccreditationModal,
   onJumpToQualifications,
+  onOpenVerificationPortal,
 }) => {
   const [activeIndex, setActiveIndex] = useState<number>(0);
 
@@ -353,23 +355,47 @@ export const AccreditationWorkflowSection: React.FC<AccreditationWorkflowSection
               </div>
 
               {activeIndex < ACCREDITATION_WORKFLOW_STAGES.length - 1 ? (
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  className="inline-flex items-center gap-1 text-xs font-bold text-purple-700 dark:text-purple-400 hover:underline cursor-pointer shrink-0"
-                >
-                  <span>
-                    Proceed to Stage {activeStage.stepNumber + 1}:{' '}
-                    {ACCREDITATION_WORKFLOW_STAGES[activeIndex + 1].shortLabel}
-                  </span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
+                <div className="flex flex-wrap items-center gap-3 shrink-0">
+                  {onOpenVerificationPortal && activeStage.id === 'stage_moderation' && (
+                    <button
+                      type="button"
+                      onClick={onOpenVerificationPortal}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-xs font-bold text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 cursor-pointer"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>Open Verification &amp; Appeals Portal</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleNext}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-purple-700 dark:text-purple-400 hover:underline cursor-pointer shrink-0"
+                  >
+                    <span>
+                      Proceed to Stage {activeStage.stepNumber + 1}:{' '}
+                      {ACCREDITATION_WORKFLOW_STAGES[activeIndex + 1].shortLabel}
+                    </span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               ) : (
-                <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
-                  <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
-                  <span>
-                    Internal serials active · Cryptographic Open Badges 3.0 &amp; statutory listing pending
-                  </span>
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                    <span>
+                      Server Verification Ledger &amp; Open Badges 3.0 active · Statutory registration pending
+                    </span>
+                  </div>
+                  {onOpenVerificationPortal && (
+                    <button
+                      type="button"
+                      onClick={onOpenVerificationPortal}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#052e16] hover:bg-[#064e3b] text-[#bef264] border border-[#84cc16]/50 text-xs font-bold cursor-pointer whitespace-nowrap"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>Launch Public Verify &amp; Appeals</span>
+                    </button>
+                  )}
                 </div>
               )}
             </div>

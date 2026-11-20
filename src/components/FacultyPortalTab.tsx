@@ -24,7 +24,9 @@ import {
   ThumbsUp,
   Eye,
   Gauge,
-  MessageSquarePlus
+  MessageSquarePlus,
+  Scale,
+  RefreshCw
 } from 'lucide-react';
 import {
   BarChart,
@@ -43,12 +45,20 @@ import {
   Legend
 } from 'recharts';
 import {
+  AcceptedRegisteredStudent,
+  AppealStatus,
+  LearnerAppealRecord,
   StudyGuide,
   UserProfile,
   UserRole,
   EnrolledStudentRecord,
-  PeerReviewEntry
+  PeerReviewEntry,
+  StudentAdmissionStatus
 } from '../types';
+import { AddAcceptedStudentPayload } from '../hooks/useAcceptedStudents';
+import { FACULTY_LECTURE_SERIES } from '../data/lecturesAndSyllabuses';
+import { AcceptedStudentsRosterPanel } from './AcceptedStudentsRosterPanel';
+import { LecturesAndSyllabusesPanel } from './LecturesAndSyllabusesPanel';
 import { SUBJECT_AREAS } from '../data/facultyData';
 import { CourseCertificateModal } from './CourseCertificateModal';
 import {
@@ -76,6 +86,11 @@ interface FacultyPortalTabProps {
     enrollmentId: string,
     review: Omit<PeerReviewEntry, 'id' | 'createdAt'>
   ) => void;
+  onVerifySerial?: (serial: string) => void;
+  acceptedStudents?: AcceptedRegisteredStudent[];
+  isLoadingAcceptedStudents?: boolean;
+  onAddAcceptedStudent?: (payload: AddAcceptedStudentPayload) => Promise<AcceptedRegisteredStudent | null>;
+  onUpdateAcceptedStudentStatus?: (id: string, status: StudentAdmissionStatus) => Promise<AcceptedRegisteredStudent | null>;
 }
 
 export const FacultyPortalTab: React.FC<FacultyPortalTabProps> = ({
@@ -89,8 +104,20 @@ export const FacultyPortalTab: React.FC<FacultyPortalTabProps> = ({
   onNewChapterAdded,
   onGradeAssignment,
   onAddPeerReview,
+  onVerifySerial,
+  acceptedStudents = [],
+  isLoadingAcceptedStudents = false,
+  onAddAcceptedStudent,
+  onUpdateAcceptedStudentStatus,
 }) => {
-  const [activeSubView, setActiveSubView] = useState<'enrollment' | 'leaderboard' | 'results' | 'feedback' | 'syllabus'>('enrollment');
+  const [activeSubView, setActiveSubView] = useState<'enrollment' | 'accepted_students' | 'lectures_syllabuses' | 'leaderboard' | 'results' | 'feedback' | 'syllabus' | 'appeals'>('enrollment');
+  const [selectedLectureId, setSelectedLectureId] = useState<string | null>(null);
+  const [appealsQueue, setAppealsQueue] = useState<LearnerAppealRecord[]>([]);
+  const [appealsStatusFilter, setAppealsStatusFilter] = useState<'all' | AppealStatus>('all');
+  const [isLoadingAppeals, setIsLoadingAppeals] = useState<boolean>(false);
+  const [appealDraftNotes, setAppealDraftNotes] = useState<Record<string, string>>({});
+  const [appealScoreOverrides, setAppealScoreOverrides] = useState<Record<string, string>>({});
+  const [updatingAppealId, setUpdatingAppealId] = useState<string | null>(null);
   const [feedbackFocusFilter, setFeedbackFocusFilter] = useState<'All' | 'Difficulty' | 'Clarity' | 'Both'>('All');
   const [selectedCourseId, setSelectedCourseId] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'Pending Grading' | 'Graded' | 'Not Submitted'>('all');
@@ -139,6 +166,71 @@ export const FacultyPortalTab: React.FC<FacultyPortalTabProps> = ({
   };
 
   const isInstructor = isAuthenticated && userRole === 'instructor';
+
+  const loadModeratorAppeals = async () => {
+    setIsLoadingAppeals(true);
+    try {
+      const res = await fetch('/api/appeals');
+      if (!res.ok) return;
+      const data = (await res.json()) as { appeals?: LearnerAppealRecord[] };
+      if (Array.isArray(data.appeals)) {
+        setAppealsQueue(data.appeals);
+      }
+    } catch {
+      // Silent network fallback
+    } finally {
+      setIsLoadingAppeals(false);
+    }
+  };
+
+  React.useEffect(() => {
+    void loadModeratorAppeals();
+  }, []);
+
+  const handleResolveAppeal = async (
+    appealId: string,
+    nextStatus: AppealStatus,
+    revokeCertificate = false
+  ) => {
+    setUpdatingAppealId(appealId);
+    try {
+      const notes =
+        appealDraftNotes[appealId]?.trim() ||
+        `Case updated to ${nextStatus} by ${user.name || 'Faculty Moderator'}.`;
+      const scoreText = appealScoreOverrides[appealId]?.trim();
+      const parsedScore = scoreText ? Number(scoreText) : undefined;
+
+      const res = await fetch(`/api/appeals/${encodeURIComponent(appealId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: nextStatus,
+          reviewedBy: `${user.name} (Faculty Moderator)`,
+          moderatorNotes: notes,
+          updatedQuizScore:
+            typeof parsedScore === 'number' && !Number.isNaN(parsedScore)
+              ? Math.min(100, Math.max(0, parsedScore))
+              : undefined,
+          revokeCertificate,
+        }),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { appeal?: LearnerAppealRecord };
+        if (data.appeal) {
+          setAppealsQueue((prev) =>
+            prev.map((a) => (a.id === appealId ? data.appeal! : a))
+          );
+          showPortalFeedback(
+            `Appeal ${appealId} updated to "${nextStatus}". Verification ledger synced.`
+          );
+        }
+      }
+    } catch {
+      showPortalFeedback('Unable to update appeal case. Check server connection.');
+    } finally {
+      setUpdatingAppealId(null);
+    }
+  };
 
   // Filter enrollments by selected course
   const courseScopedEnrollments = useMemo(() => {
@@ -623,13 +715,39 @@ export const FacultyPortalTab: React.FC<FacultyPortalTabProps> = ({
           type="button"
           onClick={() => setActiveSubView('enrollment')}
           className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
-            activeSubView === 'enrollment' || (!isInstructor && activeSubView !== 'leaderboard')
+            activeSubView === 'enrollment' || (!isInstructor && activeSubView !== 'leaderboard' && activeSubView !== 'accepted_students' && activeSubView !== 'lectures_syllabuses')
               ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 shadow-xs'
               : 'bg-white dark:bg-stone-900 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-800 hover:bg-stone-100 dark:hover:bg-stone-800'
           }`}
         >
           <Users className="w-3.5 h-3.5" />
           <span>{isInstructor ? 'Assignment Grading & Peer Review' : 'Assignment Submissions & Peer Review'}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveSubView('accepted_students')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+            activeSubView === 'accepted_students'
+              ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 shadow-xs'
+              : 'bg-white dark:bg-stone-900 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-800 hover:bg-stone-100 dark:hover:bg-stone-800'
+          }`}
+        >
+          <GraduationCap className="w-3.5 h-3.5" />
+          <span>Accepted &amp; Registered Students ({acceptedStudents.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveSubView('lectures_syllabuses')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+            activeSubView === 'lectures_syllabuses'
+              ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 shadow-xs'
+              : 'bg-white dark:bg-stone-900 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-800 hover:bg-stone-100 dark:hover:bg-stone-800'
+          }`}
+        >
+          <BookOpen className="w-3.5 h-3.5" />
+          <span>Lectures &amp; Syllabuses ({FACULTY_LECTURE_SERIES.length})</span>
         </button>
 
         <button
@@ -685,9 +803,50 @@ export const FacultyPortalTab: React.FC<FacultyPortalTabProps> = ({
               <BookOpen className="w-3.5 h-3.5" />
               <span>Syllabus & Chapter Manager</span>
             </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveSubView('appeals')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                activeSubView === 'appeals'
+                  ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 shadow-xs'
+                  : 'bg-white dark:bg-stone-900 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-800 hover:bg-stone-100 dark:hover:bg-stone-800'
+              }`}
+            >
+              <Scale className="w-3.5 h-3.5" />
+              <span>
+                Verification &amp; Appeals Queue ({appealsQueue.filter((a) => a.status === 'Submitted' || a.status === 'Under Moderator Review').length})
+              </span>
+            </button>
           </>
         )}
       </div>
+
+      {/* Sub-view: Accepted & Registered Students */}
+      {activeSubView === 'accepted_students' && (
+        <AcceptedStudentsRosterPanel
+          students={acceptedStudents}
+          isLoading={isLoadingAcceptedStudents}
+          user={user}
+          canManageRoster={true}
+          onAddStudent={onAddAcceptedStudent || (async () => null)}
+          onUpdateStudentStatus={onUpdateAcceptedStudentStatus || (async () => null)}
+          onOpenLectureSyllabus={(lectureId) => {
+            setSelectedLectureId(lectureId);
+            setActiveSubView('lectures_syllabuses');
+          }}
+          onStatusBanner={showPortalFeedback}
+        />
+      )}
+
+      {/* Sub-view: Lectures & Specialized Syllabuses */}
+      {activeSubView === 'lectures_syllabuses' && (
+        <LecturesAndSyllabusesPanel
+          acceptedStudents={acceptedStudents}
+          selectedLectureId={selectedLectureId}
+          onOpenStudentsRoster={() => setActiveSubView('accepted_students')}
+        />
+      )}
 
       {/* Sub-view 0: Dedicated Mentor Leaderboard */}
       {activeSubView === 'leaderboard' && (
@@ -703,7 +862,7 @@ export const FacultyPortalTab: React.FC<FacultyPortalTabProps> = ({
       )}
 
       {/* Sub-view 1: Student Enrollment, Assignment Grading & Peer Review */}
-      {(activeSubView === 'enrollment' || (!isInstructor && activeSubView !== 'leaderboard')) && (
+      {(activeSubView === 'enrollment' || (!isInstructor && activeSubView !== 'leaderboard' && activeSubView !== 'accepted_students' && activeSubView !== 'lectures_syllabuses')) && (
         <div className="space-y-6">
           <div className="rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 p-6 space-y-5 shadow-xs">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1668,6 +1827,175 @@ export const FacultyPortalTab: React.FC<FacultyPortalTabProps> = ({
                 <span>Add Chapter & Notify Students</span>
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Sub-view 5: Verification & Appeals Moderator Queue (Instructor Only) */}
+      {isInstructor && activeSubView === 'appeals' && (
+        <div className="rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 p-6 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-200 dark:border-stone-800 pb-4">
+            <div>
+              <h2 className="text-lg font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                <Scale className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                <span>Faculty Moderator Appeals &amp; Verification Queue</span>
+              </h2>
+              <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+                Review learner grade disputes, update assessment scores, and synchronize public certificate verification ledger states.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {(['all', 'Submitted', 'Under Moderator Review', 'Resolved - Approved', 'Resolved - Upheld'] as const).map((statusOpt) => (
+                <button
+                  key={statusOpt}
+                  type="button"
+                  onClick={() => setAppealsStatusFilter(statusOpt)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer whitespace-nowrap transition-colors ${
+                    appealsStatusFilter === statusOpt
+                      ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900'
+                      : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700'
+                  }`}
+                >
+                  {statusOpt === 'all' ? 'All Cases' : statusOpt}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => void loadModeratorAppeals()}
+                className="p-2 rounded-lg border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 cursor-pointer"
+                title="Refresh appeals queue"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoadingAppeals ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {appealsQueue
+              .filter((a) => appealsStatusFilter === 'all' || a.status === appealsStatusFilter)
+              .map((appeal) => {
+                const isBusy = updatingAppealId === appeal.id;
+                return (
+                  <div
+                    key={appeal.id}
+                    className="rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-950/40 p-5 space-y-4 text-xs"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="font-mono text-stone-500 dark:text-stone-400 tabular-nums">
+                        <span className="font-bold text-stone-900 dark:text-stone-100">{appeal.id}</span>
+                        <span className="mx-1.5" aria-hidden="true">·</span>
+                        <span>{appeal.category}</span>
+                        <span className="mx-1.5" aria-hidden="true">·</span>
+                        <span>SLA Due: {appeal.slaDueDate}</span>
+                      </div>
+                      <span
+                        className={`font-bold ${
+                          appeal.status === 'Resolved - Approved'
+                            ? 'text-emerald-700 dark:text-emerald-400'
+                            : appeal.status === 'Under Moderator Review'
+                            ? 'text-amber-700 dark:text-amber-400'
+                            : 'text-stone-700 dark:text-stone-300'
+                        }`}
+                      >
+                        {appeal.status}
+                      </span>
+                    </div>
+
+                    <div>
+                      <h3 className="text-sm font-bold text-stone-900 dark:text-stone-100">
+                        {appeal.subject}
+                      </h3>
+                      <p className="text-stone-500 dark:text-stone-400 mt-0.5">
+                        Appellant: {appeal.appellantName} ({appeal.appellantEmail}) · Course: {appeal.courseTitle}
+                      </p>
+                      <p className="text-stone-700 dark:text-stone-300 mt-2 leading-relaxed">
+                        {appeal.statement}
+                      </p>
+                      <p className="text-stone-500 dark:text-stone-400 mt-1">
+                        Evidence: {appeal.evidenceSummary} · Requested: {appeal.requestedResolution}
+                      </p>
+                    </div>
+
+                    {appeal.certificateSerial && (
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                        <span className="font-mono tabular-nums text-stone-700 dark:text-stone-300">
+                          Linked Certificate Serial: {appeal.certificateSerial}
+                        </span>
+                        {onVerifySerial && (
+                          <button
+                            type="button"
+                            onClick={() => onVerifySerial(appeal.certificateSerial!)}
+                            className="font-semibold text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer"
+                          >
+                            Open in Public Verification Registry →
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3 pt-2 border-t border-stone-200 dark:border-stone-800">
+                      <div className="md:col-span-3">
+                        <label className="block font-semibold text-stone-700 dark:text-stone-300 mb-1">
+                          Moderator Determination &amp; Ledger Notes
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={appealDraftNotes[appeal.id] ?? appeal.moderatorNotes ?? ''}
+                          onChange={(e) =>
+                            setAppealDraftNotes((prev) => ({ ...prev, [appeal.id]: e.target.value }))
+                          }
+                          placeholder="Record rubric rationale, grade override justification, or compliance findings..."
+                          className="w-full px-3 py-2 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 resize-y"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-semibold text-stone-700 dark:text-stone-300 mb-1">
+                          Score Override (%)
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={appealScoreOverrides[appeal.id] ?? ''}
+                          onChange={(e) =>
+                            setAppealScoreOverrides((prev) => ({ ...prev, [appeal.id]: e.target.value }))
+                          }
+                          placeholder="Optional e.g. 98"
+                          className="w-full px-3 py-2 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 font-mono tabular-nums text-stone-900 dark:text-stone-100"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() => void handleResolveAppeal(appeal.id, 'Under Moderator Review')}
+                        className="px-3.5 py-2 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-semibold cursor-pointer disabled:opacity-50"
+                      >
+                        Mark Under Review
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() => void handleResolveAppeal(appeal.id, 'Resolved - Upheld')}
+                        className="px-3.5 py-2 rounded-lg border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200 font-semibold cursor-pointer disabled:opacity-50"
+                      >
+                        Uphold Original Result
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() => void handleResolveAppeal(appeal.id, 'Resolved - Approved')}
+                        className="px-3.5 py-2 rounded-lg bg-[#052e16] hover:bg-[#064e3b] text-[#bef264] border border-[#84cc16]/50 font-bold cursor-pointer disabled:opacity-50"
+                      >
+                        Approve Appeal &amp; Verify Ledger
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
           </div>
         </div>
       )}

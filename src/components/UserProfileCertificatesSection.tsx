@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Award, CheckCircle2, Download, Eye, Lock, ArrowUpRight, Layers } from 'lucide-react';
+import { Award, CheckCircle2, Download, Eye, Lock, ArrowUpRight, Layers, ShieldCheck } from 'lucide-react';
 import { ReadingProgress, StudyGuide, UserProfile } from '../types';
 import {
   formatCertificateSerial,
@@ -14,6 +14,8 @@ interface UserProfileCertificatesSectionProps {
   studyGuides: StudyGuide[];
   readingProgress: Record<string, ReadingProgress>;
   onNavigateToCourse?: (guideId: string) => void;
+  onVerifySerial?: (serial: string) => void;
+  onAppealSerial?: (serial: string, courseId: string, courseTitle: string) => void;
 }
 
 export const UserProfileCertificatesSection: React.FC<UserProfileCertificatesSectionProps> = ({
@@ -21,6 +23,8 @@ export const UserProfileCertificatesSection: React.FC<UserProfileCertificatesSec
   studyGuides,
   readingProgress,
   onNavigateToCourse,
+  onVerifySerial,
+  onAppealSerial,
 }) => {
   const [previewGuide, setPreviewGuide] = useState<StudyGuide | null>(null);
   const [galleryTab, setGalleryTab] = useState<'earned' | 'templates'>('earned');
@@ -244,7 +248,17 @@ export const UserProfileCertificatesSection: React.FC<UserProfileCertificatesSec
                   )}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  {isEarned && onVerifySerial && (
+                    <button
+                      type="button"
+                      onClick={() => onVerifySerial(serialNumber)}
+                      className="px-2.5 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>Verify</span>
+                    </button>
+                  )}
                   {onNavigateToCourse && (
                     <button
                       type="button"
@@ -290,6 +304,17 @@ export const UserProfileCertificatesSection: React.FC<UserProfileCertificatesSec
         progressPercent={activePreviewEntry?.pct || 0}
         quizScore={activePreviewEntry?.bestScore}
         isEarned={activePreviewEntry?.isEarned || false}
+        onVerifyOnline={onVerifySerial}
+        onAppealRecord={
+          activePreviewEntry && onAppealSerial
+            ? (serial) =>
+                onAppealSerial(
+                  serial,
+                  activePreviewEntry.guide.id,
+                  activePreviewEntry.guide.title
+                )
+            : undefined
+        }
       />
     </section>
   );

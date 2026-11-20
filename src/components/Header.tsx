@@ -92,6 +92,7 @@ export type AppNavigationTab =
   | 'videography_store' 
   | 'book_store' 
   | 'billing' 
+  | 'verify'
   | 'faq'
   | 'educare'
   | 'research'
@@ -135,6 +136,9 @@ interface HeaderProps {
   syncStatus?: BackgroundSyncStatus;
   lastSyncedAt?: string | null;
   onTriggerManualSync?: () => void;
+  isDeepWorkActive?: boolean;
+  deepWorkRemainingSeconds?: number;
+  onExitDeepWork?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -173,6 +177,9 @@ export const Header: React.FC<HeaderProps> = ({
   syncStatus = 'idle',
   lastSyncedAt = null,
   onTriggerManualSync,
+  isDeepWorkActive = false,
+  deepWorkRemainingSeconds = 0,
+  onExitDeepWork,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [recentSearches, setRecentSearches] = useState<string[]>(() =>
@@ -234,9 +241,10 @@ export const Header: React.FC<HeaderProps> = ({
     return `${Math.floor(hrs / 24)}d ago`;
   };
 
-  // Global keyboard shortcut: Cmd+K / Ctrl+K or '/' to focus search
+  // Global keyboard shortcut: Cmd+K / Ctrl+K or '/' to focus search (disabled during Deep Work)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isDeepWorkActive) return;
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setIsSearchOpen(true);
@@ -255,7 +263,7 @@ export const Header: React.FC<HeaderProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isSearchOpen, isThemeMenuOpen]);
+  }, [isSearchOpen, isThemeMenuOpen, isDeepWorkActive]);
 
   // Click outside listener to dismiss search, notification & theme mode dropdowns
   useEffect(() => {
@@ -433,12 +441,23 @@ export const Header: React.FC<HeaderProps> = ({
             ) : null}
           </div>
 
-          {/* Global Search Bar (Center-Left) */}
-          <div ref={searchContainerRef} className="relative flex-1 max-w-md hidden sm:block">
-            <div className="relative flex items-center">
-              <Search className="w-4 h-4 text-stone-400 absolute left-3 pointer-events-none" />
-              <input
-                ref={searchInputRef}
+          {/* Global Search Bar (Center-Left, hidden during Deep Work) */}
+          {isDeepWorkActive ? (
+            <div className="hidden sm:flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl bg-emerald-950/80 border border-emerald-700/70 text-emerald-200 text-xs font-semibold">
+              <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>Deep Work Active</span>
+              <span aria-hidden="true">·</span>
+              <span className="font-mono tabular-nums font-bold text-white">
+                {String(Math.floor(Math.max(0, deepWorkRemainingSeconds) / 60)).padStart(2, '0')}:
+                {String(Math.max(0, deepWorkRemainingSeconds) % 60).padStart(2, '0')}
+              </span>
+            </div>
+          ) : (
+            <div ref={searchContainerRef} className="relative flex-1 max-w-md hidden sm:block">
+              <div className="relative flex items-center">
+                <Search className="w-4 h-4 text-stone-400 absolute left-3 pointer-events-none" />
+                <input
+                  ref={searchInputRef}
                 type="text"
                 value={searchQuery}
                 onFocus={() => setIsSearchOpen(true)}
@@ -765,12 +784,24 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             )}
           </div>
+          )}
 
           {/* Zone 2: Utility Icons, Notifications, Theme Toggle & Auth (Compact across mobile & desktop) */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
 
+            {isDeepWorkActive && onExitDeepWork && (
+              <button
+                type="button"
+                onClick={onExitDeepWork}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>Exit Deep Work</span>
+              </button>
+            )}
+
             {/* Desktop Secondary Quick Action: Apply & Register */}
-            {onOpenApplicationRegistration && (
+            {!isDeepWorkActive && onOpenApplicationRegistration && (
               <button
                 type="button"
                 onClick={onOpenApplicationRegistration}
@@ -783,6 +814,7 @@ export const Header: React.FC<HeaderProps> = ({
             )}
 
             {/* Course Alerts & Notifications Center */}
+            {!isDeepWorkActive && (
             <div ref={notifContainerRef} className="relative">
               <button
                 type="button"
@@ -953,9 +985,10 @@ export const Header: React.FC<HeaderProps> = ({
                 )}
               </AnimatePresence>
             </div>
+            )}
 
-            {/* Reminders Bell Button */}
-            {onOpenReminders && (
+            {/* Reminders Bell Button (blocked during Deep Work) */}
+            {!isDeepWorkActive && onOpenReminders && (
               <button
                 type="button"
                 onClick={onOpenReminders}
@@ -1281,57 +1314,61 @@ export const Header: React.FC<HeaderProps> = ({
               <span>Education</span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => setActiveTab('music_store')}
-              className={`whitespace-nowrap shrink-0 transition-all px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer ${
-                activeTab === 'music_store'
-                  ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800/80 shadow-2xs'
-                  : 'text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800'
-              }`}
-            >
-              <Music className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-              <span>Music Store</span>
-            </button>
+            {!isDeepWorkActive && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('music_store')}
+                  className={`whitespace-nowrap shrink-0 transition-all px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer ${
+                    activeTab === 'music_store'
+                      ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800/80 shadow-2xs'
+                      : 'text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800'
+                  }`}
+                >
+                  <Music className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                  <span>Music Store</span>
+                </button>
 
-            <button
-              type="button"
-              onClick={() => setActiveTab('photography_store')}
-              className={`whitespace-nowrap shrink-0 transition-all px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer ${
-                activeTab === 'photography_store'
-                  ? 'bg-blue-100 dark:bg-blue-950/60 text-blue-900 dark:text-blue-200 border border-blue-300 dark:border-blue-800/80 shadow-2xs'
-                  : 'text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800'
-              }`}
-            >
-              <Camera className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-              <span>Photography</span>
-            </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('photography_store')}
+                  className={`whitespace-nowrap shrink-0 transition-all px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer ${
+                    activeTab === 'photography_store'
+                      ? 'bg-blue-100 dark:bg-blue-950/60 text-blue-900 dark:text-blue-200 border border-blue-300 dark:border-blue-800/80 shadow-2xs'
+                      : 'text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800'
+                  }`}
+                >
+                  <Camera className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                  <span>Photography</span>
+                </button>
 
-            <button
-              type="button"
-              onClick={() => setActiveTab('videography_store')}
-              className={`whitespace-nowrap shrink-0 transition-all px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer ${
-                activeTab === 'videography_store'
-                  ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-900 dark:text-rose-200 border border-rose-300 dark:border-rose-800/80 shadow-2xs'
-                  : 'text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800'
-              }`}
-            >
-              <Video className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
-              <span>Videography</span>
-            </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('videography_store')}
+                  className={`whitespace-nowrap shrink-0 transition-all px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer ${
+                    activeTab === 'videography_store'
+                      ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-900 dark:text-rose-200 border border-rose-300 dark:border-rose-800/80 shadow-2xs'
+                      : 'text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800'
+                  }`}
+                >
+                  <Video className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                  <span>Videography</span>
+                </button>
 
-            <button
-              type="button"
-              onClick={() => setActiveTab('book_store')}
-              className={`whitespace-nowrap shrink-0 transition-all px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer ${
-                activeTab === 'book_store'
-                  ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 border border-purple-300 dark:border-purple-800/80 shadow-2xs'
-                  : 'text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800'
-              }`}
-            >
-              <BookOpen className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-              <span>Book Library</span>
-            </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('book_store')}
+                  className={`whitespace-nowrap shrink-0 transition-all px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer ${
+                    activeTab === 'book_store'
+                      ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 border border-purple-300 dark:border-purple-800/80 shadow-2xs'
+                      : 'text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800'
+                  }`}
+                >
+                  <BookOpen className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                  <span>Book Library</span>
+                </button>
+              </>
+            )}
 
             <button
               type="button"
@@ -1346,97 +1383,121 @@ export const Header: React.FC<HeaderProps> = ({
               <span>Activity</span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => setActiveTab('faculty_portal')}
-              className={`whitespace-nowrap shrink-0 transition-all px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer ${
-                activeTab === 'faculty_portal'
-                  ? 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-900 dark:text-indigo-200 border border-indigo-300 dark:border-indigo-800/80 shadow-2xs'
-                  : 'text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800'
-              }`}
-            >
-              <Briefcase className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-              <span>Faculty Portal</span>
-              {!isInstructor && <Lock className="w-3 h-3 text-stone-400" />}
-            </button>
+            {!isDeepWorkActive && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('faculty_portal')}
+                  className={`whitespace-nowrap shrink-0 transition-all px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer ${
+                    activeTab === 'faculty_portal'
+                      ? 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-900 dark:text-indigo-200 border border-indigo-300 dark:border-indigo-800/80 shadow-2xs'
+                      : 'text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800'
+                  }`}
+                >
+                  <Briefcase className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                  <span>Faculty Portal</span>
+                  {!isInstructor && <Lock className="w-3 h-3 text-stone-400" />}
+                </button>
 
-            <button
-              type="button"
-              onClick={() => setActiveTab('billing')}
-              className={`whitespace-nowrap shrink-0 transition-colors px-2.5 py-1.5 text-xs cursor-pointer ${
-                activeTab === 'billing'
-                  ? 'text-stone-900 dark:text-stone-100 font-semibold border-b-2 border-stone-900 dark:border-stone-100'
-                  : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
-              }`}
-            >
-              Billing
-            </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('verify')}
+                  className={`whitespace-nowrap shrink-0 transition-all px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer ${
+                    activeTab === 'verify'
+                      ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800/80 shadow-2xs'
+                      : 'text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800'
+                  }`}
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                  <span>Verify &amp; Appeals</span>
+                </button>
 
-            <button
-              type="button"
-              onClick={() => setActiveTab('faq')}
-              className={`whitespace-nowrap shrink-0 transition-colors px-2.5 py-1.5 text-xs cursor-pointer ${
-                activeTab === 'faq'
-                  ? 'text-stone-900 dark:text-stone-100 font-semibold border-b-2 border-stone-900 dark:border-stone-100'
-                  : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
-              }`}
-            >
-              FAQ
-            </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('billing')}
+                  className={`whitespace-nowrap shrink-0 transition-colors px-2.5 py-1.5 text-xs cursor-pointer ${
+                    activeTab === 'billing'
+                      ? 'text-stone-900 dark:text-stone-100 font-semibold border-b-2 border-stone-900 dark:border-stone-100'
+                      : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
+                  }`}
+                >
+                  Billing
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('faq')}
+                  className={`whitespace-nowrap shrink-0 transition-colors px-2.5 py-1.5 text-xs cursor-pointer ${
+                    activeTab === 'faq'
+                      ? 'text-stone-900 dark:text-stone-100 font-semibold border-b-2 border-stone-900 dark:border-stone-100'
+                      : 'text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
+                  }`}
+                >
+                  FAQ
+                </button>
+              </>
+            )}
           </nav>
 
           {/* Desktop Quick Studio Actions */}
-          <div className="flex items-center gap-2 shrink-0">
-            {onOpenAcademicPrompts && (
-              <button
-                type="button"
-                onClick={onOpenAcademicPrompts}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-xl bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-900/50 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60 transition-all whitespace-nowrap cursor-pointer"
-                title="Open University Syllabus & Academic Prompt Studio"
-              >
-                <GraduationCap className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                <span>Prompt Studio</span>
-              </button>
-            )}
+          {isDeepWorkActive ? (
+            <div className="flex items-center gap-2 text-[11px] font-medium text-emerald-700 dark:text-emerald-400 shrink-0">
+              <span>Distraction Shield Active · Marketplace, alerts &amp; secondary portals hidden</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 shrink-0">
+              {onOpenAcademicPrompts && (
+                <button
+                  type="button"
+                  onClick={onOpenAcademicPrompts}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-xl bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-900/50 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60 transition-all whitespace-nowrap cursor-pointer"
+                  title="Open University Syllabus & Academic Prompt Studio"
+                >
+                  <GraduationCap className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                  <span>Prompt Studio</span>
+                </button>
+              )}
 
-            {onOpenAccreditation && (
-              <button
-                type="button"
-                onClick={onOpenAccreditation}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 transition-all whitespace-nowrap cursor-pointer"
-                title="Free Institutional Accreditation & Productivity Registry"
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                <span>Accreditation</span>
-              </button>
-            )}
+              {onOpenAccreditation && (
+                <button
+                  type="button"
+                  onClick={onOpenAccreditation}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 transition-all whitespace-nowrap cursor-pointer"
+                  title="Free Institutional Accreditation & Productivity Registry"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                  <span>Accreditation</span>
+                </button>
+              )}
 
-            {onOpenExportReport && (
-              <button
-                type="button"
-                onClick={onOpenExportReport}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 transition-all whitespace-nowrap cursor-pointer"
-                title="Export student reading progress and chapter completion transcript"
-              >
-                <ListChecks className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                <span>Export Progress</span>
-              </button>
-            )}
+              {onOpenExportReport && (
+                <button
+                  type="button"
+                  onClick={onOpenExportReport}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 transition-all whitespace-nowrap cursor-pointer"
+                  title="Export student reading progress and chapter completion transcript"
+                >
+                  <ListChecks className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                  <span>Export Progress</span>
+                </button>
+              )}
 
-            {user.subscription_tier === 'free' && (
-              <button
-                type="button"
-                onClick={onOpenPaywall}
-                className="flex px-2.5 py-1.5 text-xs font-semibold text-stone-700 dark:text-stone-300 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 rounded-xl transition-all whitespace-nowrap items-center gap-1.5 cursor-pointer"
-              >
-                <Sparkles className="w-3 h-3 text-amber-500" />
-                <span>Tutoring Plans</span>
-              </button>
-            )}
-          </div>
+              {user.subscription_tier === 'free' && (
+                <button
+                  type="button"
+                  onClick={onOpenPaywall}
+                  className="flex px-2.5 py-1.5 text-xs font-semibold text-stone-700 dark:text-stone-300 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 rounded-xl transition-all whitespace-nowrap items-center gap-1.5 cursor-pointer"
+                >
+                  <Sparkles className="w-3 h-3 text-amber-500" />
+                  <span>Tutoring Plans</span>
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Mobile Search Bar Row + Results Popover (< sm screens) */}
+        {/* Mobile Search Bar Row + Results Popover (< sm screens, hidden during Deep Work) */}
+        {!isDeepWorkActive && (
         <div ref={mobileSearchContainerRef} className="flex items-center sm:hidden h-11 pb-2 relative">
           <div className="relative flex items-center w-full">
             <Search className="w-4 h-4 text-stone-400 absolute left-3 pointer-events-none" />
@@ -1542,6 +1603,7 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           )}
         </div>
+        )}
 
         {/* Mobile/Tablet Scrollable Quick Tabs Row (< lg screens, uses justify-start so nothing clips) */}
         <div className="flex lg:hidden items-center justify-start h-11 border-t border-stone-100 dark:border-stone-800 text-xs overflow-x-auto no-scrollbar gap-1.5">
@@ -1558,57 +1620,61 @@ export const Header: React.FC<HeaderProps> = ({
             <span>Education</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('music_store')}
-            className={`px-2.5 py-1.5 whitespace-nowrap shrink-0 rounded-lg flex items-center gap-1 cursor-pointer ${
-              activeTab === 'music_store'
-                ? 'font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-200'
-                : 'text-stone-600 dark:text-stone-400'
-            }`}
-          >
-            <Music className="w-3.5 h-3.5 text-emerald-500" />
-            <span>Music</span>
-          </button>
+          {!isDeepWorkActive && (
+            <>
+              <button
+                type="button"
+                onClick={() => setActiveTab('music_store')}
+                className={`px-2.5 py-1.5 whitespace-nowrap shrink-0 rounded-lg flex items-center gap-1 cursor-pointer ${
+                  activeTab === 'music_store'
+                    ? 'font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-200'
+                    : 'text-stone-600 dark:text-stone-400'
+                }`}
+              >
+                <Music className="w-3.5 h-3.5 text-emerald-500" />
+                <span>Music</span>
+              </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('photography_store')}
-            className={`px-2.5 py-1.5 whitespace-nowrap shrink-0 rounded-lg flex items-center gap-1 cursor-pointer ${
-              activeTab === 'photography_store'
-                ? 'font-bold bg-blue-100 dark:bg-blue-950/60 text-blue-900 dark:text-blue-200'
-                : 'text-stone-600 dark:text-stone-400'
-            }`}
-          >
-            <Camera className="w-3.5 h-3.5 text-blue-500" />
-            <span>Photos</span>
-          </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('photography_store')}
+                className={`px-2.5 py-1.5 whitespace-nowrap shrink-0 rounded-lg flex items-center gap-1 cursor-pointer ${
+                  activeTab === 'photography_store'
+                    ? 'font-bold bg-blue-100 dark:bg-blue-950/60 text-blue-900 dark:text-blue-200'
+                    : 'text-stone-600 dark:text-stone-400'
+                }`}
+              >
+                <Camera className="w-3.5 h-3.5 text-blue-500" />
+                <span>Photos</span>
+              </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('videography_store')}
-            className={`px-2.5 py-1.5 whitespace-nowrap shrink-0 rounded-lg flex items-center gap-1 cursor-pointer ${
-              activeTab === 'videography_store'
-                ? 'font-bold bg-rose-100 dark:bg-rose-950/60 text-rose-900 dark:text-rose-200'
-                : 'text-stone-600 dark:text-stone-400'
-            }`}
-          >
-            <Video className="w-3.5 h-3.5 text-rose-500" />
-            <span>Videos</span>
-          </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('videography_store')}
+                className={`px-2.5 py-1.5 whitespace-nowrap shrink-0 rounded-lg flex items-center gap-1 cursor-pointer ${
+                  activeTab === 'videography_store'
+                    ? 'font-bold bg-rose-100 dark:bg-rose-950/60 text-rose-900 dark:text-rose-200'
+                    : 'text-stone-600 dark:text-stone-400'
+                }`}
+              >
+                <Video className="w-3.5 h-3.5 text-rose-500" />
+                <span>Videos</span>
+              </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('book_store')}
-            className={`px-2.5 py-1.5 whitespace-nowrap shrink-0 rounded-lg flex items-center gap-1 cursor-pointer ${
-              activeTab === 'book_store'
-                ? 'font-bold bg-purple-100 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200'
-                : 'text-stone-600 dark:text-stone-400'
-            }`}
-          >
-            <BookOpen className="w-3.5 h-3.5 text-purple-500" />
-            <span>Books</span>
-          </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('book_store')}
+                className={`px-2.5 py-1.5 whitespace-nowrap shrink-0 rounded-lg flex items-center gap-1 cursor-pointer ${
+                  activeTab === 'book_store'
+                    ? 'font-bold bg-purple-100 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200'
+                    : 'text-stone-600 dark:text-stone-400'
+                }`}
+              >
+                <BookOpen className="w-3.5 h-3.5 text-purple-500" />
+                <span>Books</span>
+              </button>
+            </>
+          )}
 
           <button
             type="button"
@@ -1623,38 +1689,53 @@ export const Header: React.FC<HeaderProps> = ({
             <span>Activity</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('faculty_portal')}
-            className={`px-2.5 py-1.5 whitespace-nowrap shrink-0 rounded-lg flex items-center gap-1 cursor-pointer ${
-              activeTab === 'faculty_portal'
-                ? 'font-bold bg-indigo-100 dark:bg-indigo-950/60 text-indigo-900 dark:text-indigo-200'
-                : 'text-stone-600 dark:text-stone-400'
-            }`}
-          >
-            <Briefcase className="w-3.5 h-3.5 text-indigo-500" />
-            <span>Faculty</span>
-          </button>
+          {!isDeepWorkActive && (
+            <>
+              <button
+                type="button"
+                onClick={() => setActiveTab('faculty_portal')}
+                className={`px-2.5 py-1.5 whitespace-nowrap shrink-0 rounded-lg flex items-center gap-1 cursor-pointer ${
+                  activeTab === 'faculty_portal'
+                    ? 'font-bold bg-indigo-100 dark:bg-indigo-950/60 text-indigo-900 dark:text-indigo-200'
+                    : 'text-stone-600 dark:text-stone-400'
+                }`}
+              >
+                <Briefcase className="w-3.5 h-3.5 text-indigo-500" />
+                <span>Faculty</span>
+              </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('billing')}
-            className={`px-2.5 py-1.5 whitespace-nowrap shrink-0 rounded-lg cursor-pointer ${
-              activeTab === 'billing' ? 'font-bold text-stone-900 dark:text-stone-100 bg-stone-100 dark:bg-stone-800' : 'text-stone-600 dark:text-stone-400'
-            }`}
-          >
-            Billing
-          </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('verify')}
+                className={`px-2.5 py-1.5 whitespace-nowrap shrink-0 rounded-lg flex items-center gap-1 cursor-pointer ${
+                  activeTab === 'verify' ? 'font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-200' : 'text-stone-600 dark:text-stone-400'
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                <span>Verify</span>
+              </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('faq')}
-            className={`px-2.5 py-1.5 whitespace-nowrap shrink-0 rounded-lg cursor-pointer ${
-              activeTab === 'faq' ? 'font-bold text-stone-900 dark:text-stone-100 bg-stone-100 dark:bg-stone-800' : 'text-stone-600 dark:text-stone-400'
-            }`}
-          >
-            FAQ
-          </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('billing')}
+                className={`px-2.5 py-1.5 whitespace-nowrap shrink-0 rounded-lg cursor-pointer ${
+                  activeTab === 'billing' ? 'font-bold text-stone-900 dark:text-stone-100 bg-stone-100 dark:bg-stone-800' : 'text-stone-600 dark:text-stone-400'
+                }`}
+              >
+                Billing
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('faq')}
+                className={`px-2.5 py-1.5 whitespace-nowrap shrink-0 rounded-lg cursor-pointer ${
+                  activeTab === 'faq' ? 'font-bold text-stone-900 dark:text-stone-100 bg-stone-100 dark:bg-stone-800' : 'text-stone-600 dark:text-stone-400'
+                }`}
+              >
+                FAQ
+              </button>
+            </>
+          )}
         </div>
 
         {/* Mobile Full Actions Drawer (< lg screens) */}

@@ -31,6 +31,7 @@ interface AccreditationPortalModalProps {
   onClose: () => void;
   user: UserProfile;
   onAccreditationSuccess?: (registrationId: string) => void;
+  onOpenVerificationPortal?: () => void;
 }
 
 export interface AccreditationBody {
@@ -102,6 +103,7 @@ export const AccreditationPortalModal: React.FC<AccreditationPortalModalProps> =
   onClose,
   user,
   onAccreditationSuccess,
+  onOpenVerificationPortal,
 }) => {
   const [currentStep, setCurrentStep] = useState<'directory' | 'apply' | 'certificate' | 'external_pathways'>('external_pathways');
   const [regionFilter, setRegionFilter] = useState<'all' | SiteAccreditationPathway['region']>('all');
@@ -793,14 +795,28 @@ export const AccreditationPortalModal: React.FC<AccreditationPortalModalProps> =
         </div>
 
         {/* Footer */}
-        <div className="p-4 px-6 border-t border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950/70 flex items-center justify-between text-xs text-stone-500">
+        <div className="p-4 px-6 border-t border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950/70 flex flex-wrap items-center justify-between gap-3 text-xs text-stone-500">
           <span>TTG Internal Quality &amp; Pedagogy Registry · Platform Self-Audit (Non-Accredited)</span>
-          <button
-            onClick={onClose}
-            className="px-4 py-1.5 rounded-xl bg-stone-900 hover:bg-stone-800 dark:bg-stone-100 dark:text-stone-900 text-white font-bold transition-all"
-          >
-            Done
-          </button>
+          <div className="flex items-center gap-2">
+            {onOpenVerificationPortal && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenVerificationPortal();
+                }}
+                className="px-3.5 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-semibold transition-all cursor-pointer whitespace-nowrap"
+              >
+                Open Verification Ledger &amp; Appeals
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="px-4 py-1.5 rounded-xl bg-stone-900 hover:bg-stone-800 dark:bg-stone-100 dark:text-stone-900 text-white font-bold transition-all cursor-pointer"
+            >
+              Done
+            </button>
+          </div>
         </div>
 
       </div>

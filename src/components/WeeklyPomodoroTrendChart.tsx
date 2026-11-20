@@ -17,6 +17,8 @@ import { PomodoroSessionLog } from '../types';
 interface WeeklyPomodoroTrendChartProps {
   pomodoroLogs: PomodoroSessionLog[];
   syncedFocusMinutes?: number;
+  dailyGoalHours?: number;
+  onChangeDailyGoalHours?: (hours: number) => void;
 }
 
 interface DailyPomodoroPoint {
@@ -40,9 +42,16 @@ function toLocalDateKey(date: Date): string {
 export const WeeklyPomodoroTrendChart: React.FC<WeeklyPomodoroTrendChartProps> = ({
   pomodoroLogs = [],
   syncedFocusMinutes = 0,
+  dailyGoalHours: controlledGoalHours,
+  onChangeDailyGoalHours,
 }) => {
   const [chartType, setChartType] = useState<'area' | 'bar'>('area');
-  const [dailyGoalHours, setDailyGoalHours] = useState<number>(1.0);
+  const [localDailyGoalHours, setLocalDailyGoalHours] = useState<number>(1.0);
+  const dailyGoalHours = controlledGoalHours ?? localDailyGoalHours;
+  const setDailyGoalHours = (hours: number) => {
+    setLocalDailyGoalHours(hours);
+    onChangeDailyGoalHours?.(hours);
+  };
 
   const weeklyTrend = useMemo(() => {
     const now = new Date();

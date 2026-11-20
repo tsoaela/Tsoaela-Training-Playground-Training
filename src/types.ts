@@ -207,6 +207,7 @@ export interface ReadingProgressUpdateOptions {
   };
   quizAttempt?: Omit<QuizAttemptEntry, 'id' | 'attemptedAt'>;
   touchAccessOnly?: boolean;
+  activeChapterIdx?: number;
 }
 
 export interface ReadingProgress {
@@ -216,6 +217,8 @@ export interface ReadingProgress {
   lastReadDate: string;
   lastAccessedAt?: string;
   isCompleted: boolean;
+  studyTimeSeconds?: number;
+  activeChapterIdx?: number;
   notes?: string;
   chapterNotes?: Record<number, string>;
   quizScores?: Record<string, number>;
@@ -854,6 +857,305 @@ export interface TutorChatMessage {
   isError?: boolean;
 }
 
+// ----------------------------------------------------
+// Certificate Verification Ledger, Appeals & Real-Time Study Telemetry
+// ----------------------------------------------------
 
+export type CertificateVerificationStatus = 'verified' | 'under_appeal' | 'revoked';
 
+export interface OpenBadgeVerifiableCredential {
+  '@context': string[];
+  id: string;
+  type: ['VerifiableCredential', 'OpenBadgeCredential'];
+  issuer: {
+    id: string;
+    type: 'Profile';
+    name: string;
+    url: string;
+  };
+  issuanceDate: string;
+  credentialSubject: {
+    id: string;
+    type: 'AchievementSubject';
+    recipientName: string;
+    achievement: {
+      id: string;
+      type: 'Achievement';
+      name: string;
+      description: string;
+      criteriaNarrative: string;
+      courseTitle: string;
+      progressPercent: number;
+      quizScore?: number;
+    };
+  };
+  proof: {
+    type: 'DataIntegrityProof';
+    cryptosuite: 'hmac-sha256-ttg-ledger-v1';
+    created: string;
+    verificationMethod: string;
+    proofPurpose: 'assertionMethod';
+    proofValue: string;
+  };
+}
 
+export interface VerifiedCertificateRecord {
+  serialNumber: string;
+  courseId: string;
+  courseTitle: string;
+  categoryKey: string;
+  credentialTitle: string;
+  accreditor: string;
+  recipientName: string;
+  recipientEmail: string;
+  userId: string;
+  issueDate: string;
+  issuedAt: string;
+  progressPercent: number;
+  quizScore?: number;
+  status: CertificateVerificationStatus;
+  signatureHash: string;
+  signatureAlgorithm: 'HMAC-SHA256';
+  revocationReason?: string;
+  openBadgeCredential?: OpenBadgeVerifiableCredential;
+}
+
+export type AppealCategory =
+  | 'Grade & Assessment Dispute'
+  | 'Certificate Verification Dispute'
+  | 'External Regulatory Escalation'
+  | 'Completion Credit Discrepancy';
+
+export type AppealStatus =
+  | 'Submitted'
+  | 'Under Moderator Review'
+  | 'Resolved - Approved'
+  | 'Resolved - Upheld';
+
+export interface LearnerAppealRecord {
+  id: string;
+  userId: string;
+  appellantName: string;
+  appellantEmail: string;
+  courseId: string;
+  courseTitle: string;
+  certificateSerial?: string;
+  category: AppealCategory;
+  subject: string;
+  statement: string;
+  evidenceSummary: string;
+  requestedResolution: string;
+  status: AppealStatus;
+  submittedAt: string;
+  slaDueDate: string;
+  updatedAt: string;
+  reviewedBy?: string;
+  moderatorNotes?: string;
+  resolvedAt?: string;
+}
+
+export interface LiveStudySessionSnapshot {
+  userId: string;
+  courseId: string;
+  courseTitle: string;
+  activeChapterIdx: number;
+  progressPercent: number;
+  sessionSeconds: number;
+  totalCourseStudySeconds: number;
+  isActive: boolean;
+  lastHeartbeatAt: string;
+}
+
+export interface RealtimeStudyTelemetry {
+  isLiveActive: boolean;
+  sseStatus: 'disconnected' | 'connecting' | 'live' | 'reconnecting';
+  activeCourseId: string | null;
+  activeCourseTitle: string | null;
+  activeChapterIdx: number;
+  sessionElapsedSeconds: number;
+  totalCourseStudySeconds: number;
+  lastHeartbeatAt: string | null;
+}
+
+// ----------------------------------------------------
+// Registered Study Groups & Real-Time Shared Notes
+// ----------------------------------------------------
+
+export interface RegisteredStudyGroup {
+  id: string;
+  courseId: string;
+  courseTitle: string;
+  name: string;
+  topic: string;
+  hostName: string;
+  hostEmail: string;
+  memberEmails: string[];
+  memberNames: Record<string, string>;
+  createdAt: string;
+}
+
+export interface StudyRoomSharedNote {
+  roomId: string;
+  courseId: string;
+  title: string;
+  content: string;
+  version: number;
+  lastEditedBy: string;
+  lastEditedByEmail?: string;
+  lastEditedAt: string;
+}
+
+export interface StudyRoomActiveParticipant {
+  clientId: string;
+  userId: string;
+  name: string;
+  email: string;
+  color: string;
+  isTyping: boolean;
+  cursorLine?: number;
+  joinedAt: string;
+  lastActiveAt: string;
+}
+
+// ----------------------------------------------------
+// Deep Work Mode & Focus Intensity Telemetry
+// ----------------------------------------------------
+
+export interface DeepWorkSessionRecord {
+  id: string;
+  guideId: string;
+  guideTitle: string;
+  plannedMinutes: number;
+  elapsedMinutes: number;
+  status: 'completed' | 'interrupted';
+  startedAt: string;
+  endedAt: string;
+  distractionsBlockedCount: number;
+}
+
+export interface DeepWorkState {
+  isActive: boolean;
+  isPaused: boolean;
+  plannedMinutes: number;
+  remainingSeconds: number;
+  targetEndAt: number | null;
+  linkedGuideId: string;
+  startedAt: string | null;
+  suppressedDistractionsCount: number;
+  sessionsHistory: DeepWorkSessionRecord[];
+}
+
+export interface FocusIntensityMetrics {
+  score: number; // 0 - 100
+  tierLabel:
+    | 'Peak Deep Flow'
+    | 'High Focus'
+    | 'Steady Cadence'
+    | 'Building Momentum'
+    | 'Interrupted · Rebuilding';
+  sessionCompletionRate: number; // 0 - 100
+  blockDepthScore: number; // 0 - 100
+  distractionShieldScore: number; // 0 - 100
+  completedSessionsCount: number;
+  interruptedSessionsCount: number;
+  avgCompletedBlockMinutes: number;
+}
+
+// ----------------------------------------------------
+// Accepted & Registered Students + Faculty Lectures & Specialized Syllabuses
+// ----------------------------------------------------
+
+export type StudentAdmissionStatus =
+  | 'Accepted'
+  | 'Registered'
+  | 'Accepted & Registered';
+
+export interface AcceptedRegisteredStudent {
+  id: string;
+  registrationNumber: string;
+  studentName: string;
+  studentEmail: string;
+  admissionStatus: StudentAdmissionStatus;
+  facultyId: string;
+  facultyName: string;
+  departmentName: string;
+  programName: string;
+  qualificationLevel: string;
+  assignedCourseId?: string;
+  assignedCourseTitle?: string;
+  leadLecturerName?: string;
+  cohortTerm: string;
+  acceptedDate: string;
+  registeredDate?: string;
+  accreditor: string;
+  standingNotes?: string;
+}
+
+export type LectureDeliveryFormat =
+  | 'Live Seminar & Lab'
+  | 'Recorded Lecture Series'
+  | 'Practicum & Case Colloquium';
+
+export interface SpecializedLectureUnit {
+  lectureNumber: number;
+  unitCode: string;
+  lectureTitle: string;
+  duration: string;
+  format: 'Keynote Lecture' | 'Technical Seminar' | 'Quantitative Lab' | 'Case Colloquium';
+  synopsis: string;
+  specializedTopics: string[];
+  requiredReadingOrArtifact: string;
+  deliverable: string;
+}
+
+export interface FacultyLectureSeries {
+  id: string;
+  lectureCode: string;
+  title: string;
+  specialization: string;
+  facultyKey: 'Engineering' | 'Business' | 'Health' | 'Science' | 'Humanities' | 'Education';
+  facultyName: string;
+  departmentName: string;
+  lecturerName: string;
+  lecturerTitle: string;
+  deliveryFormat: LectureDeliveryFormat;
+  nqfLevel: string;
+  totalDuration: string;
+  scheduleSlot: string;
+  linkedGuideId?: string;
+  syllabusOverview: string;
+  prerequisites: string[];
+  assessmentModel: string;
+  specializedSyllabus: SpecializedLectureUnit[];
+}
+
+export interface DailyStudyGoalMetrics {
+  dailyGoalHours: number;
+  todayTotalMinutes: number;
+  todayTotalHours: number;
+  pomodoroMinutesToday: number;
+  deepWorkMinutesToday: number;
+  activeLiveSecondsToday: number;
+  completionPercent: number;
+  remainingMinutes: number;
+  surplusMinutes: number;
+  isGoalMet: boolean;
+}
+
+export interface FocusedStudentRankEntry {
+  id: string;
+  studentName: string;
+  studentEmail: string;
+  facultyName: string;
+  programName: string;
+  weeklyAccumulatedIntensityScore: number;
+  focusIntensityRating: number;
+  weeklyDeepWorkMinutes: number;
+  weeklySessionsCompleted: number;
+  completionRatePercent: number;
+  avgBlockMinutes: number;
+  streakDays: number;
+  tierLabel: FocusIntensityMetrics['tierLabel'];
+  isCurrentUser: boolean;
+  isCurrentlyFocusing?: boolean;
+}

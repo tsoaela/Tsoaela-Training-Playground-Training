@@ -19,7 +19,7 @@ interface PeerInteractionMapProps {
   enrollments: EnrolledStudentRecord[];
   studyGuides: StudyGuide[];
   onNavigateToCourse?: (guideId: string) => void;
-  onStartStudyRoom?: (courseTitle: string, courseId: string) => void;
+  onStartStudyRoom?: (courseTitle: string, courseId: string, roomId?: string) => void;
 }
 
 type NodeKind = 'self' | 'peer' | 'study_group';

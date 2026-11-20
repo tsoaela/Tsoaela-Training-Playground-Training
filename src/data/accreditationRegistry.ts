@@ -332,18 +332,18 @@ export const ACCREDITATION_WORKFLOW_STAGES: AccreditationWorkflowStage[] = [
   {
     id: 'stage_moderation',
     stepNumber: 4,
-    title: 'Assessment Moderation & Integrity',
-    shortLabel: 'Assessment Audit',
+    title: 'Assessment Moderation, Proctoring & Appeals',
+    shortLabel: 'Moderation & Appeals',
     currentState: 'partial_review',
-    currentStateLabel: 'Internal Quizzes Active · External Proctoring Pending',
+    currentStateLabel: 'Internal Quizzes & Learner Appeals Active · External Proctoring Pending',
     summary:
-      'Students complete chapter reading logs, module quizzes, and offline capstone assignments graded against transparent rubrics.',
+      'Students complete chapter reading logs, module quizzes, and offline capstone assignments graded against rubrics, backed by a formal Learner Assessment Appeals & Faculty Moderator queue.',
     studentProtection:
-      'Tracks genuine engagement telemetry (reading chapters, quiz percentages, assignment submissions) rather than pay-for-paper certificates.',
+      'Tracks real study engagement telemetry and guarantees learners can contest quiz scores, completion credits, or certificate flags through a 5-day SLA moderator appeal process.',
     providerDeliverable:
-      'Psychometric question review, external examiner sampling of capstone submissions, and identity-verified exam protocols.',
+      'Psychometric question review, external examiner sampling of capstone submissions, identity-verified proctoring, and documented moderator appeal decisions.',
     verificationMechanism:
-      'Active internal quiz scoring & offline assignment queues today; third-party identity proctoring and external examiner sign-off are required for formal academic credit.',
+      'Active internal quiz scoring, offline assignment queues, and live Faculty Moderator Appeals review today; third-party identity proctoring is required for formal statutory credit.',
     recommendedAuthorities: [
       { name: 'Quality Matters (QM) Rubric', url: 'https://www.qualitymatters.org/' },
       { name: 'ICDE Quality Network', url: 'https://www.icde.org/' },
@@ -352,18 +352,18 @@ export const ACCREDITATION_WORKFLOW_STAGES: AccreditationWorkflowStage[] = [
   {
     id: 'stage_certification',
     stepNumber: 5,
-    title: 'Final Certification & Verification Registry',
-    shortLabel: 'Certificate Verification',
-    currentState: 'external_required',
-    currentStateLabel: 'Internal Serials Only · Signed Registry Pending',
+    title: 'Final Certification & Public Verification Registry',
+    shortLabel: 'Verification Ledger',
+    currentState: 'partial_review',
+    currentStateLabel: 'Server Ledger & Open Badges JSON-LD Active · Statutory Roll Pending',
     summary:
-      'Upon passing assessments, learners receive completion documentation. Legitimate employer verification requires a tamper-evident public registry or cryptographic credential.',
+      'Upon passing assessments, completion certificates are recorded in the TTG server verification ledger with HMAC-SHA256 signatures and 1EdTech Open Badges 3.0 JSON-LD Verifiable Credential proofs.',
     studentProtection:
-      'Full honesty: current TTG serials are deterministic client-side codes for personal PDF/PNG portfolios — employers cannot yet verify them against a public TTG backend database.',
+      'Full honesty: anyone can verify certificate serials at /verify/:serial in real time, while statutory disclosures clearly state TTG records are internal completion credentials not yet registered on SAQA/CHE/QCTO statutory rolls.',
     providerDeliverable:
-      'Server-side immutable issuance ledger, cryptographic Ed25519/RSA JSON-LD signing, and a public URL verification lookup endpoint.',
+      'Server-side immutable issuance ledger, cryptographic HMAC-SHA256 / Open Badges 3.0 JSON-LD proofs, and public /verify/:serial lookup + statutory QCTO/DHET listing.',
     verificationMechanism:
-      'Upgrade target: 1EdTech Open Badges 3.0 / W3C Verifiable Credentials issued via a dedicated verification API or partners like Credly or Accredible.',
+      'Active server verification ledger (/api/certificates/verify/:serial) with Open Badges 3.0 JSON-LD proof inspection; external Credly/Accredible federation and statutory national registry listing remain pending regulatory approval.',
     recommendedAuthorities: [
       { name: '1EdTech Open Badges 3.0', url: 'https://www.imsglobal.org/spec/ob/v3p0/' },
       { name: 'Accredible Digital Credentials', url: 'https://www.accredible.com/' },

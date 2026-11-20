@@ -1,7 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Award, BookOpen, CheckCircle2, Download, FileText, PartyPopper } from 'lucide-react';
-import { ReadingProgress as ReadingProgressRecord, StudyGuide } from '../types';
+import {
+  ReadingProgress as ReadingProgressRecord,
+  RealtimeStudyTelemetry,
+  StudyGuide,
+} from '../types';
 import { CompletionConfetti } from './CompletionConfetti';
+import { formatStudyDuration } from './RealtimeStudyBanner';
 
 export interface ChapterNotesMarkdownExportParams {
   guideId?: string;
@@ -279,6 +284,7 @@ export interface ReadingProgressProps {
   studyGuides?: StudyGuide[];
   allReadingProgress?: Record<string, ReadingProgressRecord>;
   learnerName?: string;
+  realtimeStudy?: RealtimeStudyTelemetry;
 }
 
 export const ReadingProgress: React.FC<ReadingProgressProps> = ({
@@ -299,6 +305,7 @@ export const ReadingProgress: React.FC<ReadingProgressProps> = ({
   studyGuides,
   allReadingProgress,
   learnerName,
+  realtimeStudy,
 }) => {
   const safePercent = Math.min(100, Math.max(0, Math.round(progressPercent)));
   const prevCompletedRef = useRef<boolean>(isCompleted);
@@ -491,6 +498,21 @@ export const ReadingProgress: React.FC<ReadingProgressProps> = ({
       </div>
 
       <div className="flex items-center flex-wrap gap-2 shrink-0 text-xs">
+        {realtimeStudy?.isLiveActive && (
+          <span
+            role="status"
+            aria-live="polite"
+            className="px-2.5 py-1 text-[11px] font-semibold rounded-lg border border-emerald-200 dark:border-emerald-800/80 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 inline-flex items-center gap-1.5 font-mono tabular-nums whitespace-nowrap"
+          >
+            <span
+              className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"
+              aria-hidden="true"
+            />
+            <span>LIVE {formatStudyDuration(realtimeStudy.sessionElapsedSeconds)}</span>
+            <span aria-hidden="true" className="text-emerald-500/60">·</span>
+            <span>{Math.floor(realtimeStudy.totalCourseStudySeconds / 60)}m total</span>
+          </span>
+        )}
         <button
           type="button"
           onClick={handleExportNotesMarkdown}

@@ -46,6 +46,7 @@ import {
   Trophy
 } from 'lucide-react';
 import {
+  AcceptedRegisteredStudent,
   UserProfile,
   ReadingProgress,
   StudyGuide,
@@ -67,6 +68,13 @@ import { DeepWorkMarathonChallenge } from './DeepWorkMarathonChallenge';
 import { DeepWorkMonthlySubjectSummary } from './DeepWorkMonthlySubjectSummary';
 import { DailyStudyGoalRingCard } from './DailyStudyGoalRingCard';
 import { useDailyStudyGoal } from '../hooks/useDailyStudyGoal';
+import { FocusStreakSection } from './FocusStreakSection';
+import { FocusIntensityTrendChart } from './FocusIntensityTrendChart';
+import { FocusBuddyPanel } from './FocusBuddyPanel';
+import {
+  computeFocusStreakMetrics,
+  syncFocusStreakGoalMetDate,
+} from '../utils/focusStreakSystem';
 import { RealtimeStudyBanner } from './RealtimeStudyBanner';
 import { AcademicCategoryKey } from '../data/academicCatalog';
 import { AchievementBadgesSection } from './AchievementBadgesSection';
@@ -97,6 +105,7 @@ interface UserActivityDashboardTabProps {
   readingProgress: Record<string, ReadingProgress>;
   studyGuides: StudyGuide[];
   enrollments?: EnrolledStudentRecord[];
+  acceptedStudents?: AcceptedRegisteredStudent[];
   onNavigateToCourse?: (guideId: string) => void;
   onStartStudyRoom?: (courseTitle: string, courseId: string, roomId?: string) => void;
   onOpenFacultyPortal?: () => void;
@@ -122,10 +131,13 @@ interface UserActivityDashboardTabProps {
   deepWork?: {
     state: DeepWorkState;
     focusIntensity: FocusIntensityMetrics;
+    lastAutoCompletedSessionId?: string | null;
+    onDismissAutoCompleted?: () => void;
+    onUpdateSessionReflection?: (sessionId: string, reflectionNotes: string) => void;
     onToggleDeepWork: () => void;
     onStartDeepWork: (minutes?: number, guideId?: string) => void;
     onPauseResume: () => void;
-    onCompleteSession: () => void;
+    onCompleteSession: (reflectionNotes?: string) => void;
     onEndEarly: () => void;
     onSelectPlannedMinutes: (minutes: number) => void;
     onSelectLinkedGuide: (guideId: string) => void;
@@ -145,6 +157,7 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
   readingProgress,
   studyGuides,
   enrollments = [],
+  acceptedStudents = [],
   onNavigateToCourse,
   onStartStudyRoom,
   onOpenFacultyPortal,
@@ -174,6 +187,7 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
   const {
     dailyGoalHours,
     setDailyGoalHours,
+    setDailyGoalDuration,
     metrics: dailyGoalMetrics,
   } = useDailyStudyGoal({
     userId: user.id || 'user_88219',
@@ -182,6 +196,38 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
     pomodoroLive,
     deepWorkState: deepWork?.state,
   });
+
+  const focusStreakMetrics = useMemo(
+    () =>
+      computeFocusStreakMetrics({
+        userId: user.id || 'user_88219',
+        dailyGoalHours,
+        todayTotalMinutes: dailyGoalMetrics.todayTotalMinutes,
+        isGoalMetToday: dailyGoalMetrics.isGoalMet,
+        deepWorkState: deepWork?.state,
+        pomodoroLogs,
+      }),
+    [
+      user.id,
+      dailyGoalHours,
+      dailyGoalMetrics.todayTotalMinutes,
+      dailyGoalMetrics.isGoalMet,
+      deepWork?.state,
+      pomodoroLogs,
+    ]
+  );
+
+  useEffect(() => {
+    syncFocusStreakGoalMetDate({
+      userId: user.id || 'user_88219',
+      isGoalMetToday: dailyGoalMetrics.isGoalMet,
+      currentStreakDays: focusStreakMetrics.currentStreakDays,
+    });
+  }, [
+    user.id,
+    dailyGoalMetrics.isGoalMet,
+    focusStreakMetrics.currentStreakDays,
+  ]);
 
   const [timeframe, setTimeframe] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
   const [velocityFilter, setVelocityFilter] = useState<'all' | 'active'>('all');
@@ -813,6 +859,9 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
           state={deepWork.state}
           focusIntensity={deepWork.focusIntensity}
           studyGuides={studyGuides}
+          lastAutoCompletedSessionId={deepWork.lastAutoCompletedSessionId}
+          onDismissAutoCompleted={deepWork.onDismissAutoCompleted}
+          onUpdateSessionReflection={deepWork.onUpdateSessionReflection}
           onToggleDeepWork={deepWork.onToggleDeepWork}
           onStartDeepWork={deepWork.onStartDeepWork}
           onPauseResume={deepWork.onPauseResume}
@@ -835,10 +884,11 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
         />
       )}
 
-      {/* Daily Study Hour Goal & Real-Time Progress Ring (Pomodoro + Deep Work) */}
+      {/* Daily Focus Duration Goal (Hours & Minutes) + Progress Bar & Progress Ring */}
       <DailyStudyGoalRingCard
         metrics={dailyGoalMetrics}
         onChangeGoalHours={setDailyGoalHours}
+        onChangeGoalDuration={setDailyGoalDuration}
         isDeepWorkActive={Boolean(deepWork?.state.isActive)}
         isPomodoroRunning={Boolean(pomodoroLive?.isRunning && pomodoroLive.phase === 'focus')}
         onStartDeepWork={
@@ -847,6 +897,14 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
             : undefined
         }
         onTogglePomodoro={pomodoroLive?.onStartPause}
+      />
+
+      {/* Focus Streak System & Escalating Tier Badges (Bronze, Silver, Gold, Platinum) */}
+      <FocusStreakSection
+        metrics={focusStreakMetrics}
+        dailyGoalHours={dailyGoalHours}
+        isDeepWorkActive={isDeepWorkActive}
+        onStartDeepWork={deepWork?.onStartDeepWork}
       />
 
       {/* D3 30-Day Deep Work Heatmap & Peak Productivity Analysis */}
@@ -858,7 +916,14 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
         onStartDeepWork={deepWork?.onStartDeepWork}
       />
 
-      {/* Weekly Focus Challenge & Digital Badge Rewards */}
+      {/* Recharts 30-Day Daily Focus Intensity Trend Line Chart */}
+      <FocusIntensityTrendChart
+        deepWorkState={deepWork?.state}
+        pomodoroLogs={pomodoroLogs}
+        studyGuides={studyGuides}
+      />
+
+      {/* Weekly Focus Challenge & Days Remaining Visual Tracker */}
       <WeeklyFocusChallenge
         deepWorkState={deepWork?.state}
         learnerName={user.name}
@@ -882,6 +947,19 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
         onStartDeepWork={deepWork?.onStartDeepWork}
       />
 
+      {/* Focus Buddy System (Same-Course Study Hour Collaboration Matcher) */}
+      <FocusBuddyPanel
+        user={user}
+        studyGuides={studyGuides}
+        enrollments={enrollments}
+        acceptedStudents={acceptedStudents}
+        deepWorkState={deepWork?.state}
+        focusIntensity={deepWork?.focusIntensity}
+        isDeepWorkActive={isDeepWorkActive}
+        onStartDeepWork={deepWork?.onStartDeepWork}
+        onStartStudyRoom={onStartStudyRoom}
+      />
+
       {/* Focus AI Mode Toggle & Gemini Study Priority Recommendations (muted during Deep Work) */}
       {!isDeepWorkActive && (
         <FocusAiPanel
@@ -896,13 +974,14 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
         />
       )}
 
-      {/* Editable Scholar Profile Card (hidden during Deep Work) */}
+      {/* Editable Scholar Profile Card with Escalating Focus Streak Tier Badges (hidden during Deep Work) */}
       {!isDeepWorkActive && onUpdateProfile && (
         <ProfileEditCard
           user={user}
           onUpdateProfile={onUpdateProfile}
           syncedFocusMinutes={syncedFocusMinutes}
           completedSessions={completedPomodoroSessions}
+          focusStreak={focusStreakMetrics}
         />
       )}
 

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Award,
+  Calendar,
   CheckCircle2,
   Clock,
   Download,
@@ -311,6 +312,107 @@ export const WeeklyFocusChallenge: React.FC<WeeklyFocusChallengeProps> = ({
           <span>{newlyUnlockedNotice}</span>
         </div>
       )}
+
+      {/* Explicit Days Remaining Before Reset & Next Milestone Runway Tracker */}
+      <div className="p-4 sm:p-5 rounded-xl border border-amber-200 dark:border-amber-800/70 bg-amber-50/40 dark:bg-amber-950/20 space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2 text-xs font-bold text-amber-800 dark:text-amber-300">
+              <Calendar className="w-4 h-4 shrink-0" />
+              <span>
+                Cycle Countdown: {metrics.daysRemainingInWeek} Day
+                {metrics.daysRemainingInWeek === 1 ? '' : 's'} Remaining Before Weekly Reset
+              </span>
+            </div>
+            <p className="text-xs text-stone-600 dark:text-stone-400">
+              {metrics.resetCountdownLabel} · Day {metrics.daysElapsedInWeek} of 7 in current Monday–Sunday focus cycle
+            </p>
+          </div>
+
+          <div className="text-left md:text-right font-mono tabular-nums text-xs">
+            {metrics.nextMilestone ? (
+              <>
+                <div className="font-bold text-stone-900 dark:text-stone-100">
+                  Next Milestone: {metrics.nextMilestone.badgeTitle} ({metrics.nextMilestone.targetHours}h)
+                </div>
+                <div className="text-stone-600 dark:text-stone-400">
+                  {(metrics.nextMilestone.remainingMinutes / 60).toFixed(1)}h left · Pace needed:{' '}
+                  <span className="font-bold text-emerald-700 dark:text-emerald-400">
+                    {metrics.requiredDailyHoursForNext.toFixed(1)}h/day
+                  </span>
+                </div>
+              </>
+            ) : (
+              <div className="font-bold text-emerald-700 dark:text-emerald-400">
+                All Weekly Challenge Milestones Unlocked Before Reset
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 7-Day Mon-Sun Visual Runway */}
+        <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+          {metrics.dailyBreakdown.map((day) => (
+            <div
+              key={day.dateKey}
+              className={`rounded-lg border p-2 text-center transition-colors ${
+                day.isToday
+                  ? 'border-amber-400 dark:border-amber-600 bg-white dark:bg-stone-900 shadow-2xs'
+                  : day.isPast
+                  ? 'border-stone-200 dark:border-stone-800 bg-stone-100/80 dark:bg-stone-900/70'
+                  : 'border-dashed border-emerald-300 dark:border-emerald-700/70 bg-emerald-50/40 dark:bg-emerald-950/20'
+              }`}
+            >
+              <div className="text-[10px] font-mono font-bold uppercase text-stone-700 dark:text-stone-300">
+                {day.dayLabel}
+              </div>
+              <div className="text-[10px] font-mono tabular-nums text-stone-500 dark:text-stone-400">
+                {day.shortDate.split(' ')[1]}
+              </div>
+              <div className="mt-1.5 text-[11px] font-mono tabular-nums font-bold">
+                {day.minutes > 0 ? (
+                  <span className="text-emerald-700 dark:text-emerald-400">
+                    {day.minutes}m
+                  </span>
+                ) : day.isToday ? (
+                  <span className="text-amber-700 dark:text-amber-400">Today</span>
+                ) : day.isPast ? (
+                  <span className="text-stone-400">0m</span>
+                ) : (
+                  <span className="text-emerald-700 dark:text-emerald-400">Open</span>
+                )}
+              </div>
+              <div className="mt-1 text-[9px] font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400">
+                {day.isToday
+                  ? metrics.daysRemainingInWeek === 1
+                    ? 'Reset Day'
+                    : 'Active'
+                  : day.isPast
+                  ? 'Logged'
+                  : 'Left'}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Visual Cycle Elapsed vs Remaining Bar */}
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-[11px] font-mono tabular-nums text-stone-600 dark:text-stone-400">
+            <span>
+              Cycle Progress: {metrics.daysElapsedInWeek}/7 days elapsed
+            </span>
+            <span className="font-bold text-amber-800 dark:text-amber-300">
+              {metrics.daysRemainingInWeek} day{metrics.daysRemainingInWeek === 1 ? '' : 's'} left before reset
+            </span>
+          </div>
+          <div className="h-2 w-full rounded-full bg-stone-200 dark:bg-stone-800 overflow-hidden flex">
+            <div
+              className="h-full bg-emerald-600 transition-all duration-300"
+              style={{ width: `${Math.round((metrics.daysElapsedInWeek / 7) * 100)}%` }}
+            />
+          </div>
+        </div>
+      </div>
 
       {/* Primary '10 Hours of Deep Work' Progress Tracker */}
       <div className="p-4 sm:p-5 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950/60 space-y-3">

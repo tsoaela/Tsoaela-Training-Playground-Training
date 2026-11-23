@@ -1094,6 +1094,7 @@ export interface DeepWorkSessionRecord {
   startedAt: string;
   endedAt: string;
   distractionsBlockedCount: number;
+  reflectionNotes?: string;
 }
 
 export interface DeepWorkState {
@@ -1194,6 +1195,7 @@ export interface FacultyLectureSeries {
 
 export interface DailyStudyGoalMetrics {
   dailyGoalHours: number;
+  dailyGoalMinutes: number;
   todayTotalMinutes: number;
   todayTotalHours: number;
   pomodoroMinutesToday: number;

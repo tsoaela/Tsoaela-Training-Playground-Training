@@ -2236,6 +2236,7 @@ export default function App() {
             readingProgress={readingProgress}
             studyGuides={studyGuides}
             enrollments={enrollments}
+            acceptedStudents={acceptedStudentsHook.students}
             onNavigateToCourse={(guideId) => {
               setTargetStudyGuideId(guideId);
               setActiveTab('educare');
@@ -2280,6 +2281,9 @@ export default function App() {
             deepWork={{
               state: deepWork.state,
               focusIntensity: deepWork.focusIntensity,
+              lastAutoCompletedSessionId: deepWork.lastAutoCompletedSessionId,
+              onDismissAutoCompleted: deepWork.clearLastAutoCompletedSession,
+              onUpdateSessionReflection: deepWork.updateSessionReflection,
               onToggleDeepWork: deepWork.toggleDeepWork,
               onStartDeepWork: deepWork.startDeepWork,
               onPauseResume: deepWork.pauseResumeDeepWork,

@@ -44,8 +44,8 @@ export function useDailyStudyGoal({
       const raw = localStorage.getItem(storageKey);
       if (raw) {
         const parsed = parseFloat(raw);
-        if (!Number.isNaN(parsed) && parsed >= 0.5 && parsed <= 12) {
-          return parseFloat(parsed.toFixed(2));
+        if (!Number.isNaN(parsed) && parsed >= 0.25 && parsed <= 12) {
+          return parseFloat((Math.round(parsed * 60) / 60).toFixed(4));
         }
       }
     } catch {
@@ -59,8 +59,8 @@ export function useDailyStudyGoal({
       const raw = localStorage.getItem(storageKey);
       if (raw) {
         const parsed = parseFloat(raw);
-        if (!Number.isNaN(parsed) && parsed >= 0.5 && parsed <= 12) {
-          setDailyGoalHoursState(parseFloat(parsed.toFixed(2)));
+        if (!Number.isNaN(parsed) && parsed >= 0.25 && parsed <= 12) {
+          setDailyGoalHoursState(parseFloat((Math.round(parsed * 60) / 60).toFixed(4)));
         }
       }
     } catch {
@@ -70,8 +70,24 @@ export function useDailyStudyGoal({
 
   const setDailyGoalHours = useCallback(
     (nextHours: number) => {
-      const clamped = Math.min(12, Math.max(0.5, Number(nextHours) || 2.0));
-      const normalized = parseFloat(clamped.toFixed(2));
+      const totalMins = Math.min(720, Math.max(15, Math.round((Number(nextHours) || 2.0) * 60)));
+      const normalized = parseFloat((totalMins / 60).toFixed(4));
+      setDailyGoalHoursState(normalized);
+      try {
+        localStorage.setItem(storageKey, String(normalized));
+      } catch {
+        // ignore storage quota errors
+      }
+    },
+    [storageKey]
+  );
+
+  const setDailyGoalDuration = useCallback(
+    (hours: number, minutes: number) => {
+      const safeHours = Math.max(0, Math.min(12, Math.floor(Number(hours) || 0)));
+      const safeMinutes = Math.max(0, Math.min(59, Math.floor(Number(minutes) || 0)));
+      const totalMins = Math.min(720, Math.max(15, safeHours * 60 + safeMinutes));
+      const normalized = parseFloat((totalMins / 60).toFixed(4));
       setDailyGoalHoursState(normalized);
       try {
         localStorage.setItem(storageKey, String(normalized));
@@ -147,7 +163,7 @@ export function useDailyStudyGoal({
       (pomodoroMinutesToday + deepWorkMinutesToday).toFixed(1)
     );
     const todayTotalHours = parseFloat((todayTotalMinutes / 60).toFixed(2));
-    const goalMinutes = Math.max(30, Math.round(dailyGoalHours * 60));
+    const goalMinutes = Math.min(720, Math.max(15, Math.round(dailyGoalHours * 60)));
 
     const completionPercent = Math.min(
       100,
@@ -158,6 +174,7 @@ export function useDailyStudyGoal({
 
     return {
       dailyGoalHours,
+      dailyGoalMinutes: goalMinutes,
       todayTotalMinutes,
       todayTotalHours,
       pomodoroMinutesToday,
@@ -184,7 +201,9 @@ export function useDailyStudyGoal({
 
   return {
     dailyGoalHours,
+    dailyGoalMinutes: metrics.dailyGoalMinutes,
     setDailyGoalHours,
+    setDailyGoalDuration,
     metrics,
   };
 }

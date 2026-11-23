@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { UserProfile } from '../types';
 import { Pencil, Check, X, Building2, BookOpen, Mail, User as UserIcon } from 'lucide-react';
+import { FocusStreakMetrics } from '../utils/focusStreakSystem';
+import { ProfileFocusStreakBadges } from './FocusStreakSection';
 
 interface ProfileEditCardProps {
   user: UserProfile;
   onUpdateProfile: (updates: Partial<UserProfile>) => void;
   syncedFocusMinutes?: number;
   completedSessions?: number;
+  focusStreak?: FocusStreakMetrics;
 }
 
 export const ProfileEditCard: React.FC<ProfileEditCardProps> = ({
@@ -14,6 +17,7 @@ export const ProfileEditCard: React.FC<ProfileEditCardProps> = ({
   onUpdateProfile,
   syncedFocusMinutes = 0,
   completedSessions = 0,
+  focusStreak,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(user.name);
@@ -144,6 +148,8 @@ export const ProfileEditCard: React.FC<ProfileEditCardProps> = ({
           )}
         </div>
       </div>
+
+      {focusStreak && <ProfileFocusStreakBadges focusStreak={focusStreak} />}
 
       {isEditing && (
         <form

@@ -12,39 +12,55 @@ import { DailyStudyGoalMetrics } from '../types';
 interface DailyStudyGoalRingCardProps {
   metrics: DailyStudyGoalMetrics;
   onChangeGoalHours: (hours: number) => void;
+  onChangeGoalDuration?: (hours: number, minutes: number) => void;
   isDeepWorkActive?: boolean;
   isPomodoroRunning?: boolean;
   onStartDeepWork?: () => void;
   onTogglePomodoro?: () => void;
 }
 
-const GOAL_PRESETS = [1.0, 1.5, 2.0, 3.0, 4.0];
+const DURATION_PRESETS: Array<{ hours: number; minutes: number; label: string }> = [
+  { hours: 1, minutes: 0, label: '1h 00m' },
+  { hours: 1, minutes: 30, label: '1h 30m' },
+  { hours: 2, minutes: 0, label: '2h 00m' },
+  { hours: 2, minutes: 30, label: '2h 30m' },
+  { hours: 3, minutes: 0, label: '3h 00m' },
+  { hours: 4, minutes: 0, label: '4h 00m' },
+];
 
 function formatMinutesLabel(totalMins: number): string {
   const safe = Math.max(0, Math.round(totalMins));
   const hrs = Math.floor(safe / 60);
   const mins = safe % 60;
   if (hrs === 0) return `${mins}m`;
-  if (mins === 0) return `${hrs}h`;
-  return `${hrs}h ${mins}m`;
+  if (mins === 0) return `${hrs}h 00m`;
+  return `${hrs}h ${String(mins).padStart(2, '0')}m`;
 }
 
 export const DailyStudyGoalRingCard: React.FC<DailyStudyGoalRingCardProps> = ({
   metrics,
   onChangeGoalHours,
+  onChangeGoalDuration,
   isDeepWorkActive = false,
   isPomodoroRunning = false,
   onStartDeepWork,
   onTogglePomodoro,
 }) => {
-  const [customGoalInput, setCustomGoalInput] = useState<string>(
-    metrics.dailyGoalHours.toFixed(1)
+  const targetTotalMinutes =
+    metrics.dailyGoalMinutes || Math.round(metrics.dailyGoalHours * 60);
+
+  const [hoursInput, setHoursInput] = useState<number>(
+    Math.floor(targetTotalMinutes / 60)
+  );
+  const [minutesInput, setMinutesInput] = useState<number>(
+    targetTotalMinutes % 60
   );
   const [savedNotice, setSavedNotice] = useState<string | null>(null);
 
   useEffect(() => {
-    setCustomGoalInput(metrics.dailyGoalHours.toFixed(1));
-  }, [metrics.dailyGoalHours]);
+    setHoursInput(Math.floor(targetTotalMinutes / 60));
+    setMinutesInput(targetTotalMinutes % 60);
+  }, [targetTotalMinutes]);
 
   // SVG Ring Geometry
   const size = 176;
@@ -54,23 +70,43 @@ export const DailyStudyGoalRingCard: React.FC<DailyStudyGoalRingCardProps> = ({
   const clampedPct = Math.min(100, Math.max(0, metrics.completionPercent));
   const strokeDashoffset = circumference - (clampedPct / 100) * circumference;
 
-  const handleApplyCustomGoal = (e: React.FormEvent) => {
-    e.preventDefault();
-    const parsed = parseFloat(customGoalInput);
-    if (Number.isNaN(parsed)) return;
-    const clamped = Math.min(12, Math.max(0.5, parsed));
-    onChangeGoalHours(clamped);
-    setSavedNotice(`Daily target updated to ${clamped.toFixed(1)}h`);
+  const applyDuration = (hrs: number, mins: number) => {
+    const safeHrs = Math.max(0, Math.min(12, Math.floor(hrs) || 0));
+    const safeMins = Math.max(0, Math.min(59, Math.floor(mins) || 0));
+    const total = Math.min(720, Math.max(15, safeHrs * 60 + safeMins));
+
+    if (onChangeGoalDuration) {
+      onChangeGoalDuration(Math.floor(total / 60), total % 60);
+    } else {
+      onChangeGoalHours(total / 60);
+    }
+    setSavedNotice(
+      `Daily Focus Duration Goal updated to ${formatMinutesLabel(total)}`
+    );
     window.setTimeout(() => setSavedNotice(null), 2600);
   };
 
-  const handleSelectPreset = (hours: number) => {
-    onChangeGoalHours(hours);
-    setSavedNotice(`Daily target set to ${hours.toFixed(1)}h`);
-    window.setTimeout(() => setSavedNotice(null), 2200);
+  const handleApplyCustomGoal = (e: React.FormEvent) => {
+    e.preventDefault();
+    applyDuration(hoursInput, minutesInput);
+  };
+
+  const handleSelectPreset = (hrs: number, mins: number) => {
+    setHoursInput(hrs);
+    setMinutesInput(mins);
+    applyDuration(hrs, mins);
   };
 
   const isLiveTicking = isDeepWorkActive || isPomodoroRunning;
+
+  const deepWorkBarPct = Math.min(
+    100,
+    Math.round((metrics.deepWorkMinutesToday / Math.max(1, targetTotalMinutes)) * 100)
+  );
+  const pomodoroBarPct = Math.min(
+    Math.max(0, 100 - deepWorkBarPct),
+    Math.round((metrics.pomodoroMinutesToday / Math.max(1, targetTotalMinutes)) * 100)
+  );
 
   return (
     <section
@@ -82,20 +118,20 @@ export const DailyStudyGoalRingCard: React.FC<DailyStudyGoalRingCardProps> = ({
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wider text-purple-700 dark:text-purple-400">
             <Target className="w-3.5 h-3.5" />
-            <span>Daily Study Hour Goal</span>
+            <span>Daily Focus Duration Goal</span>
             <span aria-hidden="true">·</span>
             <span className="font-mono text-stone-500 dark:text-stone-400 normal-case font-medium">
-              Synced with Pomodoro &amp; Deep Work Timers
+              Hours &amp; Minutes · Synced with Pomodoro &amp; Deep Work
             </span>
           </div>
           <h2
             id="daily-study-goal-heading"
             className="text-xl font-bold tracking-tight text-stone-900 dark:text-stone-100"
           >
-            Today’s Study Target &amp; Progress Ring
+            Daily Focus Duration Goal &amp; Progress Tracker
           </h2>
           <p className="text-xs text-stone-500 dark:text-stone-400 max-w-2xl">
-            Set your daily focus target in hours. Every completed or active Pomodoro interval and Deep Work block updates your progress ring in real time.
+            Set your daily focus target in hours and minutes. Completed and active Deep Work blocks and Pomodoro focus intervals update your progress bar and progress ring in real time.
           </p>
         </div>
 
@@ -120,6 +156,69 @@ export const DailyStudyGoalRingCard: React.FC<DailyStudyGoalRingCardProps> = ({
         </div>
       </div>
 
+      {/* Dedicated Daily Focus Duration Progress Bar */}
+      <div className="p-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950/60 space-y-2.5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-bold text-stone-900 dark:text-stone-100">
+              Today’s Focus Progress
+            </span>
+            <span aria-hidden="true" className="text-stone-400">·</span>
+            <span className="font-mono tabular-nums text-stone-700 dark:text-stone-300 font-semibold">
+              {formatMinutesLabel(metrics.todayTotalMinutes)} / {formatMinutesLabel(targetTotalMinutes)}
+            </span>
+          </div>
+          <span
+            className={`font-mono tabular-nums font-bold ${
+              metrics.isGoalMet
+                ? 'text-emerald-700 dark:text-emerald-400'
+                : 'text-purple-700 dark:text-purple-400'
+            }`}
+          >
+            {clampedPct}% of daily goal
+            {metrics.isGoalMet
+              ? metrics.surplusMinutes > 0
+                ? ` (+${formatMinutesLabel(metrics.surplusMinutes)} bonus)`
+                : ' (Target Met)'
+              : ` · ${formatMinutesLabel(metrics.remainingMinutes)} to go`}
+          </span>
+        </div>
+
+        <div
+          role="progressbar"
+          aria-label="Daily Focus Duration Goal completion"
+          aria-valuenow={clampedPct}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          className="h-3.5 w-full rounded-full bg-stone-200 dark:bg-stone-800 overflow-hidden flex"
+        >
+          <div
+            className="h-full bg-emerald-500 transition-all duration-300"
+            style={{ width: `${deepWorkBarPct}%` }}
+            title={`Deep Work today: ${formatMinutesLabel(metrics.deepWorkMinutesToday)}`}
+          />
+          <div
+            className="h-full bg-amber-500 transition-all duration-300"
+            style={{ width: `${pomodoroBarPct}%` }}
+            title={`Pomodoro focus today: ${formatMinutesLabel(metrics.pomodoroMinutesToday)}`}
+          />
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono tabular-nums text-stone-500 dark:text-stone-400">
+          <div className="flex flex-wrap items-center gap-4">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-xs bg-emerald-500 inline-block" />
+              <span>Deep Work: {formatMinutesLabel(metrics.deepWorkMinutesToday)}</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-xs bg-amber-500 inline-block" />
+              <span>Pomodoro: {formatMinutesLabel(metrics.pomodoroMinutesToday)}</span>
+            </span>
+          </div>
+          <span>Goal: {formatMinutesLabel(targetTotalMinutes)}</span>
+        </div>
+      </div>
+
       {/* Main Content: Left Ring + Right Controls & Source Breakdown */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
         {/* Progress Ring */}
@@ -131,7 +230,7 @@ export const DailyStudyGoalRingCard: React.FC<DailyStudyGoalRingCardProps> = ({
               viewBox={`0 0 ${size} ${size}`}
               className="-rotate-90"
               role="img"
-              aria-label={`Daily study goal progress: ${metrics.completionPercent}% (${metrics.todayTotalHours} of ${metrics.dailyGoalHours} hours)`}
+              aria-label={`Daily focus duration goal ring: ${metrics.completionPercent}% (${formatMinutesLabel(metrics.todayTotalMinutes)} of ${formatMinutesLabel(targetTotalMinutes)})`}
             >
               <circle
                 cx={size / 2}
@@ -167,21 +266,16 @@ export const DailyStudyGoalRingCard: React.FC<DailyStudyGoalRingCardProps> = ({
                 {metrics.completionPercent}%
               </span>
               <span className="text-xs font-mono tabular-nums font-bold text-stone-700 dark:text-stone-300 mt-0.5">
-                {metrics.todayTotalHours.toFixed(2)} / {metrics.dailyGoalHours.toFixed(1)}h
+                {formatMinutesLabel(metrics.todayTotalMinutes)}
               </span>
-              <span className="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5">
-                {metrics.isGoalMet
-                  ? metrics.surplusMinutes > 0
-                    ? `+${formatMinutesLabel(metrics.surplusMinutes)} bonus`
-                    : 'Target achieved'
-                  : `${formatMinutesLabel(metrics.remainingMinutes)} left`}
+              <span className="text-[11px] font-mono tabular-nums text-stone-500 dark:text-stone-400">
+                of {formatMinutesLabel(targetTotalMinutes)}
               </span>
             </div>
           </div>
 
           <div className="mt-3 text-[11px] font-mono tabular-nums text-stone-500 dark:text-stone-400 text-center">
-            {metrics.todayTotalMinutes.toFixed(0)} min logged today · Target{' '}
-            {Math.round(metrics.dailyGoalHours * 60)} min
+            {Math.round(metrics.todayTotalMinutes)} min logged today · Target {targetTotalMinutes} min
           </div>
         </div>
 
@@ -231,11 +325,11 @@ export const DailyStudyGoalRingCard: React.FC<DailyStudyGoalRingCardProps> = ({
             </div>
           </div>
 
-          {/* Goal Configuration Controls */}
+          {/* Goal Configuration Controls (Hours + Minutes) */}
           <div className="p-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-950/50 space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <span className="text-xs font-bold text-stone-900 dark:text-stone-100">
-                Configure Daily Study Hour Goal
+                Set Daily Focus Duration Goal (Hours &amp; Minutes)
               </span>
               {savedNotice && (
                 <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 inline-flex items-center gap-1">
@@ -245,49 +339,67 @@ export const DailyStudyGoalRingCard: React.FC<DailyStudyGoalRingCardProps> = ({
               )}
             </div>
 
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-              {/* Quick Presets */}
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+              {/* Quick Duration Presets */}
               <div className="flex flex-wrap items-center gap-1.5">
-                {GOAL_PRESETS.map((preset) => {
-                  const isActive = Math.abs(metrics.dailyGoalHours - preset) < 0.05;
+                {DURATION_PRESETS.map((preset) => {
+                  const presetMins = preset.hours * 60 + preset.minutes;
+                  const isActive = Math.abs(targetTotalMinutes - presetMins) <= 1;
                   return (
                     <button
-                      key={preset}
+                      key={preset.label}
                       type="button"
-                      onClick={() => handleSelectPreset(preset)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-mono tabular-nums font-semibold transition-colors cursor-pointer border whitespace-nowrap shrink-0 ${
+                      onClick={() => handleSelectPreset(preset.hours, preset.minutes)}
+                      className={`px-2.5 py-1.5 rounded-lg text-xs font-mono tabular-nums font-semibold transition-colors cursor-pointer border whitespace-nowrap shrink-0 ${
                         isActive
                           ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 border-stone-900 dark:border-stone-100'
                           : 'bg-white dark:bg-stone-900 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-700 hover:border-stone-400'
                       }`}
                     >
-                      {preset.toFixed(1)}h
+                      {preset.label}
                     </button>
                   );
                 })}
               </div>
 
-              {/* Custom Input */}
+              {/* Custom Hours & Minutes Input */}
               <form
                 onSubmit={handleApplyCustomGoal}
-                className="flex items-center gap-2 shrink-0"
+                className="flex flex-wrap items-center gap-2 shrink-0"
               >
-                <label
-                  htmlFor="daily-study-goal-input"
-                  className="text-xs font-medium text-stone-600 dark:text-stone-400 whitespace-nowrap"
-                >
-                  Custom (hrs):
+                <label className="inline-flex items-center gap-1 text-xs font-medium text-stone-600 dark:text-stone-400">
+                  <input
+                    id="daily-focus-goal-hours-input"
+                    aria-label="Daily focus goal hours"
+                    type="number"
+                    min={0}
+                    max={12}
+                    value={hoursInput}
+                    onChange={(e) =>
+                      setHoursInput(Math.max(0, Math.min(12, Number(e.target.value) || 0)))
+                    }
+                    className="w-16 px-2 py-1.5 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-xs font-mono tabular-nums font-bold text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-purple-600"
+                  />
+                  <span>hrs</span>
                 </label>
-                <input
-                  id="daily-study-goal-input"
-                  type="number"
-                  step="0.5"
-                  min="0.5"
-                  max="12"
-                  value={customGoalInput}
-                  onChange={(e) => setCustomGoalInput(e.target.value)}
-                  className="w-20 px-2.5 py-1.5 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-xs font-mono tabular-nums font-bold text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-purple-600"
-                />
+
+                <label className="inline-flex items-center gap-1 text-xs font-medium text-stone-600 dark:text-stone-400">
+                  <input
+                    id="daily-focus-goal-minutes-input"
+                    aria-label="Daily focus goal minutes"
+                    type="number"
+                    min={0}
+                    max={59}
+                    step={5}
+                    value={minutesInput}
+                    onChange={(e) =>
+                      setMinutesInput(Math.max(0, Math.min(59, Number(e.target.value) || 0)))
+                    }
+                    className="w-16 px-2 py-1.5 rounded-lg border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 text-xs font-mono tabular-nums font-bold text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-purple-600"
+                  />
+                  <span>min</span>
+                </label>
+
                 <button
                   type="submit"
                   className="px-3.5 py-1.5 rounded-lg bg-purple-700 hover:bg-purple-800 text-white text-xs font-semibold cursor-pointer whitespace-nowrap shrink-0 transition-colors"

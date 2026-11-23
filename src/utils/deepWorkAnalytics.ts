@@ -363,19 +363,35 @@ export interface WeeklyChallengeMilestone {
   remainingMinutes: number;
 }
 
+export interface WeeklyDayProgressCell {
+  dateKey: string;
+  dayLabel: string;
+  shortDate: string;
+  minutes: number;
+  hours: number;
+  isToday: boolean;
+  isPast: boolean;
+  isRemaining: boolean;
+}
+
 export interface WeeklyFocusChallengeMetrics {
   weekKey: string;
   weekRangeLabel: string;
+  daysElapsedInWeek: number;
   daysRemainingInWeek: number;
+  resetCountdownLabel: string;
   weeklyMinutes: number;
   weeklyHours: number;
   weeklyCompletedBlocks: number;
   weeklyInterruptedBlocks: number;
   weeklyDistractionsBlocked: number;
   liveSessionMinutesAdded: number;
+  dailyBreakdown: WeeklyDayProgressCell[];
   milestones: WeeklyChallengeMilestone[];
   unlockedCount: number;
   nextMilestone: WeeklyChallengeMilestone | null;
+  requiredDailyHoursForNext: number;
+  onTrackForNextMilestone: boolean;
   primaryTargetHours: number; // 10 Hours of Deep Work
   primaryProgressPercent: number;
 }
@@ -413,8 +429,21 @@ export function computeWeeklyFocusChallengeMetrics(params: {
 
   const todayMidnight = new Date(now);
   todayMidnight.setHours(0, 0, 0, 0);
-  const daysElapsed = Math.floor((todayMidnight.getTime() - mondayTs) / 86400000);
-  const daysRemainingInWeek = Math.max(1, 7 - daysElapsed);
+  const todayKey = toLocalDateKey(todayMidnight);
+  const daysElapsedIndex = Math.min(
+    6,
+    Math.max(0, Math.floor((todayMidnight.getTime() - mondayTs) / 86400000))
+  );
+  const daysElapsedInWeek = daysElapsedIndex + 1; // 1..7
+  const daysRemainingInWeek = Math.max(1, 7 - daysElapsedIndex); // includes today as active remaining day
+
+  const nextResetDate = new Date(monday);
+  nextResetDate.setDate(monday.getDate() + 7);
+  const resetCountdownLabel = `Resets ${nextResetDate.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  })} · 00:00`;
 
   const history = params.sessionsHistory ?? params.deepWorkState?.sessionsHistory ?? [];
 
@@ -423,11 +452,16 @@ export function computeWeeklyFocusChallengeMetrics(params: {
   let weeklyInterruptedBlocks = 0;
   let weeklyDistractionsBlocked = 0;
 
+  const dailyMinutesMap = new Map<string, number>();
+
   history.forEach((rec) => {
     const dt = new Date(rec.startedAt);
     const ts = dt.getTime();
     if (Number.isNaN(ts) || ts < mondayTs || ts > sundayTs) return;
-    weeklyMinutes += Math.max(0, rec.elapsedMinutes || 0);
+    const mins = Math.max(0, rec.elapsedMinutes || 0);
+    weeklyMinutes += mins;
+    const dayKey = toLocalDateKey(dt);
+    dailyMinutesMap.set(dayKey, (dailyMinutesMap.get(dayKey) || 0) + mins);
     weeklyDistractionsBlocked += rec.distractionsBlockedCount || 0;
     if (rec.status === 'completed') {
       weeklyCompletedBlocks += 1;
@@ -442,8 +476,29 @@ export function computeWeeklyFocusChallengeMetrics(params: {
     const elapsedSecs = Math.max(0, totalSecs - params.deepWorkState.remainingSeconds);
     liveSessionMinutesAdded = Math.floor(elapsedSecs / 60);
     weeklyMinutes += liveSessionMinutesAdded;
+    dailyMinutesMap.set(
+      todayKey,
+      (dailyMinutesMap.get(todayKey) || 0) + liveSessionMinutesAdded
+    );
     weeklyDistractionsBlocked += params.deepWorkState.suppressedDistractionsCount || 0;
   }
+
+  const dailyBreakdown: WeeklyDayProgressCell[] = Array.from({ length: 7 }, (_, idx) => {
+    const dayDt = new Date(monday);
+    dayDt.setDate(monday.getDate() + idx);
+    const dKey = toLocalDateKey(dayDt);
+    const mins = Math.round(dailyMinutesMap.get(dKey) || 0);
+    return {
+      dateKey: dKey,
+      dayLabel: dayDt.toLocaleDateString('en-US', { weekday: 'short' }),
+      shortDate: dayDt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      minutes: mins,
+      hours: parseFloat((mins / 60).toFixed(2)),
+      isToday: dKey === todayKey,
+      isPast: idx < daysElapsedIndex,
+      isRemaining: idx >= daysElapsedIndex,
+    };
+  });
 
   const weeklyHours = parseFloat((weeklyMinutes / 60).toFixed(2));
 
@@ -510,6 +565,13 @@ export function computeWeeklyFocusChallengeMetrics(params: {
 
   const unlockedCount = milestones.filter((m) => m.unlocked).length;
   const nextMilestone = milestones.find((m) => !m.unlocked) || null;
+  const requiredDailyHoursForNext = nextMilestone
+    ? parseFloat((nextMilestone.remainingMinutes / 60 / daysRemainingInWeek).toFixed(2))
+    : 0;
+  const currentAvgDailyHours = weeklyHours / daysElapsedInWeek;
+  const onTrackForNextMilestone =
+    !nextMilestone || currentAvgDailyHours >= requiredDailyHoursForNext * 0.75;
+
   const primaryTargetHours = 10;
   const primaryProgressPercent = Math.min(
     100,
@@ -519,16 +581,21 @@ export function computeWeeklyFocusChallengeMetrics(params: {
   return {
     weekKey,
     weekRangeLabel,
+    daysElapsedInWeek,
     daysRemainingInWeek,
+    resetCountdownLabel,
     weeklyMinutes,
     weeklyHours,
     weeklyCompletedBlocks,
     weeklyInterruptedBlocks,
     weeklyDistractionsBlocked,
     liveSessionMinutesAdded,
+    dailyBreakdown,
     milestones,
     unlockedCount,
     nextMilestone,
+    requiredDailyHoursForNext,
+    onTrackForNextMilestone,
     primaryTargetHours,
     primaryProgressPercent,
   };
@@ -930,4 +997,405 @@ export function buildMonthlySubjectDeepWorkSummary(params: {
     completedSessions,
   };
 }
+
+// ----------------------------------------------------
+// 30-Day Daily Focus Intensity Trend & Peak Productivity Times
+// ----------------------------------------------------
+
+export interface DailyFocusIntensityPoint {
+  dateKey: string;
+  shortDate: string;
+  weekday: string;
+  isToday: boolean;
+  dailyFocusIntensity: number | null;
+  dailyFocusIntensityZeroed: number;
+  rolling7DayAvg: number | null;
+  completedMinutes: number;
+  interruptedMinutes: number;
+  totalMinutes: number;
+  sessionsCount: number;
+  peakSlotLabel: string | null;
+  topCourseTitle: string | null;
+}
+
+export interface TimeOfDayProductivityWindow {
+  id: 'morning' | 'afternoon' | 'evening' | 'late_night';
+  label: string;
+  rangeLabel: string;
+  totalMinutes: number;
+  totalHours: number;
+  sessionsCount: number;
+  avgIntensity: number;
+  isPeak: boolean;
+}
+
+export interface DailyFocusIntensityTrend30d {
+  points: DailyFocusIntensityPoint[];
+  avgIntensity30d: number;
+  activeDaysCount: number;
+  peakDayLabel: string | null;
+  peakDayScore: number;
+  trendDelta: number;
+  timeOfDayBreakdown: TimeOfDayProductivityWindow[];
+  peakProductivityWindowLabel: string;
+  peakProductivityWindowRange: string;
+}
+
+export function buildDailyFocusIntensityTrend30d(params: {
+  deepWorkState?: DeepWorkState;
+  pomodoroLogs?: PomodoroSessionLog[];
+  studyGuides?: StudyGuide[];
+  includePomodoroFocus?: boolean;
+}): DailyFocusIntensityTrend30d {
+  const {
+    deepWorkState,
+    pomodoroLogs = [],
+    studyGuides = [],
+    includePomodoroFocus = true,
+  } = params;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  interface DayBucket {
+    dateKey: string;
+    shortDate: string;
+    weekday: string;
+    isToday: boolean;
+    completedMinutes: number;
+    interruptedMinutes: number;
+    sessionsCount: number;
+    completedCount: number;
+    distractionsBlocked: number;
+    weightedIntensitySum: number;
+    totalWeight: number;
+    slotMinutes: Map<number, number>;
+    courseMinutes: Map<string, number>;
+  }
+
+  const orderedBuckets: DayBucket[] = [];
+  const bucketMap = new Map<string, DayBucket>();
+
+  for (let offset = 29; offset >= 0; offset -= 1) {
+    const dt = new Date(today);
+    dt.setDate(today.getDate() - offset);
+    const dateKey = toLocalDateKey(dt);
+    const bucket: DayBucket = {
+      dateKey,
+      shortDate: dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      weekday: dt.toLocaleDateString('en-US', { weekday: 'short' }),
+      isToday: offset === 0,
+      completedMinutes: 0,
+      interruptedMinutes: 0,
+      sessionsCount: 0,
+      completedCount: 0,
+      distractionsBlocked: 0,
+      weightedIntensitySum: 0,
+      totalWeight: 0,
+      slotMinutes: new Map(),
+      courseMinutes: new Map(),
+    };
+    orderedBuckets.push(bucket);
+    bucketMap.set(dateKey, bucket);
+  }
+
+  const windowBuckets: Record<
+    TimeOfDayProductivityWindow['id'],
+    {
+      label: string;
+      rangeLabel: string;
+      totalMinutes: number;
+      sessionsCount: number;
+      intensitySum: number;
+    }
+  > = {
+    morning: {
+      label: 'Morning Peak',
+      rangeLabel: '06:00 – 12:00',
+      totalMinutes: 0,
+      sessionsCount: 0,
+      intensitySum: 0,
+    },
+    afternoon: {
+      label: 'Afternoon Block',
+      rangeLabel: '12:00 – 18:00',
+      totalMinutes: 0,
+      sessionsCount: 0,
+      intensitySum: 0,
+    },
+    evening: {
+      label: 'Evening Flow',
+      rangeLabel: '18:00 – 24:00',
+      totalMinutes: 0,
+      sessionsCount: 0,
+      intensitySum: 0,
+    },
+    late_night: {
+      label: 'Late Night',
+      rangeLabel: '00:00 – 06:00',
+      totalMinutes: 0,
+      sessionsCount: 0,
+      intensitySum: 0,
+    },
+  };
+
+  const recordSession = (input: {
+    startedAt: string;
+    elapsedMinutes: number;
+    plannedMinutes: number;
+    status: 'completed' | 'interrupted' | 'live';
+    distractionsBlocked: number;
+    guideTitle: string;
+  }) => {
+    const dt = new Date(input.startedAt);
+    if (Number.isNaN(dt.getTime())) return;
+    const dateKey = toLocalDateKey(dt);
+    const bucket = bucketMap.get(dateKey);
+    if (!bucket) return;
+
+    const mins = Math.max(1, Math.round(input.elapsedMinutes));
+    const hour = dt.getHours();
+    const slotIdx = Math.floor(hour / 3);
+
+    const sessionScore =
+      input.status === 'interrupted'
+        ? Math.max(
+            38,
+            Math.min(
+              68,
+              Math.round((mins / Math.max(25, input.plannedMinutes)) * 66)
+            )
+          )
+        : computeSingleSessionFocusIntensity({
+            elapsedMinutes: mins,
+            plannedMinutes: input.plannedMinutes,
+            distractionsBlockedCount: input.distractionsBlocked,
+            subjectCompletionRate: 92,
+          });
+
+    bucket.sessionsCount += 1;
+    bucket.distractionsBlocked += input.distractionsBlocked;
+    if (input.status === 'interrupted') {
+      bucket.interruptedMinutes += mins;
+    } else {
+      bucket.completedMinutes += mins;
+      bucket.completedCount += 1;
+    }
+    bucket.weightedIntensitySum += sessionScore * mins;
+    bucket.totalWeight += mins;
+    bucket.slotMinutes.set(slotIdx, (bucket.slotMinutes.get(slotIdx) || 0) + mins);
+    bucket.courseMinutes.set(
+      input.guideTitle,
+      (bucket.courseMinutes.get(input.guideTitle) || 0) + mins
+    );
+
+    const windowKey: TimeOfDayProductivityWindow['id'] =
+      hour >= 6 && hour < 12
+        ? 'morning'
+        : hour >= 12 && hour < 18
+        ? 'afternoon'
+        : hour >= 18
+        ? 'evening'
+        : 'late_night';
+    windowBuckets[windowKey].totalMinutes += mins;
+    windowBuckets[windowKey].sessionsCount += 1;
+    windowBuckets[windowKey].intensitySum += sessionScore;
+  };
+
+  (deepWorkState?.sessionsHistory || []).forEach((rec) => {
+    recordSession({
+      startedAt: rec.startedAt,
+      elapsedMinutes: rec.elapsedMinutes,
+      plannedMinutes: rec.plannedMinutes,
+      status: rec.status,
+      distractionsBlocked: rec.distractionsBlockedCount || 0,
+      guideTitle: rec.guideTitle,
+    });
+  });
+
+  if (deepWorkState?.isActive && deepWorkState.startedAt) {
+    const totalSecs = Math.max(60, deepWorkState.plannedMinutes * 60);
+    const elapsedSecs = Math.max(0, totalSecs - deepWorkState.remainingSeconds);
+    const liveMinutes = Math.floor(elapsedSecs / 60);
+    if (liveMinutes >= 1) {
+      const matched = studyGuides.find((g) => g.id === deepWorkState.linkedGuideId);
+      recordSession({
+        startedAt: deepWorkState.startedAt,
+        elapsedMinutes: liveMinutes,
+        plannedMinutes: deepWorkState.plannedMinutes,
+        status: 'live',
+        distractionsBlocked: deepWorkState.suppressedDistractionsCount || 0,
+        guideTitle: matched?.title || 'Active Deep Work Block',
+      });
+    }
+  }
+
+  if (includePomodoroFocus) {
+    pomodoroLogs
+      .filter((log) => log.phase === 'focus')
+      .forEach((log) => {
+        if (log.guideTitle && /\(deep work\)/i.test(log.guideTitle)) return;
+        recordSession({
+          startedAt: log.completedAt,
+          elapsedMinutes: log.durationMinutes,
+          plannedMinutes: Math.max(25, log.durationMinutes),
+          status: 'completed',
+          distractionsBlocked: 1,
+          guideTitle: log.guideTitle || 'Pomodoro Focus Session',
+        });
+      });
+  }
+
+  const rawPoints: Array<Omit<DailyFocusIntensityPoint, 'rolling7DayAvg'>> =
+    orderedBuckets.map((b) => {
+      const totalMinutes = b.completedMinutes + b.interruptedMinutes;
+      let dailyFocusIntensity: number | null = null;
+
+      if (b.totalWeight > 0) {
+        const baseScore = b.weightedIntensitySum / b.totalWeight;
+        const durationVolumeBonus = Math.min(8, Math.round(b.completedMinutes / 30) * 2);
+        const completionPenalty =
+          b.sessionsCount > 0 && b.completedCount < b.sessionsCount
+            ? Math.round(((b.sessionsCount - b.completedCount) / b.sessionsCount) * 8)
+            : 0;
+        dailyFocusIntensity = Math.min(
+          100,
+          Math.max(35, Math.round(baseScore + durationVolumeBonus - completionPenalty))
+        );
+      }
+
+      let peakSlotLabel: string | null = null;
+      let peakSlotMins = -1;
+      b.slotMinutes.forEach((m, idx) => {
+        if (m > peakSlotMins) {
+          peakSlotMins = m;
+          peakSlotLabel = THREE_HOUR_WINDOWS[idx]?.label || null;
+        }
+      });
+
+      let topCourseTitle: string | null = null;
+      let topCourseMins = -1;
+      b.courseMinutes.forEach((m, title) => {
+        if (m > topCourseMins) {
+          topCourseMins = m;
+          topCourseTitle = title;
+        }
+      });
+
+      return {
+        dateKey: b.dateKey,
+        shortDate: b.shortDate,
+        weekday: b.weekday,
+        isToday: b.isToday,
+        dailyFocusIntensity,
+        dailyFocusIntensityZeroed: dailyFocusIntensity ?? 0,
+        completedMinutes: b.completedMinutes,
+        interruptedMinutes: b.interruptedMinutes,
+        totalMinutes,
+        sessionsCount: b.sessionsCount,
+        peakSlotLabel,
+        topCourseTitle,
+      };
+    });
+
+  const points: DailyFocusIntensityPoint[] = rawPoints.map((pt, idx) => {
+    const startIdx = Math.max(0, idx - 6);
+    const windowActive = rawPoints
+      .slice(startIdx, idx + 1)
+      .filter((p) => p.dailyFocusIntensity !== null);
+    const rolling7DayAvg =
+      windowActive.length > 0
+        ? Math.round(
+            windowActive.reduce((s, p) => s + (p.dailyFocusIntensity || 0), 0) /
+              windowActive.length
+          )
+        : null;
+    return {
+      ...pt,
+      rolling7DayAvg,
+    };
+  });
+
+  const activePoints = points.filter((p) => p.dailyFocusIntensity !== null);
+  const avgIntensity30d =
+    activePoints.length > 0
+      ? Math.round(
+          activePoints.reduce((s, p) => s + (p.dailyFocusIntensity || 0), 0) /
+            activePoints.length
+        )
+      : 0;
+
+  let peakDayLabel: string | null = null;
+  let peakDayScore = 0;
+  activePoints.forEach((p) => {
+    const score = p.dailyFocusIntensity || 0;
+    if (score >= peakDayScore) {
+      peakDayScore = score;
+      peakDayLabel = `${p.weekday}, ${p.shortDate}`;
+    }
+  });
+
+  const prior15 = points
+    .slice(0, 15)
+    .filter((p) => p.dailyFocusIntensity !== null);
+  const recent15 = points
+    .slice(15)
+    .filter((p) => p.dailyFocusIntensity !== null);
+  const priorAvg =
+    prior15.length > 0
+      ? prior15.reduce((s, p) => s + (p.dailyFocusIntensity || 0), 0) / prior15.length
+      : avgIntensity30d;
+  const recentAvg =
+    recent15.length > 0
+      ? recent15.reduce((s, p) => s + (p.dailyFocusIntensity || 0), 0) / recent15.length
+      : avgIntensity30d;
+  const trendDelta = Math.round(recentAvg - priorAvg);
+
+  const rawWindows: Array<Omit<TimeOfDayProductivityWindow, 'isPeak'>> = (
+    ['morning', 'afternoon', 'evening', 'late_night'] as const
+  ).map((id) => {
+    const wb = windowBuckets[id];
+    return {
+      id,
+      label: wb.label,
+      rangeLabel: wb.rangeLabel,
+      totalMinutes: wb.totalMinutes,
+      totalHours: parseFloat((wb.totalMinutes / 60).toFixed(1)),
+      sessionsCount: wb.sessionsCount,
+      avgIntensity:
+        wb.sessionsCount > 0 ? Math.round(wb.intensitySum / wb.sessionsCount) : 0,
+    };
+  });
+
+  let peakWindowId: TimeOfDayProductivityWindow['id'] = 'morning';
+  let bestComposite = -1;
+  rawWindows.forEach((w) => {
+    const composite = w.avgIntensity * 2 + w.totalMinutes;
+    if (w.totalMinutes > 0 && composite > bestComposite) {
+      bestComposite = composite;
+      peakWindowId = w.id;
+    }
+  });
+
+  const timeOfDayBreakdown: TimeOfDayProductivityWindow[] = rawWindows.map((w) => ({
+    ...w,
+    isPeak: w.id === peakWindowId && w.totalMinutes > 0,
+  }));
+
+  const peakWin =
+    timeOfDayBreakdown.find((w) => w.isPeak) || timeOfDayBreakdown[0];
+
+  return {
+    points,
+    avgIntensity30d,
+    activeDaysCount: activePoints.length,
+    peakDayLabel,
+    peakDayScore,
+    trendDelta,
+    timeOfDayBreakdown,
+    peakProductivityWindowLabel: peakWin.label,
+    peakProductivityWindowRange: peakWin.rangeLabel,
+  };
+}
+
 

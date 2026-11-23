@@ -184,6 +184,7 @@ export function useDeepWorkMode({
   const [state, setState] = useState<DeepWorkState>(() =>
     loadDeepWorkState(defaultGuideId, studyGuides)
   );
+  const [lastAutoCompletedSessionId, setLastAutoCompletedSessionId] = useState<string | null>(null);
 
   const studyGuidesRef = useRef(studyGuides);
   studyGuidesRef.current = studyGuides;
@@ -212,6 +213,7 @@ export function useDeepWorkMode({
 
     const tick = () => {
       let completedPayload: {
+        id: string;
         minutes: number;
         guideId: string;
         guideTitle: string;
@@ -227,8 +229,9 @@ export function useDeepWorkMode({
 
         const guideTitle = resolveGuideTitle(prev.linkedGuideId);
         const nowIso = new Date().toISOString();
+        const recordId = `dw_${Date.now()}`;
         const completedRecord: DeepWorkSessionRecord = {
-          id: `dw_${Date.now()}`,
+          id: recordId,
           guideId: prev.linkedGuideId,
           guideTitle,
           plannedMinutes: prev.plannedMinutes,
@@ -240,6 +243,7 @@ export function useDeepWorkMode({
         };
 
         completedPayload = {
+          id: recordId,
           minutes: prev.plannedMinutes,
           guideId: prev.linkedGuideId,
           guideTitle,
@@ -258,7 +262,8 @@ export function useDeepWorkMode({
       });
 
       if (completedPayload) {
-        const { minutes, guideId, guideTitle } = completedPayload;
+        const { id, minutes, guideId, guideTitle } = completedPayload;
+        setLastAutoCompletedSessionId(id);
         window.setTimeout(() => {
           onCompleteSessionRef.current?.(minutes, guideId, `${guideTitle} (Deep Work)`);
         }, 0);
@@ -312,12 +317,14 @@ export function useDeepWorkMode({
     });
   }, []);
 
-  const completeDeepWorkSession = useCallback(() => {
+  const completeDeepWorkSession = useCallback((reflectionNotes?: string) => {
     let completedPayload: {
       minutes: number;
       guideId: string;
       guideTitle: string;
     } | null = null;
+
+    const cleanNotes = reflectionNotes?.trim() ? reflectionNotes.trim() : undefined;
 
     setState((prev) => {
       if (!prev.isActive) return prev;
@@ -337,6 +344,7 @@ export function useDeepWorkMode({
         startedAt: prev.startedAt || nowIso,
         endedAt: nowIso,
         distractionsBlockedCount: prev.suppressedDistractionsCount,
+        reflectionNotes: cleanNotes,
       };
 
       completedPayload = {
@@ -364,6 +372,22 @@ export function useDeepWorkMode({
       }, 0);
     }
   }, [resolveGuideTitle]);
+
+  const updateSessionReflection = useCallback((sessionId: string, reflectionNotes: string) => {
+    const cleanNotes = reflectionNotes.trim();
+    setState((prev) => ({
+      ...prev,
+      sessionsHistory: prev.sessionsHistory.map((rec) =>
+        rec.id === sessionId
+          ? { ...rec, reflectionNotes: cleanNotes || undefined }
+          : rec
+      ),
+    }));
+  }, []);
+
+  const clearLastAutoCompletedSession = useCallback(() => {
+    setLastAutoCompletedSessionId(null);
+  }, []);
 
   const endDeepWorkEarly = useCallback(() => {
     setState((prev) => {
@@ -545,10 +569,13 @@ export function useDeepWorkMode({
   return {
     state,
     focusIntensity,
+    lastAutoCompletedSessionId,
+    clearLastAutoCompletedSession,
     toggleDeepWork,
     startDeepWork,
     pauseResumeDeepWork,
     completeDeepWorkSession,
+    updateSessionReflection,
     endDeepWorkEarly,
     setPlannedMinutes,
     setLinkedGuideId,

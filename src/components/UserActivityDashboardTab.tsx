@@ -64,6 +64,7 @@ import { DeepWorkPanel } from './DeepWorkPanel';
 import { DeepWorkAmbienceSoundboard } from './DeepWorkAmbienceSoundboard';
 import { DeepWorkAmbienceController } from '../hooks/useDeepWorkAmbience';
 import { DeepWorkHeatmapD3 } from './DeepWorkHeatmapD3';
+import { StudyHeatmap } from './StudyHeatmap';
 import { WeeklyFocusChallenge } from './WeeklyFocusChallenge';
 import { DeepWorkMarathonChallenge } from './DeepWorkMarathonChallenge';
 import { DeepWorkMonthlySubjectSummary } from './DeepWorkMonthlySubjectSummary';
@@ -998,6 +999,13 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
         studyGuides={studyGuides}
         onNavigateToCourse={onNavigateToCourse}
         onStartDeepWork={deepWork?.onStartDeepWork}
+      />
+
+      {/* 30-Day Study Heatmap Component (Daily Study Minutes & Completed Chapters Grid) */}
+      <StudyHeatmap
+        pomodoroLogs={pomodoroLogs}
+        readingProgress={readingProgress}
+        studyGuides={studyGuides}
       />
 
       {/* Recharts 30-Day Daily Focus Intensity Trend Line Chart */}

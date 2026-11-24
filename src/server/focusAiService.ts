@@ -319,3 +319,93 @@ export async function explainStudyPassageWithGemini(
   };
 }
 
+export interface StudyBuddyFlashcardInput {
+  courseTitle: string;
+  chapterTitle: string;
+  chapterSummary?: string;
+  completedChaptersCount?: number;
+  totalChapters?: number;
+}
+
+export async function generateStudyBuddyFlashcards(payload: StudyBuddyFlashcardInput) {
+  const ai = getGeminiClient();
+
+  const promptContent = `Course Title: ${payload.courseTitle || 'Advanced Academic Guide'}
+Active Chapter: ${payload.chapterTitle || 'Core Module Concepts'}
+${payload.chapterSummary ? `Chapter Summary Excerpt: ${payload.chapterSummary}` : ''}
+Progress: ${payload.completedChaptersCount || 1} of ${payload.totalChapters || 8} chapters completed.`;
+
+  const response = await ai.models.generateContent({
+    model: FOCUS_AI_MODEL,
+    contents: `Generate 6 high-yield, rigorous flashcards based on this active chapter and course progress to test core mastery and concept retention.\n\n${promptContent}`,
+    config: {
+      systemInstruction:
+        'You are the Virtual Study Buddy inside the TTG Educare platform. Generate clear, high-yield flashcards with a precise front (question or concept prompt) and back (clear, concise explanation/answer), plus an intuitive hint and difficulty rating (Easy, Medium, Hard).',
+      responseMimeType: 'application/json',
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          sessionTitle: {
+            type: Type.STRING,
+            description: 'Short catchy title for this flashcard deck (e.g. "Core Concepts: Process Reward Models").',
+          },
+          buddyTip: {
+            type: Type.STRING,
+            description: '1 encouraging, expert tip from your Virtual Study Buddy regarding how to master this topic.',
+          },
+          flashcards: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                front: {
+                  type: Type.STRING,
+                  description: 'The question or concept prompt for the front of the flashcard.',
+                },
+                back: {
+                  type: Type.STRING,
+                  description: 'The precise answer or detailed explanation for the back of the flashcard.',
+                },
+                hint: {
+                  type: Type.STRING,
+                  description: 'A brief memory hook or hint.',
+                },
+                difficulty: {
+                  type: Type.STRING,
+                  enum: ['Easy', 'Medium', 'Hard'],
+                  description: 'Difficulty level.',
+                },
+              },
+              required: ['front', 'back', 'hint', 'difficulty'],
+            },
+          },
+        },
+        required: ['sessionTitle', 'buddyTip', 'flashcards'],
+      },
+    },
+  });
+
+  const rawText = (response.text ?? '{}').trim();
+  let parsed: any;
+  try {
+    parsed = JSON.parse(rawText);
+  } catch {
+    throw new Error('Gemini returned malformed JSON output for flashcards generation.');
+  }
+
+  return {
+    sessionTitle: String(parsed.sessionTitle || `${payload.chapterTitle || 'Study Session'} Flashcards`),
+    buddyTip: String(parsed.buddyTip || "Let's master these core concepts together! Flip each card to test your recall."),
+    flashcards: Array.isArray(parsed.flashcards)
+      ? parsed.flashcards.slice(0, 8).map((card: any) => ({
+          front: String(card.front || 'Concept Prompt'),
+          back: String(card.back || 'Detailed explanation'),
+          hint: String(card.hint || 'Review chapter notes'),
+          difficulty: card.difficulty === 'Easy' || card.difficulty === 'Hard' ? card.difficulty : 'Medium',
+        }))
+      : [],
+    modelUsed: FOCUS_AI_MODEL,
+    generatedAt: new Date().toISOString(),
+  };
+}
+

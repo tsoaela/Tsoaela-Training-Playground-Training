@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   X, 
   CheckCircle2, 
@@ -17,10 +17,16 @@ import {
   User,
   Mail,
   Award,
-  Share2
+  Share2,
+  Users,
+  Gift,
+  Copy,
+  Check
 } from 'lucide-react';
 import { ApplicationCategory, ApplicationPrefillData, CategoryRegistration, UserProfile } from '../types';
 import { ACADEMIC_FACULTIES, STANDARD_QUALIFICATION_LEVELS } from '../data/academicCatalog';
+import { QRCodeCanvas } from 'qrcode.react';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface ApplicationRegistrationModalProps {
   isOpen: boolean;
@@ -245,9 +251,17 @@ export const ApplicationRegistrationModal: React.FC<ApplicationRegistrationModal
   const [selectedAccreditor, setSelectedAccreditor] = useState<string>('');
   const [statementOfIntent, setStatementOfIntent] = useState('');
   const [portfolioLink, setPortfolioLink] = useState('');
+  const [enablePushNotifications, setEnablePushNotifications] = useState(true);
+  const [activeModalTab, setActiveModalTab] = useState<'application' | 'referral'>('application');
+  const [copiedReferralCode, setCopiedReferralCode] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [completedRegistration, setCompletedRegistration] = useState<CategoryRegistration | null>(null);
   const [copiedShareLink, setCopiedShareLink] = useState(false);
+
+  const referralCode = useMemo(() => {
+    const slug = (user.name || 'Scholar').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 6);
+    return `TTG-REF-${slug || 'SCHOLAR'}-8821`;
+  }, [user.name]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -363,6 +377,22 @@ export const ApplicationRegistrationModal: React.FC<ApplicationRegistrationModal
         console.error(err);
       }
 
+      if (enablePushNotifications && typeof window !== 'undefined' && 'Notification' in window) {
+        if (Notification.permission === 'granted') {
+          new Notification('TTG Admissions & Registration', {
+            body: `Application ${regNum} submitted! Timeline status: Institutional Review active.`,
+          });
+        } else if (Notification.permission !== 'denied') {
+          void Notification.requestPermission().then((perm) => {
+            if (perm === 'granted') {
+              new Notification('TTG Admissions & Registration', {
+                body: `Application ${regNum} submitted! Timeline status: Institutional Review active.`,
+              });
+            }
+          });
+        }
+      }
+
       setIsSubmitting(false);
       setCompletedRegistration(newReg);
       if (onRegistrationComplete) {
@@ -463,32 +493,177 @@ AUTHORIZED SIGNATURE: Office of the Academic Registrar & Dean of Faculty
           </button>
         </div>
 
-        {/* Category Selector Tabs */}
-        <div className="px-6 sm:px-8 py-3 bg-stone-100/60 dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 overflow-x-auto flex items-center gap-2">
-          {CATEGORY_CONFIGS.map(cat => {
-            const Icon = cat.icon;
-            const isSelected = selectedCategoryId === cat.id;
-            return (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => handleSelectCategory(cat.id)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition-all ${
-                  isSelected
-                    ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 shadow-xs'
-                    : 'bg-white dark:bg-stone-800/80 text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700/60'
-                }`}
-              >
-                <Icon className="w-3.5 h-3.5" />
-                <span>{cat.badge}</span>
-              </button>
-            );
-          })}
+        {/* Modal Main Tab Switcher (Application & Status vs Referral Program) */}
+        <div className="px-6 sm:px-8 py-3 bg-stone-100 dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 flex items-center gap-3 text-xs">
+          <button
+            type="button"
+            onClick={() => setActiveModalTab('application')}
+            className={`px-4 py-2 rounded-xl font-bold transition-all cursor-pointer flex items-center gap-2 ${
+              activeModalTab === 'application'
+                ? 'bg-purple-700 text-white shadow-xs'
+                : 'bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700'
+            }`}
+          >
+            <Building2 className="w-4 h-4" />
+            <span>Application &amp; Status Timeline</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveModalTab('referral')}
+            className={`px-4 py-2 rounded-xl font-bold transition-all cursor-pointer flex items-center gap-2 ${
+              activeModalTab === 'referral'
+                ? 'bg-emerald-700 text-white shadow-xs'
+                : 'bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700'
+            }`}
+          >
+            <Gift className="w-4 h-4" />
+            <span>Referral Program &amp; Discounts</span>
+          </button>
         </div>
+
+        {/* Category Selector Tabs (when in Application tab) */}
+        {activeModalTab === 'application' && (
+          <div className="px-6 sm:px-8 py-3 bg-stone-100/60 dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 overflow-x-auto flex items-center gap-2">
+            {CATEGORY_CONFIGS.map(cat => {
+              const Icon = cat.icon;
+              const isSelected = selectedCategoryId === cat.id;
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => handleSelectCategory(cat.id)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 shrink-0 transition-all ${
+                    isSelected
+                      ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900 shadow-xs'
+                      : 'bg-white dark:bg-stone-800/80 text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700/60'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  <span>{cat.badge}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Modal Body */}
         <div className="p-6 sm:p-8 max-h-[75vh] overflow-y-auto">
-          {completedRegistration ? (
+          {activeModalTab === 'referral' ? (
+            /* Referral Program Tab */
+            <div className="space-y-6">
+              <div className="p-6 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/70 space-y-3">
+                <div className="flex items-center gap-2 text-xs font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider">
+                  <Gift className="w-4 h-4" />
+                  <span>TTG Scholar Referral &amp; Tuition Discount Program</span>
+                </div>
+                <h3 className="text-xl font-extrabold text-stone-900 dark:text-stone-100">
+                  Invite Peers &amp; Earn Enrollment Discounts
+                </h3>
+                <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-300 leading-relaxed max-w-2xl">
+                  Share your unique referral tracking code with colleagues and student peers. Earn stacking discounts on long-term course tuition, research fellowships, and retreat delegations for every successful enrollment.
+                </p>
+              </div>
+
+              {/* Referral Stats Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="p-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950/60">
+                  <div className="text-[11px] font-semibold text-stone-500 dark:text-stone-400">
+                    Total Referral Clicks
+                  </div>
+                  <div className="mt-1 text-2xl font-black font-mono tabular-nums text-stone-900 dark:text-stone-100">
+                    14
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950/60">
+                  <div className="text-[11px] font-semibold text-stone-500 dark:text-stone-400">
+                    Successful Enrollments
+                  </div>
+                  <div className="mt-1 text-2xl font-black font-mono tabular-nums text-emerald-700 dark:text-emerald-400">
+                    3 Peers
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950/60">
+                  <div className="text-[11px] font-semibold text-stone-500 dark:text-stone-400">
+                    Active Tuition Credit
+                  </div>
+                  <div className="mt-1 text-2xl font-black font-mono tabular-nums text-purple-700 dark:text-purple-400">
+                    R450 (15% Off)
+                  </div>
+                </div>
+              </div>
+
+              {/* Unique Referral Code Generator Card */}
+              <div className="p-5 rounded-2xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-950/50 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-stone-900 dark:text-stone-100">
+                    Your Unique Referral Tracking Code
+                  </span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold">
+                    Active &amp; Ready
+                  </span>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <input
+                    type="text"
+                    readOnly
+                    value={referralCode}
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 font-mono text-sm font-bold text-stone-900 dark:text-stone-100"
+                  />
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const link = `${window.location.origin}/apply?ref=${encodeURIComponent(
+                        referralCode
+                      )}`;
+                      try {
+                        await navigator.clipboard.writeText(link);
+                        setCopiedReferralCode(true);
+                        window.setTimeout(() => setCopiedReferralCode(false), 3000);
+                      } catch {}
+                    }}
+                    className="px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs inline-flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer whitespace-nowrap"
+                  >
+                    {copiedReferralCode ? (
+                      <>
+                        <Check className="w-4 h-4" />
+                        <span>Copied Referral Link!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4" />
+                        <span>Copy Referral Link</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Reward Tiers */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-stone-900 dark:text-stone-100 uppercase tracking-wider">
+                  Referral Reward Tiers &amp; Discounts
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                  <div className="p-3.5 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 space-y-1">
+                    <div className="font-bold text-stone-900 dark:text-stone-100">Tier 1: 1 Peer</div>
+                    <div className="text-stone-500">R150 tuition discount on next course enrollment.</div>
+                  </div>
+                  <div className="p-3.5 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 space-y-1">
+                    <div className="font-bold text-stone-900 dark:text-stone-100">Tier 2: 3 Peers</div>
+                    <div className="text-stone-500">Free long-term course module (R145 value).</div>
+                  </div>
+                  <div className="p-3.5 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 space-y-1">
+                    <div className="font-bold text-stone-900 dark:text-stone-100">Tier 3: 5+ Peers</div>
+                    <div className="text-stone-500">Executive Sanctuary VIP Pass &amp; Research Fellow status.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : completedRegistration ? (
             /* Successful Registration Screen */
             <div className="text-center py-6 space-y-6">
               <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 mx-auto flex items-center justify-center border-2 border-emerald-300 dark:border-emerald-700 shadow-lg">
@@ -507,7 +682,7 @@ AUTHORIZED SIGNATURE: Office of the Academic Registrar & Dean of Faculty
                 </p>
               </div>
 
-              {/* Visual Status Timeline (Submitted -> Institutional Review -> Accepted -> Enrolled) */}
+              {/* Visual Status Timeline with Framer Motion Animations */}
               <div className="max-w-xl mx-auto p-4 rounded-2xl bg-stone-50 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 space-y-3">
                 <div className="text-[11px] font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400 text-left font-semibold">
                   Application &amp; Progression Status Timeline
@@ -519,7 +694,13 @@ AUTHORIZED SIGNATURE: Office of the Academic Registrar & Dean of Faculty
                     { step: '03', title: 'Accepted', status: 'Completed', date: 'Offer Cleared' },
                     { step: '04', title: 'Enrolled', status: 'Active', date: 'Registry ID Active' },
                   ].map((st, i) => (
-                    <div key={i} className="p-2.5 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 relative space-y-1">
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, y: 14, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ duration: 0.35, delay: i * 0.08, ease: [0.16, 1, 0.3, 1] }}
+                      className="p-2.5 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 relative space-y-1 shadow-2xs"
+                    >
                       <div className="flex items-center justify-between text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">
                         <span>{st.step}</span>
                         <CheckCircle2 className="w-3.5 h-3.5" />
@@ -530,7 +711,7 @@ AUTHORIZED SIGNATURE: Office of the Academic Registrar & Dean of Faculty
                       <div className="text-[10px] text-stone-500 dark:text-stone-400 truncate">
                         {st.date}
                       </div>
-                    </div>
+                    </motion.div>
                   ))}
                 </div>
               </div>
@@ -577,6 +758,31 @@ AUTHORIZED SIGNATURE: Office of the Academic Registrar & Dean of Faculty
                     Verified by Tsoaela Training Ground
                   </span>
                   <span>Issued: {completedRegistration.registrationDate}</span>
+                </div>
+              </div>
+
+              {/* QR Code Status & Referral Share Generator */}
+              <div className="max-w-xl mx-auto p-4 rounded-2xl bg-stone-50 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 flex flex-col sm:flex-row items-center gap-4 text-left">
+                <div className="p-2 bg-white rounded-xl shadow-xs border border-stone-200 shrink-0">
+                  <QRCodeCanvas
+                    value={`${window.location.origin}/apply?reg=${encodeURIComponent(
+                      completedRegistration.registrationNumber
+                    )}&category=${encodeURIComponent(completedRegistration.category)}`}
+                    size={110}
+                    level="M"
+                    includeMargin={true}
+                  />
+                </div>
+                <div className="space-y-1.5 min-w-0">
+                  <div className="text-xs font-bold text-stone-900 dark:text-stone-100">
+                    Application Status QR Code
+                  </div>
+                  <p className="text-[11px] text-stone-500 dark:text-stone-400 leading-relaxed">
+                    Scan or share this QR code to instantly verify application progression status and enrollment standing on any device.
+                  </p>
+                  <div className="font-mono text-[10px] text-purple-700 dark:text-purple-400 truncate">
+                    {window.location.origin}/apply?reg={completedRegistration.registrationNumber}
+                  </div>
                 </div>
               </div>
 
@@ -635,7 +841,7 @@ AUTHORIZED SIGNATURE: Office of the Academic Registrar & Dean of Faculty
                 </div>
               </div>
 
-              {/* Visual Status Progression Pipeline Preview */}
+              {/* Visual Status Progression Pipeline Preview with Framer Motion */}
               <div className="p-3.5 rounded-2xl bg-stone-50 dark:bg-stone-950/60 border border-stone-200 dark:border-stone-800 space-y-2">
                 <div className="text-[10px] font-mono uppercase tracking-wider text-stone-500 font-bold">
                   Admissions Progression Pipeline
@@ -647,7 +853,13 @@ AUTHORIZED SIGNATURE: Office of the Academic Registrar & Dean of Faculty
                     { title: 'Accepted', active: false, desc: 'Offer Clearance' },
                     { title: 'Enrolled', active: false, desc: 'Registry Active' },
                   ].map((step, idx) => (
-                    <div key={idx} className="p-2.5 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 space-y-0.5">
+                    <motion.div
+                      key={idx}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: idx * 0.07 }}
+                      className="p-2.5 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 space-y-0.5"
+                    >
                       <div className="flex items-center justify-between text-[10px] font-mono font-bold text-purple-700 dark:text-purple-400">
                         <span>0{idx + 1}</span>
                         {step.active && <span className="w-1.5 h-1.5 rounded-full bg-purple-600 animate-pulse" />}
@@ -658,7 +870,7 @@ AUTHORIZED SIGNATURE: Office of the Academic Registrar & Dean of Faculty
                       <div className="text-[10px] text-stone-500 dark:text-stone-400">
                         {step.desc}
                       </div>
-                    </div>
+                    </motion.div>
                   ))}
                 </div>
               </div>
@@ -962,6 +1174,26 @@ AUTHORIZED SIGNATURE: Office of the Academic Registrar & Dean of Faculty
                   placeholder="Describe your research hypotheses, study goals, or creative production focus..."
                   className="w-full px-3.5 py-2.5 rounded-xl bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-xs text-stone-900 dark:text-stone-100 focus:outline-none focus:border-purple-500 resize-none"
                 />
+              </div>
+
+              {/* Push Notifications Toggle */}
+              <div className="flex items-center gap-3 p-3.5 rounded-xl bg-stone-50 dark:bg-stone-950/60 border border-stone-200 dark:border-stone-800">
+                <input
+                  type="checkbox"
+                  id="push_notifications_toggle"
+                  checked={enablePushNotifications}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setEnablePushNotifications(checked);
+                    if (checked && typeof window !== 'undefined' && 'Notification' in window) {
+                      void window.Notification.requestPermission();
+                    }
+                  }}
+                  className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 border-stone-300 dark:border-stone-700 cursor-pointer"
+                />
+                <label htmlFor="push_notifications_toggle" className="text-xs font-semibold text-stone-700 dark:text-stone-300 cursor-pointer">
+                  Enable real-time browser push notifications whenever application status changes in the timeline
+                </label>
               </div>
 
               {/* Action Buttons */}

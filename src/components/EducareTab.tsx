@@ -272,6 +272,52 @@ export const EducareTab: React.FC<EducareTabProps> = ({
     setIsGeneratingReport(false);
   };
 
+  const handleExportChapterNotesPdf = async (chapterIdx: number) => {
+    const chapter = activeGuide.chapters[chapterIdx];
+    const notes = progress?.chapterNotes?.[chapterIdx] || chapterNoteDrafts[chapterIdx] || 'No personal notes recorded for this chapter yet.';
+    const logoDataUrl = await loadLogoDataUrl();
+    const doc = new jsPDF();
+    const fitted = getFittedLogoSize(32, 18);
+    if (logoDataUrl) {
+      doc.addImage(logoDataUrl, 'JPEG', 14, 12, fitted.width, fitted.height);
+    }
+    const headerX = logoDataUrl ? 14 + fitted.width + 6 : 14;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text(`TTG Educare - Chapter ${chapterIdx + 1} Study Notes`, headerX, 19);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text(`Course: ${activeGuide.title}`, headerX, 26);
+    doc.text(`Scholar: ${user.name} (${user.email})`, headerX, 31);
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, headerX, 36);
+
+    doc.setLineWidth(0.5);
+    doc.line(14, 42, 196, 42);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.text(`Chapter ${chapterIdx + 1}: ${chapter.title}`, 14, 52);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    const splitContent = doc.splitTextToSize(`Chapter Overview / Content:\n${chapter.content}`, 182);
+    doc.text(splitContent, 14, 60);
+
+    let currentY = 60 + splitContent.length * 6 + 10;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.text('Personal Scholar Summary & Notes:', 14, currentY);
+
+    currentY += 8;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    const splitNotes = doc.splitTextToSize(notes, 182);
+    doc.text(splitNotes, 14, currentY);
+
+    const filename = `${activeGuide.title.replace(/[^a-zA-Z0-9_\-]/g, '_')}_Ch_${chapterIdx + 1}_Notes.pdf`;
+    doc.save(filename);
+  };
+
   // Offline Mode Detection
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   useEffect(() => {
@@ -2066,6 +2112,16 @@ export const EducareTab: React.FC<EducareTabProps> = ({
                                   ? 'Edit Summary'
                                   : 'Add Summary'}
                               </span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleExportChapterNotesPdf(idx)}
+                              className="px-2 py-0.5 rounded text-[10px] font-semibold inline-flex items-center gap-1 border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-100 transition-colors cursor-pointer"
+                              title="Export chapter content and personal notes to PDF for offline review"
+                            >
+                              <FileDown className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
+                              <span>Export PDF</span>
                             </button>
 
                             <span className={`text-[10px] font-mono px-2 py-0.5 rounded uppercase tracking-wider font-semibold shrink-0 ${

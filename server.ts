@@ -32,6 +32,7 @@ import {
 import {
   analyzeStudyProgressWithGemini,
   explainStudyPassageWithGemini,
+  generateStudyBuddyFlashcards,
 } from './src/server/focusAiService';
 import {
   AccreditationTier,
@@ -806,6 +807,44 @@ async function startServer() {
       return res.status(statusCode >= 400 && statusCode < 600 ? statusCode : 500).json({
         error: err?.message || 'Unable to generate TAI Tutor explanation.',
         code: err?.code || 'GEMINI_TUTOR_FAILED',
+      });
+    }
+  });
+
+  // Virtual Study Buddy: Generate summarized flashcards based on active chapter progress using Gemini API
+  app.post('/api/study-buddy/flashcards', async (req, res) => {
+    try {
+      const payload = req.body || {};
+      const courseTitle = typeof payload.courseTitle === 'string' ? payload.courseTitle.trim() : '';
+      const chapterTitle = typeof payload.chapterTitle === 'string' ? payload.chapterTitle.trim() : '';
+
+      if (!courseTitle && !chapterTitle) {
+        return res.status(400).json({
+          error: 'Course title or chapter title is required to generate study buddy flashcards.',
+          code: 'INVALID_PAYLOAD',
+        });
+      }
+
+      const result = await generateStudyBuddyFlashcards({
+        courseTitle: courseTitle || 'Advanced Academic Guide',
+        chapterTitle: chapterTitle || 'Core Module Concepts',
+        chapterSummary: typeof payload.chapterSummary === 'string' ? payload.chapterSummary : undefined,
+        completedChaptersCount: Number(payload.completedChaptersCount) || 1,
+        totalChapters: Number(payload.totalChapters) || 8,
+      });
+
+      return res.json(result);
+    } catch (err: any) {
+      console.error('Study Buddy Flashcards error:', err);
+      const statusCode =
+        typeof err?.statusCode === 'number'
+          ? err.statusCode
+          : typeof err?.status === 'number'
+          ? err.status
+          : 500;
+      return res.status(statusCode >= 400 && statusCode < 600 ? statusCode : 500).json({
+        error: err?.message || 'Unable to generate Study Buddy flashcards via Gemini API.',
+        code: err?.code || 'GEMINI_FLASHCARDS_FAILED',
       });
     }
   });

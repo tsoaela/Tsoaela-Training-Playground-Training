@@ -16,7 +16,8 @@ import {
   ShieldCheck,
   GitBranch,
   Flame,
-  ClipboardCheck
+  ClipboardCheck,
+  Brain
 } from 'lucide-react';
 import {
   ACADEMIC_CATEGORY_FILTERS,
@@ -63,6 +64,7 @@ import { LearningVelocityPanel } from './LearningVelocityPanel';
 import { CourseLeaderboardWidget } from './CourseLeaderboardWidget';
 import { CareerRoadmapPanel } from './CareerRoadmapPanel';
 import { StudyRoadmap } from './StudyRoadmap';
+import { VirtualStudyBuddySidebar } from './VirtualStudyBuddySidebar';
 import { PomodoroStudyTimer } from './PomodoroStudyTimer';
 import { AccreditationWorkflowSection } from './AccreditationWorkflowSection';
 import { NextBestStepBanner } from './NextBestStepBanner';
@@ -240,6 +242,7 @@ export const EducationPlatformHub: React.FC<EducationPlatformHubProps> = ({
   const [researchFilters, setResearchFilters] = useState<CatalogMultiFilterState>(EMPTY_CATALOG_FILTERS);
   const [catalogSortBy, setCatalogSortBy] = useState<CatalogSortBy>('recommended');
   const [catalogSortDirection, setCatalogSortDirection] = useState<CatalogSortDirection>('desc');
+  const [showStudyBuddy, setShowStudyBuddy] = useState<boolean>(false);
 
   const educareFilterMetadata = useMemo(() => {
     const nqfSet = new Set<number>();
@@ -423,7 +426,15 @@ export const EducationPlatformHub: React.FC<EducationPlatformHubProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center gap-1.5 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setShowStudyBuddy(true)}
+                className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-xs font-bold shadow-md shadow-indigo-600/20 hover:opacity-95 transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <Brain className="w-4 h-4" />
+                <span>Virtual Study Buddy</span>
+              </button>
               {[
                 { id: 'study_roadmap' as const, label: 'Study Roadmap', icon: GitBranch },
                 { id: 'velocity' as const, label: 'Learning Velocity', icon: BarChart3 },
@@ -910,6 +921,20 @@ export const EducationPlatformHub: React.FC<EducationPlatformHubProps> = ({
           />
         )}
       </div>
+
+      {showStudyBuddy && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-xs transition-opacity animate-in fade-in">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col p-4 animate-in slide-in-from-right duration-200">
+            <VirtualStudyBuddySidebar
+              currentCourse={studyGuides[0]}
+              activeChapterTitle={studyGuides[0]?.chapters?.[0]?.title}
+              completedChaptersCount={2}
+              totalChapters={studyGuides[0]?.chapters?.length || 8}
+              onClose={() => setShowStudyBuddy(false)}
+            />
+          </div>
+        </div>
+      )}
 
     </div>
   );

@@ -1,0 +1,584 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  DeepWorkSessionRecord,
+  DeepWorkState,
+  FocusIntensityMetrics,
+  PomodoroSessionLog,
+  ReadingProgress,
+  StudyGuide,
+} from '../types';
+
+const DEEP_WORK_STORAGE_KEY = 'ttg_deep_work_state_v1';
+
+interface UseDeepWorkModeOptions {
+  studyGuides: StudyGuide[];
+  readingProgress: Record<string, ReadingProgress>;
+  syncedFocusMinutes: number;
+  completedPomodoroSessions: number;
+  pomodoroLogs: PomodoroSessionLog[];
+  onCompleteSession?: (minutes: number, guideId: string, guideTitle: string) => void;
+}
+
+function formatLocalDateOffset(daysAgo: number, hour: number, minute = 0): string {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  d.setHours(hour, minute, 0, 0);
+  return d.toISOString();
+}
+
+function addMinutesIso(startIso: string, minutes: number): string {
+  const dt = new Date(startIso);
+  dt.setMinutes(dt.getMinutes() + minutes);
+  return dt.toISOString();
+}
+
+function createSeedDeepWorkHistory(studyGuides: StudyGuide[]): DeepWorkSessionRecord[] {
+  const fallbackTitles = [
+    {
+      id: studyGuides[0]?.id || 'sg_ai_test_time_search',
+      title:
+        studyGuides[0]?.title ||
+        'Test-Time Search & Process-Supervised Reasoning Architectures',
+    },
+    {
+      id: studyGuides[1]?.id || 'sg_ai_swarm_consensus',
+      title:
+        studyGuides[1]?.title ||
+        'Decentralized Agent Swarms & Byzantine Consensus Verification',
+    },
+    {
+      id: studyGuides[2]?.id || 'sg_cog_first_principles_01',
+      title:
+        studyGuides[2]?.title ||
+        'First-Principles Cognitive Architecture & Systems Boundaries',
+    },
+    {
+      id: studyGuides[3]?.id || 'sg_econ_sovereign_01',
+      title:
+        studyGuides[3]?.title ||
+        'Sovereign Economics, Base-Load Energy & Compute Equilibrium',
+    },
+  ];
+
+  // Ensure current week has realistic accumulated progress (~4.75h toward 10 Hours of Deep Work)
+  // and past 30 days highlight morning (09:00-11:00) & evening (19:00-21:00) peak focus windows
+  const blueprint: Array<{
+    daysAgo: number;
+    hour: number;
+    plannedMinutes: number;
+    elapsedMinutes: number;
+    status: 'completed' | 'interrupted';
+    guideIdx: number;
+    distractionsBlockedCount: number;
+  }> = [
+    { daysAgo: 0, hour: 9, plannedMinutes: 50, elapsedMinutes: 50, status: 'completed', guideIdx: 0, distractionsBlockedCount: 3 },
+    { daysAgo: 1, hour: 9, plannedMinutes: 90, elapsedMinutes: 90, status: 'completed', guideIdx: 0, distractionsBlockedCount: 5 },
+    { daysAgo: 1, hour: 19, plannedMinutes: 50, elapsedMinutes: 50, status: 'completed', guideIdx: 1, distractionsBlockedCount: 2 },
+    { daysAgo: 2, hour: 10, plannedMinutes: 50, elapsedMinutes: 50, status: 'completed', guideIdx: 2, distractionsBlockedCount: 4 },
+    { daysAgo: 3, hour: 9, plannedMinutes: 50, elapsedMinutes: 45, status: 'completed', guideIdx: 3, distractionsBlockedCount: 2 },
+    { daysAgo: 5, hour: 20, plannedMinutes: 50, elapsedMinutes: 50, status: 'completed', guideIdx: 1, distractionsBlockedCount: 3 },
+    { daysAgo: 6, hour: 9, plannedMinutes: 90, elapsedMinutes: 90, status: 'completed', guideIdx: 0, distractionsBlockedCount: 6 },
+    { daysAgo: 8, hour: 10, plannedMinutes: 50, elapsedMinutes: 50, status: 'completed', guideIdx: 2, distractionsBlockedCount: 2 },
+    { daysAgo: 9, hour: 19, plannedMinutes: 50, elapsedMinutes: 28, status: 'interrupted', guideIdx: 3, distractionsBlockedCount: 1 },
+    { daysAgo: 11, hour: 9, plannedMinutes: 90, elapsedMinutes: 90, status: 'completed', guideIdx: 0, distractionsBlockedCount: 4 },
+    { daysAgo: 12, hour: 14, plannedMinutes: 50, elapsedMinutes: 50, status: 'completed', guideIdx: 1, distractionsBlockedCount: 2 },
+    { daysAgo: 14, hour: 9, plannedMinutes: 50, elapsedMinutes: 50, status: 'completed', guideIdx: 2, distractionsBlockedCount: 3 },
+    { daysAgo: 16, hour: 20, plannedMinutes: 90, elapsedMinutes: 90, status: 'completed', guideIdx: 0, distractionsBlockedCount: 5 },
+    { daysAgo: 18, hour: 10, plannedMinutes: 50, elapsedMinutes: 50, status: 'completed', guideIdx: 3, distractionsBlockedCount: 2 },
+    { daysAgo: 20, hour: 9, plannedMinutes: 50, elapsedMinutes: 50, status: 'completed', guideIdx: 1, distractionsBlockedCount: 3 },
+    { daysAgo: 22, hour: 15, plannedMinutes: 50, elapsedMinutes: 32, status: 'interrupted', guideIdx: 2, distractionsBlockedCount: 1 },
+    { daysAgo: 24, hour: 9, plannedMinutes: 90, elapsedMinutes: 90, status: 'completed', guideIdx: 0, distractionsBlockedCount: 4 },
+    { daysAgo: 26, hour: 19, plannedMinutes: 50, elapsedMinutes: 50, status: 'completed', guideIdx: 1, distractionsBlockedCount: 2 },
+    { daysAgo: 28, hour: 10, plannedMinutes: 50, elapsedMinutes: 50, status: 'completed', guideIdx: 3, distractionsBlockedCount: 3 },
+  ];
+
+  return blueprint.map((item, idx) => {
+    const startedAt = formatLocalDateOffset(item.daysAgo, item.hour, (idx * 7) % 35);
+    const guide = fallbackTitles[item.guideIdx % fallbackTitles.length];
+    return {
+      id: `dw_seed_${idx + 1}`,
+      guideId: guide.id,
+      guideTitle: guide.title,
+      plannedMinutes: item.plannedMinutes,
+      elapsedMinutes: item.elapsedMinutes,
+      status: item.status,
+      startedAt,
+      endedAt: addMinutesIso(startedAt, item.elapsedMinutes),
+      distractionsBlockedCount: item.distractionsBlockedCount,
+    };
+  });
+}
+
+function createInitialState(defaultGuideId: string, studyGuides: StudyGuide[]): DeepWorkState {
+  const plannedMinutes = 50;
+  return {
+    isActive: false,
+    isPaused: false,
+    plannedMinutes,
+    remainingSeconds: plannedMinutes * 60,
+    targetEndAt: null,
+    linkedGuideId: defaultGuideId,
+    startedAt: null,
+    suppressedDistractionsCount: 0,
+    sessionsHistory: createSeedDeepWorkHistory(studyGuides),
+  };
+}
+
+function loadDeepWorkState(defaultGuideId: string, studyGuides: StudyGuide[]): DeepWorkState {
+  try {
+    const raw = localStorage.getItem(DEEP_WORK_STORAGE_KEY);
+    if (!raw) return createInitialState(defaultGuideId, studyGuides);
+    const parsed = JSON.parse(raw) as Partial<DeepWorkState>;
+    const plannedMinutes =
+      typeof parsed.plannedMinutes === 'number' && parsed.plannedMinutes >= 15
+        ? parsed.plannedMinutes
+        : 50;
+    const loadedHistory =
+      Array.isArray(parsed.sessionsHistory) && parsed.sessionsHistory.length > 0
+        ? parsed.sessionsHistory
+        : createSeedDeepWorkHistory(studyGuides);
+
+    if (parsed.isActive && !parsed.isPaused && parsed.targetEndAt) {
+      const remaining = Math.max(0, Math.ceil((parsed.targetEndAt - Date.now()) / 1000));
+      return {
+        isActive: remaining > 0,
+        isPaused: false,
+        plannedMinutes,
+        remainingSeconds: remaining > 0 ? remaining : plannedMinutes * 60,
+        targetEndAt: remaining > 0 ? parsed.targetEndAt : null,
+        linkedGuideId: parsed.linkedGuideId || defaultGuideId,
+        startedAt: remaining > 0 ? parsed.startedAt || new Date().toISOString() : null,
+        suppressedDistractionsCount: Number(parsed.suppressedDistractionsCount) || 0,
+        sessionsHistory: loadedHistory,
+      };
+    }
+
+    return {
+      isActive: Boolean(parsed.isActive),
+      isPaused: Boolean(parsed.isPaused),
+      plannedMinutes,
+      remainingSeconds:
+        typeof parsed.remainingSeconds === 'number' && parsed.remainingSeconds > 0
+          ? parsed.remainingSeconds
+          : plannedMinutes * 60,
+      targetEndAt: parsed.targetEndAt ?? null,
+      linkedGuideId: parsed.linkedGuideId || defaultGuideId,
+      startedAt: parsed.startedAt ?? null,
+      suppressedDistractionsCount: Number(parsed.suppressedDistractionsCount) || 0,
+      sessionsHistory: loadedHistory,
+    };
+  } catch {
+    return createInitialState(defaultGuideId, studyGuides);
+  }
+}
+
+export function useDeepWorkMode({
+  studyGuides,
+  readingProgress,
+  syncedFocusMinutes,
+  completedPomodoroSessions,
+  pomodoroLogs,
+  onCompleteSession,
+}: UseDeepWorkModeOptions) {
+  const defaultGuideId = studyGuides[0]?.id || 'sg_ai_test_time_search';
+  const [state, setState] = useState<DeepWorkState>(() =>
+    loadDeepWorkState(defaultGuideId, studyGuides)
+  );
+  const [lastAutoCompletedSessionId, setLastAutoCompletedSessionId] = useState<string | null>(null);
+
+  const studyGuidesRef = useRef(studyGuides);
+  studyGuidesRef.current = studyGuides;
+
+  const onCompleteSessionRef = useRef(onCompleteSession);
+  onCompleteSessionRef.current = onCompleteSession;
+
+  const resolveGuideTitle = useCallback((guideId: string) => {
+    return (
+      studyGuidesRef.current.find((g) => g.id === guideId)?.title ||
+      'Deep Work Study Block'
+    );
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(DEEP_WORK_STORAGE_KEY, JSON.stringify(state));
+    } catch {
+      // Ignore storage errors
+    }
+  }, [state]);
+
+  // Countdown ticker when Deep Work is active and unpaused
+  useEffect(() => {
+    if (!state.isActive || state.isPaused) return;
+
+    const tick = () => {
+      let completedPayload: {
+        id: string;
+        minutes: number;
+        guideId: string;
+        guideTitle: string;
+      } | null = null;
+
+      setState((prev) => {
+        if (!prev.isActive || prev.isPaused || !prev.targetEndAt) return prev;
+        const remaining = Math.max(0, Math.ceil((prev.targetEndAt - Date.now()) / 1000));
+        if (remaining > 0) {
+          if (remaining === prev.remainingSeconds) return prev;
+          return { ...prev, remainingSeconds: remaining };
+        }
+
+        const guideTitle = resolveGuideTitle(prev.linkedGuideId);
+        const nowIso = new Date().toISOString();
+        const recordId = `dw_${Date.now()}`;
+        const completedRecord: DeepWorkSessionRecord = {
+          id: recordId,
+          guideId: prev.linkedGuideId,
+          guideTitle,
+          plannedMinutes: prev.plannedMinutes,
+          elapsedMinutes: prev.plannedMinutes,
+          status: 'completed',
+          startedAt: prev.startedAt || nowIso,
+          endedAt: nowIso,
+          distractionsBlockedCount: prev.suppressedDistractionsCount,
+        };
+
+        completedPayload = {
+          id: recordId,
+          minutes: prev.plannedMinutes,
+          guideId: prev.linkedGuideId,
+          guideTitle,
+        };
+
+        return {
+          ...prev,
+          isActive: false,
+          isPaused: false,
+          remainingSeconds: prev.plannedMinutes * 60,
+          targetEndAt: null,
+          startedAt: null,
+          suppressedDistractionsCount: 0,
+          sessionsHistory: [completedRecord, ...prev.sessionsHistory].slice(0, 120),
+        };
+      });
+
+      if (completedPayload) {
+        const { id, minutes, guideId, guideTitle } = completedPayload;
+        setLastAutoCompletedSessionId(id);
+        window.setTimeout(() => {
+          onCompleteSessionRef.current?.(minutes, guideId, `${guideTitle} (Deep Work)`);
+        }, 0);
+      }
+    };
+
+    tick();
+    const timer = window.setInterval(tick, 500);
+    return () => window.clearInterval(timer);
+  }, [state.isActive, state.isPaused, resolveGuideTitle]);
+
+  const startDeepWork = useCallback((customMinutes?: number, customGuideId?: string) => {
+    setState((prev) => {
+      const minutes = customMinutes ?? prev.plannedMinutes;
+      const guideId = customGuideId ?? prev.linkedGuideId;
+      const durationSeconds = Math.max(60, minutes * 60);
+      return {
+        ...prev,
+        isActive: true,
+        isPaused: false,
+        plannedMinutes: minutes,
+        remainingSeconds: durationSeconds,
+        targetEndAt: Date.now() + durationSeconds * 1000,
+        linkedGuideId: guideId,
+        startedAt: new Date().toISOString(),
+        suppressedDistractionsCount: 0,
+      };
+    });
+  }, []);
+
+  const pauseResumeDeepWork = useCallback(() => {
+    setState((prev) => {
+      if (!prev.isActive) return prev;
+      if (prev.isPaused) {
+        const remaining = Math.max(1, prev.remainingSeconds);
+        return {
+          ...prev,
+          isPaused: false,
+          targetEndAt: Date.now() + remaining * 1000,
+        };
+      }
+      const remaining = prev.targetEndAt
+        ? Math.max(1, Math.ceil((prev.targetEndAt - Date.now()) / 1000))
+        : prev.remainingSeconds;
+      return {
+        ...prev,
+        isPaused: true,
+        remainingSeconds: remaining,
+        targetEndAt: null,
+      };
+    });
+  }, []);
+
+  const completeDeepWorkSession = useCallback((reflectionNotes?: string) => {
+    let completedPayload: {
+      minutes: number;
+      guideId: string;
+      guideTitle: string;
+    } | null = null;
+
+    const cleanNotes = reflectionNotes?.trim() ? reflectionNotes.trim() : undefined;
+
+    setState((prev) => {
+      if (!prev.isActive) return prev;
+      const totalSeconds = Math.max(60, prev.plannedMinutes * 60);
+      const elapsedSeconds = Math.max(0, totalSeconds - prev.remainingSeconds);
+      const elapsedMinutes = Math.max(prev.plannedMinutes, Math.round(elapsedSeconds / 60));
+      const guideTitle = resolveGuideTitle(prev.linkedGuideId);
+      const nowIso = new Date().toISOString();
+
+      const completedRecord: DeepWorkSessionRecord = {
+        id: `dw_${Date.now()}`,
+        guideId: prev.linkedGuideId,
+        guideTitle,
+        plannedMinutes: prev.plannedMinutes,
+        elapsedMinutes,
+        status: 'completed',
+        startedAt: prev.startedAt || nowIso,
+        endedAt: nowIso,
+        distractionsBlockedCount: prev.suppressedDistractionsCount,
+        reflectionNotes: cleanNotes,
+      };
+
+      completedPayload = {
+        minutes: elapsedMinutes,
+        guideId: prev.linkedGuideId,
+        guideTitle,
+      };
+
+      return {
+        ...prev,
+        isActive: false,
+        isPaused: false,
+        remainingSeconds: prev.plannedMinutes * 60,
+        targetEndAt: null,
+        startedAt: null,
+        suppressedDistractionsCount: 0,
+        sessionsHistory: [completedRecord, ...prev.sessionsHistory].slice(0, 120),
+      };
+    });
+
+    if (completedPayload) {
+      const { minutes, guideId, guideTitle } = completedPayload;
+      window.setTimeout(() => {
+        onCompleteSessionRef.current?.(minutes, guideId, `${guideTitle} (Deep Work)`);
+      }, 0);
+    }
+  }, [resolveGuideTitle]);
+
+  const updateSessionReflection = useCallback((sessionId: string, reflectionNotes: string) => {
+    const cleanNotes = reflectionNotes.trim();
+    setState((prev) => ({
+      ...prev,
+      sessionsHistory: prev.sessionsHistory.map((rec) =>
+        rec.id === sessionId
+          ? { ...rec, reflectionNotes: cleanNotes || undefined }
+          : rec
+      ),
+    }));
+  }, []);
+
+  const clearLastAutoCompletedSession = useCallback(() => {
+    setLastAutoCompletedSessionId(null);
+  }, []);
+
+  const endDeepWorkEarly = useCallback(() => {
+    setState((prev) => {
+      if (!prev.isActive) return prev;
+      const totalSeconds = Math.max(60, prev.plannedMinutes * 60);
+      const elapsedSeconds = Math.max(0, totalSeconds - prev.remainingSeconds);
+      const elapsedMinutes = Math.max(0, Math.round(elapsedSeconds / 60));
+      const nowIso = new Date().toISOString();
+
+      // Only record as interrupted if user already started (> 15 seconds elapsed)
+      const nextHistory =
+        elapsedSeconds >= 15
+          ? [
+              {
+                id: `dw_int_${Date.now()}`,
+                guideId: prev.linkedGuideId,
+                guideTitle: resolveGuideTitle(prev.linkedGuideId),
+                plannedMinutes: prev.plannedMinutes,
+                elapsedMinutes: Math.max(1, elapsedMinutes),
+                status: 'interrupted' as const,
+                startedAt: prev.startedAt || nowIso,
+                endedAt: nowIso,
+                distractionsBlockedCount: prev.suppressedDistractionsCount,
+              },
+              ...prev.sessionsHistory,
+            ].slice(0, 120)
+          : prev.sessionsHistory;
+
+      return {
+        ...prev,
+        isActive: false,
+        isPaused: false,
+        remainingSeconds: prev.plannedMinutes * 60,
+        targetEndAt: null,
+        startedAt: null,
+        suppressedDistractionsCount: 0,
+        sessionsHistory: nextHistory,
+      };
+    });
+  }, [resolveGuideTitle]);
+
+  const toggleDeepWork = useCallback(() => {
+    if (state.isActive) {
+      endDeepWorkEarly();
+    } else {
+      startDeepWork();
+    }
+  }, [state.isActive, endDeepWorkEarly, startDeepWork]);
+
+  const setPlannedMinutes = useCallback((minutes: number) => {
+    const safeMinutes = Math.min(240, Math.max(15, minutes));
+    setState((prev) => {
+      if (prev.isActive) return prev;
+      return {
+        ...prev,
+        plannedMinutes: safeMinutes,
+        remainingSeconds: safeMinutes * 60,
+        targetEndAt: null,
+      };
+    });
+  }, []);
+
+  const setLinkedGuideId = useCallback((guideId: string) => {
+    setState((prev) => ({
+      ...prev,
+      linkedGuideId: guideId,
+    }));
+  }, []);
+
+  const incrementBlockedDistractions = useCallback((amount = 1) => {
+    setState((prev) => {
+      if (!prev.isActive) return prev;
+      return {
+        ...prev,
+        suppressedDistractionsCount: prev.suppressedDistractionsCount + amount,
+      };
+    });
+  }, []);
+
+  // Deterministic Focus Intensity Score (0-100) anchored on study session completion
+  const focusIntensity = useMemo<FocusIntensityMetrics>(() => {
+    const deepCompleted = state.sessionsHistory.filter((s) => s.status === 'completed');
+    const deepInterrupted = state.sessionsHistory.filter((s) => s.status === 'interrupted');
+
+    const pomodoroFocusLogs = pomodoroLogs.filter((l) => l.phase === 'focus');
+    const completedSessionsCount =
+      deepCompleted.length + Math.max(completedPomodoroSessions, pomodoroFocusLogs.length);
+    const interruptedSessionsCount = deepInterrupted.length;
+    const totalAttempted = completedSessionsCount + interruptedSessionsCount;
+
+    // 1. Session Completion Rate (50% weight)
+    const guideProgressValues = Object.values(readingProgress).map((p) => p.progressPercent || 0);
+    const avgCurriculumCompletion =
+      guideProgressValues.length > 0
+        ? guideProgressValues.reduce((a, b) => a + b, 0) / guideProgressValues.length
+        : 65;
+
+    const sessionCompletionRate =
+      totalAttempted > 0
+        ? Math.round((completedSessionsCount / totalAttempted) * 100)
+        : Math.round(Math.min(88, Math.max(58, avgCurriculumCompletion)));
+
+    // 2. Sustained Block Depth (30% weight) - compares average completed block minutes vs 45m benchmark
+    const completedDeepMinutes = deepCompleted.reduce((sum, s) => sum + s.elapsedMinutes, 0);
+    const totalFocusMinutes = Math.max(syncedFocusMinutes, completedDeepMinutes);
+    const avgCompletedBlockMinutes =
+      completedSessionsCount > 0 && totalFocusMinutes > 0
+        ? Math.round(totalFocusMinutes / completedSessionsCount)
+        : state.isActive
+        ? state.plannedMinutes
+        : Math.min(45, Math.max(20, Math.round(totalFocusMinutes || 25)));
+
+    const blockDepthScore = Math.min(
+      100,
+      Math.max(30, Math.round((avgCompletedBlockMinutes / 45) * 100))
+    );
+
+    // 3. Distraction-Free Continuity Shield (20% weight)
+    const activeShieldBonus = state.isActive ? 14 : 0;
+    const completedRatioPenalty = interruptedSessionsCount * 12;
+    const baseShield =
+      completedSessionsCount > 0
+        ? Math.min(96, 72 + completedSessionsCount * 6)
+        : 64;
+    const distractionShieldScore = Math.min(
+      100,
+      Math.max(25, baseShield + activeShieldBonus - completedRatioPenalty)
+    );
+
+    const score = Math.min(
+      100,
+      Math.max(
+        0,
+        Math.round(
+          sessionCompletionRate * 0.5 +
+            blockDepthScore * 0.3 +
+            distractionShieldScore * 0.2
+        )
+      )
+    );
+
+    let tierLabel: FocusIntensityMetrics['tierLabel'] = 'Steady Cadence';
+    if (
+      totalAttempted > 0 &&
+      interruptedSessionsCount > completedSessionsCount &&
+      score < 60
+    ) {
+      tierLabel = 'Interrupted · Rebuilding';
+    } else if (score >= 90) {
+      tierLabel = 'Peak Deep Flow';
+    } else if (score >= 76) {
+      tierLabel = 'High Focus';
+    } else if (score >= 60) {
+      tierLabel = 'Steady Cadence';
+    } else {
+      tierLabel = 'Building Momentum';
+    }
+
+    return {
+      score,
+      tierLabel,
+      sessionCompletionRate,
+      blockDepthScore,
+      distractionShieldScore,
+      completedSessionsCount,
+      interruptedSessionsCount,
+      avgCompletedBlockMinutes,
+    };
+  }, [
+    state.sessionsHistory,
+    state.isActive,
+    state.plannedMinutes,
+    pomodoroLogs,
+    completedPomodoroSessions,
+    syncedFocusMinutes,
+    readingProgress,
+  ]);
+
+  return {
+    state,
+    focusIntensity,
+    lastAutoCompletedSessionId,
+    clearLastAutoCompletedSession,
+    toggleDeepWork,
+    startDeepWork,
+    pauseResumeDeepWork,
+    completeDeepWorkSession,
+    updateSessionReflection,
+    endDeepWorkEarly,
+    setPlannedMinutes,
+    setLinkedGuideId,
+    incrementBlockedDistractions,
+  };
+}

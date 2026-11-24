@@ -10,14 +10,16 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { Activity, Clock, Sun, Sunset, Moon, TrendingUp } from 'lucide-react';
-import { DeepWorkState, PomodoroSessionLog, StudyGuide } from '../types';
+import { Activity, CheckCircle2, Clock, Download, Sun, Sunset, Moon, TrendingUp } from 'lucide-react';
+import { DeepWorkState, PomodoroSessionLog, StudyGuide, UserProfile } from '../types';
 import {
   buildDailyFocusIntensityTrend30d,
   DailyFocusIntensityPoint,
 } from '../utils/deepWorkAnalytics';
+import { exportDailyFocusIntensityCsv } from '../utils/focusCsvExport';
 
 interface FocusIntensityTrendChartProps {
+  user?: UserProfile;
   deepWorkState?: DeepWorkState;
   pomodoroLogs?: PomodoroSessionLog[];
   studyGuides?: StudyGuide[];
@@ -88,9 +90,10 @@ const CustomTrendTooltip: React.FC<CustomTrendTooltipProps> = ({
 
 export const FocusIntensityTrendChart: React.FC<
   FocusIntensityTrendChartProps
-> = ({ deepWorkState, pomodoroLogs = [], studyGuides = [] }) => {
+> = ({ user, deepWorkState, pomodoroLogs = [], studyGuides = [] }) => {
   const [includeRestZeros, setIncludeRestZeros] = useState<boolean>(false);
   const [includePomodoro, setIncludePomodoro] = useState<boolean>(true);
+  const [exportNotice, setExportNotice] = useState<string | null>(null);
 
   const trend = useMemo(
     () =>
@@ -102,6 +105,24 @@ export const FocusIntensityTrendChart: React.FC<
       }),
     [deepWorkState, pomodoroLogs, studyGuides, includePomodoro]
   );
+
+  const handleExportIntensityCsv = () => {
+    const safeUser: Partial<UserProfile> = user || {
+      id: 'scholar',
+      name: 'Scholar',
+      email: '',
+      role: 'student',
+    };
+    const result = exportDailyFocusIntensityCsv({
+      user: safeUser,
+      trend,
+      includeRestDays: includeRestZeros,
+    });
+    setExportNotice(
+      `Exported ${result.exportedRowsCount} daily focus intensity rows (${result.filename}).`
+    );
+    window.setTimeout(() => setExportNotice(null), 4000);
+  };
 
   const primarySeriesKey = includeRestZeros
     ? 'dailyFocusIntensityZeroed'
@@ -170,8 +191,24 @@ export const FocusIntensityTrendChart: React.FC<
           >
             {includeRestZeros ? 'Showing Rest Days (0)' : 'Connecting Active Days'}
           </button>
+
+          <button
+            type="button"
+            onClick={handleExportIntensityCsv}
+            className="px-3.5 py-2 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-xs font-bold text-emerald-800 dark:text-emerald-300 inline-flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Export Intensity CSV</span>
+          </button>
         </div>
       </div>
+
+      {exportNotice && (
+        <div className="p-3 rounded-xl border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 text-xs font-semibold text-emerald-800 dark:text-emerald-200 flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+          <span>{exportNotice}</span>
+        </div>
+      )}
 
       {/* KPI Strip */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

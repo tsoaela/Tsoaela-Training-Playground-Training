@@ -58,6 +58,7 @@ import {
   DeepWorkState,
   FocusIntensityMetrics,
   PomodoroPhase,
+  StudentAdmissionStatus,
 } from '../types';
 import { DeepWorkPanel } from './DeepWorkPanel';
 import { DeepWorkAmbienceSoundboard } from './DeepWorkAmbienceSoundboard';
@@ -70,7 +71,13 @@ import { DailyStudyGoalRingCard } from './DailyStudyGoalRingCard';
 import { useDailyStudyGoal } from '../hooks/useDailyStudyGoal';
 import { FocusStreakSection } from './FocusStreakSection';
 import { FocusIntensityTrendChart } from './FocusIntensityTrendChart';
+import { FocusHistorySection } from './FocusHistorySection';
 import { FocusBuddyPanel } from './FocusBuddyPanel';
+import { buildDailyFocusIntensityTrend30d } from '../utils/deepWorkAnalytics';
+import {
+  exportDailyFocusIntensityCsv,
+  exportFocusSessionHistoryCsv,
+} from '../utils/focusCsvExport';
 import {
   computeFocusStreakMetrics,
   syncFocusStreakGoalMetDate,
@@ -87,6 +94,7 @@ import { ProfileEditCard } from './ProfileEditCard';
 import { CourseProgressChart } from './CourseProgressChart';
 import { WeeklyPomodoroTrendChart } from './WeeklyPomodoroTrendChart';
 import { SavedProgramsSection } from './SavedProgramsSection';
+import { ApplicationsAndRegistrationsSection } from './ApplicationsAndRegistrationsSection';
 import { MilestoneProgressSection } from './MilestoneProgressSection';
 import { PeerInteractionMap } from './PeerInteractionMap';
 import { FocusAiPanel } from './FocusAiPanel';
@@ -106,6 +114,10 @@ interface UserActivityDashboardTabProps {
   studyGuides: StudyGuide[];
   enrollments?: EnrolledStudentRecord[];
   acceptedStudents?: AcceptedRegisteredStudent[];
+  onUpdateAcceptedStudentStatus?: (
+    id: string,
+    status: StudentAdmissionStatus
+  ) => Promise<AcceptedRegisteredStudent | null>;
   onNavigateToCourse?: (guideId: string) => void;
   onStartStudyRoom?: (courseTitle: string, courseId: string, roomId?: string) => void;
   onOpenFacultyPortal?: () => void;
@@ -158,6 +170,7 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
   studyGuides,
   enrollments = [],
   acceptedStudents = [],
+  onUpdateAcceptedStudentStatus,
   onNavigateToCourse,
   onStartStudyRoom,
   onOpenFacultyPortal,
@@ -506,6 +519,39 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
     window.setTimeout(() => setExportNotice(null), 4500);
   };
 
+  const handleExportDailyIntensityCsv = () => {
+    const trend = buildDailyFocusIntensityTrend30d({
+      deepWorkState: deepWork?.state,
+      pomodoroLogs,
+      studyGuides,
+      includePomodoroFocus: true,
+    });
+    const result = exportDailyFocusIntensityCsv({
+      user,
+      trend,
+      includeRestDays: true,
+    });
+    setExportNotice(
+      `Exported ${result.exportedRowsCount} days of Daily Focus Intensity to ${result.filename}.`
+    );
+    window.setTimeout(() => setExportNotice(null), 4500);
+  };
+
+  const handleExportSessionHistoryCsv = () => {
+    const result = exportFocusSessionHistoryCsv({
+      user,
+      deepWorkState: deepWork?.state,
+      pomodoroLogs,
+      studyGuides,
+    });
+    setExportNotice(
+      `Exported ${result.exportedRowsCount} focus sessions (${(
+        result.totalMinutes / 60
+      ).toFixed(2)} hrs) to ${result.filename}.`
+    );
+    window.setTimeout(() => setExportNotice(null), 4500);
+  };
+
   // Daily Study Time Data (Bar/Area Chart)
   const dailyStudyData = useMemo(() => {
     if (timeframe === '7d') {
@@ -718,7 +764,7 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
               </button>
 
               {isExportMenuOpen && (
-                <div className="absolute right-0 mt-2 w-64 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 shadow-xl z-30 p-1.5 space-y-1 text-xs">
+                <div className="absolute right-0 mt-2 w-72 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 shadow-xl z-30 p-1.5 space-y-1 text-xs">
                   <button
                     type="button"
                     onClick={async () => {
@@ -788,11 +834,49 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
                     type="button"
                     onClick={() => {
                       setIsExportMenuOpen(false);
-                      handleExportPomodoroCsv();
+                      handleExportDailyIntensityCsv();
                     }}
                     className="w-full px-3 py-2 rounded-lg text-left hover:bg-stone-100 dark:hover:bg-stone-800 flex items-start gap-2.5 cursor-pointer transition-colors"
                   >
                     <FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-stone-900 dark:text-stone-100 block">
+                        Daily Focus Intensity (.csv)
+                      </span>
+                      <span className="text-[11px] text-stone-500 dark:text-stone-400">
+                        30-day intensity scores &amp; peak windows
+                      </span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsExportMenuOpen(false);
+                      handleExportSessionHistoryCsv();
+                    }}
+                    className="w-full px-3 py-2 rounded-lg text-left hover:bg-stone-100 dark:hover:bg-stone-800 flex items-start gap-2.5 cursor-pointer transition-colors"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-stone-900 dark:text-stone-100 block">
+                        Focus Session History (.csv)
+                      </span>
+                      <span className="text-[11px] text-stone-500 dark:text-stone-400">
+                        Deep Work &amp; Pomodoro session logs
+                      </span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsExportMenuOpen(false);
+                      handleExportPomodoroCsv();
+                    }}
+                    className="w-full px-3 py-2 rounded-lg text-left hover:bg-stone-100 dark:hover:bg-stone-800 flex items-start gap-2.5 cursor-pointer transition-colors"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                     <div>
                       <span className="font-bold text-stone-900 dark:text-stone-100 block">
                         Pomodoro Focus Logs (.csv)
@@ -918,9 +1002,21 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
 
       {/* Recharts 30-Day Daily Focus Intensity Trend Line Chart */}
       <FocusIntensityTrendChart
+        user={user}
         deepWorkState={deepWork?.state}
         pomodoroLogs={pomodoroLogs}
         studyGuides={studyGuides}
+      />
+
+      {/* Focus History: Last 10 Completed Focus Sessions */}
+      <FocusHistorySection
+        user={user}
+        deepWorkState={deepWork?.state}
+        pomodoroLogs={pomodoroLogs}
+        studyGuides={studyGuides}
+        isDeepWorkActive={isDeepWorkActive}
+        onNavigateToCourse={onNavigateToCourse}
+        onStartDeepWork={deepWork?.onStartDeepWork}
       />
 
       {/* Weekly Focus Challenge & Days Remaining Visual Tracker */}
@@ -995,6 +1091,16 @@ export const UserActivityDashboardTab: React.FC<UserActivityDashboardTabProps> =
           onApplyQualification={onApplyQualification}
           onToggleCompareProgram={onToggleCompareProgram}
           onOpenCompareModal={onOpenCompareModal}
+        />
+      )}
+
+      {/* Clean Sections: New Applications & Registrations */}
+      {!isDeepWorkActive && (
+        <ApplicationsAndRegistrationsSection
+          user={user}
+          acceptedStudents={acceptedStudents}
+          onApplyQualification={onApplyQualification}
+          onUpdateAcceptedStudentStatus={onUpdateAcceptedStudentStatus}
         />
       )}
 

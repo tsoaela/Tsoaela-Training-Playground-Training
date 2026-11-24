@@ -16,7 +16,8 @@ import {
   Calendar,
   User,
   Mail,
-  Award
+  Award,
+  Share2
 } from 'lucide-react';
 import { ApplicationCategory, ApplicationPrefillData, CategoryRegistration, UserProfile } from '../types';
 import { ACADEMIC_FACULTIES, STANDARD_QUALIFICATION_LEVELS } from '../data/academicCatalog';
@@ -246,6 +247,7 @@ export const ApplicationRegistrationModal: React.FC<ApplicationRegistrationModal
   const [portfolioLink, setPortfolioLink] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [completedRegistration, setCompletedRegistration] = useState<CategoryRegistration | null>(null);
+  const [copiedShareLink, setCopiedShareLink] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -356,6 +358,7 @@ export const ApplicationRegistrationModal: React.FC<ApplicationRegistrationModal
         const list = saved ? JSON.parse(saved) : [];
         list.unshift(newReg);
         localStorage.setItem('ttg_registrations', JSON.stringify(list));
+        window.dispatchEvent(new CustomEvent('ttg:registrations-updated'));
       } catch (err) {
         console.error(err);
       }
@@ -408,6 +411,20 @@ AUTHORIZED SIGNATURE: Office of the Academic Registrar & Dean of Faculty
     link.download = `TTG-Registration-${completedRegistration.registrationNumber}.txt`;
     link.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleShareRegistration = async () => {
+    if (!completedRegistration) return;
+    const shareUrl = `${window.location.origin}/apply?reg=${encodeURIComponent(
+      completedRegistration.registrationNumber
+    )}&category=${encodeURIComponent(completedRegistration.category)}`;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopiedShareLink(true);
+      window.setTimeout(() => setCopiedShareLink(false), 3000);
+    } catch {
+      // fallback
+    }
   };
 
   if (!isOpen) return null;
@@ -490,6 +507,34 @@ AUTHORIZED SIGNATURE: Office of the Academic Registrar & Dean of Faculty
                 </p>
               </div>
 
+              {/* Visual Status Timeline (Submitted -> Institutional Review -> Accepted -> Enrolled) */}
+              <div className="max-w-xl mx-auto p-4 rounded-2xl bg-stone-50 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 space-y-3">
+                <div className="text-[11px] font-mono uppercase tracking-wider text-stone-500 dark:text-stone-400 text-left font-semibold">
+                  Application &amp; Progression Status Timeline
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-left">
+                  {[
+                    { step: '01', title: 'Submitted', status: 'Completed', date: completedRegistration.registrationDate },
+                    { step: '02', title: 'Institutional Review', status: 'Completed', date: 'Board Audit Verified' },
+                    { step: '03', title: 'Accepted', status: 'Completed', date: 'Offer Cleared' },
+                    { step: '04', title: 'Enrolled', status: 'Active', date: 'Registry ID Active' },
+                  ].map((st, i) => (
+                    <div key={i} className="p-2.5 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 relative space-y-1">
+                      <div className="flex items-center justify-between text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                        <span>{st.step}</span>
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="font-bold text-xs text-stone-900 dark:text-stone-100">
+                        {st.title}
+                      </div>
+                      <div className="text-[10px] text-stone-500 dark:text-stone-400 truncate">
+                        {st.date}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               {/* Registration Certificate Card */}
               <div className="max-w-xl mx-auto p-6 rounded-2xl bg-stone-50 dark:bg-stone-950/70 border-2 border-stone-200 dark:border-stone-800 text-left space-y-4 shadow-inner">
                 <div className="flex items-center justify-between pb-3 border-b border-stone-200 dark:border-stone-800">
@@ -539,10 +584,27 @@ AUTHORIZED SIGNATURE: Office of the Academic Registrar & Dean of Faculty
                 <button
                   type="button"
                   onClick={handleDownloadTranscript}
-                  className="w-full sm:w-auto px-6 py-3 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
+                  className="w-full sm:w-auto px-5 py-3 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer whitespace-nowrap"
                 >
                   <Download className="w-4 h-4" />
-                  <span>Download Official Transcript (.TXT)</span>
+                  <span>Download Transcript (.TXT)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleShareRegistration}
+                  className="w-full sm:w-auto px-5 py-3 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-900 dark:text-stone-100 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer whitespace-nowrap"
+                >
+                  {copiedShareLink ? (
+                    <>
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <span>Copied Referral Link!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Share2 className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                      <span>Share Registration Link</span>
+                    </>
+                  )}
                 </button>
                 <button
                   type="button"
@@ -550,7 +612,7 @@ AUTHORIZED SIGNATURE: Office of the Academic Registrar & Dean of Faculty
                     setCompletedRegistration(null);
                     onClose();
                   }}
-                  className="w-full sm:w-auto px-6 py-3 rounded-xl bg-stone-200 dark:bg-stone-800 hover:bg-stone-300 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 font-bold text-xs transition-all cursor-pointer"
+                  className="w-full sm:w-auto px-5 py-3 rounded-xl bg-stone-200 dark:bg-stone-800 hover:bg-stone-300 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 font-bold text-xs transition-all cursor-pointer whitespace-nowrap"
                 >
                   Return to Dashboard
                 </button>
@@ -563,13 +625,41 @@ AUTHORIZED SIGNATURE: Office of the Academic Registrar & Dean of Faculty
               {/* Category Info Banner */}
               <div className={`p-4 rounded-2xl ${activeConfig.bgLight} ${activeConfig.borderLight} border flex items-start gap-3`}>
                 <Building2 className={`w-5 h-5 ${activeConfig.accentColor} shrink-0 mt-0.5`} />
-                <div className="text-xs">
+                <div className="text-xs space-y-1">
                   <h4 className="font-bold text-stone-900 dark:text-stone-100">
                     {activeConfig.title}
                   </h4>
-                  <p className="text-stone-600 dark:text-stone-300 mt-0.5">
+                  <p className="text-stone-600 dark:text-stone-300">
                     {activeConfig.description}
                   </p>
+                </div>
+              </div>
+
+              {/* Visual Status Progression Pipeline Preview */}
+              <div className="p-3.5 rounded-2xl bg-stone-50 dark:bg-stone-950/60 border border-stone-200 dark:border-stone-800 space-y-2">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-stone-500 font-bold">
+                  Admissions Progression Pipeline
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+                  {[
+                    { title: 'Submitted', active: true, desc: 'Application Intake' },
+                    { title: 'Institutional Review', active: false, desc: 'Board Audit' },
+                    { title: 'Accepted', active: false, desc: 'Offer Clearance' },
+                    { title: 'Enrolled', active: false, desc: 'Registry Active' },
+                  ].map((step, idx) => (
+                    <div key={idx} className="p-2.5 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 space-y-0.5">
+                      <div className="flex items-center justify-between text-[10px] font-mono font-bold text-purple-700 dark:text-purple-400">
+                        <span>0{idx + 1}</span>
+                        {step.active && <span className="w-1.5 h-1.5 rounded-full bg-purple-600 animate-pulse" />}
+                      </div>
+                      <div className="font-bold text-xs text-stone-900 dark:text-stone-100">
+                        {step.title}
+                      </div>
+                      <div className="text-[10px] text-stone-500 dark:text-stone-400">
+                        {step.desc}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
 

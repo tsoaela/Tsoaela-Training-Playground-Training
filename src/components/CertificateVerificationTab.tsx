@@ -20,6 +20,7 @@ import {
 } from '../types';
 import { AppealsPortalSection } from './AppealsPortalSection';
 import { TaiOneW3CAccreditationPanel } from './TaiOneW3CAccreditationPanel';
+import { CertificateVerificationBadge } from './CertificateVerificationBadge';
 
 export interface CertificateVerificationTabProps {
   user: UserProfile;
@@ -375,6 +376,24 @@ export const CertificateVerificationTab: React.FC<CertificateVerificationTabProp
                 </span>
               </div>
             </div>
+
+            {/* Generated Cryptographic Verification Badge */}
+            <CertificateVerificationBadge
+              serialNumber={cert.serialNumber}
+              credentialTitle={cert.credentialTitle}
+              recipientName={cert.recipientName}
+              issueDate={cert.issueDate}
+              accreditor={cert.accreditor}
+              accreditationTier={cert.accreditationTier}
+              signatureHash={cert.signatureHash}
+              status={
+                cert.status === 'verified' && verificationResult?.signatureValid
+                  ? 'verified'
+                  : cert.status === 'under_appeal'
+                  ? 'under_appeal'
+                  : 'revoked'
+              }
+            />
 
             {/* Cryptographic Hash & Open Badges Actions */}
             <div className="pt-3 border-t border-stone-200 dark:border-stone-800 flex flex-col lg:flex-row lg:items-center justify-between gap-3 text-xs">

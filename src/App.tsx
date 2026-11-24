@@ -2237,6 +2237,7 @@ export default function App() {
             studyGuides={studyGuides}
             enrollments={enrollments}
             acceptedStudents={acceptedStudentsHook.students}
+            onUpdateAcceptedStudentStatus={acceptedStudentsHook.updateStudentStatus}
             onNavigateToCourse={(guideId) => {
               setTargetStudyGuideId(guideId);
               setActiveTab('educare');

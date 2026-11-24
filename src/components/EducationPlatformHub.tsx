@@ -15,7 +15,8 @@ import {
   ArrowDown,
   ShieldCheck,
   GitBranch,
-  Flame
+  Flame,
+  ClipboardCheck
 } from 'lucide-react';
 import {
   ACADEMIC_CATEGORY_FILTERS,
@@ -48,6 +49,7 @@ import {
 import { AddAcceptedStudentPayload } from '../hooks/useAcceptedStudents';
 import { FACULTY_LECTURE_SERIES } from '../data/lecturesAndSyllabuses';
 import { AcceptedStudentsRosterPanel } from './AcceptedStudentsRosterPanel';
+import { ApplicationsAndRegistrationsSection } from './ApplicationsAndRegistrationsSection';
 import { LecturesAndSyllabusesPanel } from './LecturesAndSyllabusesPanel';
 import { TopFocusedStudentsLeaderboard } from './TopFocusedStudentsLeaderboard';
 import { RealtimeStudyBanner } from './RealtimeStudyBanner';
@@ -77,7 +79,7 @@ import {
 import { CheckoutMode } from './StripeCheckoutModal';
 import { TTG_LOGO_URL } from '../utils/pdfBranding';
 
-export type EducationSubTab = 'educare' | 'lectures' | 'students' | 'community' | 'research' | 'digital_world' | 'careers' | 'retreats';
+export type EducationSubTab = 'educare' | 'lectures' | 'applications' | 'students' | 'community' | 'research' | 'digital_world' | 'careers' | 'retreats';
 
 interface EducationPlatformHubProps {
   user: UserProfile;
@@ -318,6 +320,7 @@ export const EducationPlatformHub: React.FC<EducationPlatformHubProps> = ({
   const navItems = [
     { id: 'educare' as const, label: 'Educare Systems', icon: GraduationCap, badge: `${studyGuides.length} Modules` },
     { id: 'lectures' as const, label: 'Lectures & Syllabuses', icon: BookOpen, badge: `${FACULTY_LECTURE_SERIES.length} Series` },
+    { id: 'applications' as const, label: 'Applications & Registrations', icon: ClipboardCheck, badge: 'New Intake' },
     { id: 'students' as const, label: 'Accepted & Registered', icon: Users, badge: `${acceptedStudents.length} Students` },
     { id: 'community' as const, label: 'Community Feed', icon: Users, badge: 'Showcases & Debates' },
     { id: 'research' as const, label: 'Research Corner', icon: FileText, badge: `${researchPapers.length} Briefs` },
@@ -813,6 +816,18 @@ export const EducationPlatformHub: React.FC<EducationPlatformHubProps> = ({
                 setSubTab('educare');
               }}
               onOpenStudentsRoster={() => setSubTab('students')}
+            />
+          </div>
+        )}
+
+        {subTab === 'applications' && (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <ApplicationsAndRegistrationsSection
+              user={user}
+              acceptedStudents={acceptedStudents}
+              onApplyQualification={onApplyQualification}
+              onUpdateAcceptedStudentStatus={onUpdateAcceptedStudentStatus}
+              onOpenFullRoster={() => setSubTab('students')}
             />
           </div>
         )}

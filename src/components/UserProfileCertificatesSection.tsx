@@ -15,6 +15,7 @@ import {
 } from '../data/certificatesData';
 import { CourseCertificateCard } from './CourseCertificateCard';
 import { CourseCertificateModal } from './CourseCertificateModal';
+import { CertificateVerificationBadge } from './CertificateVerificationBadge';
 
 interface UserProfileCertificatesSectionProps {
   user: UserProfile;
@@ -258,7 +259,7 @@ export const UserProfileCertificatesSection: React.FC<UserProfileCertificatesSec
         </div>
       ) : (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          {visibleGridEntries.map(({ guide, cert, pct, bestScore, isEarned, serialNumber, issueDate }) => (
+          {visibleGridEntries.map(({ guide, cert, accreditationTier, pct, bestScore, isEarned, serialNumber, issueDate }) => (
             <div
               key={guide.id}
               className="rounded-2xl border border-[#84cc16]/40 dark:border-[#84cc16]/35 bg-stone-50/70 dark:bg-stone-950/50 p-4 flex flex-col justify-between gap-4"
@@ -289,6 +290,19 @@ export const UserProfileCertificatesSection: React.FC<UserProfileCertificatesSec
                   compact={true}
                 />
               </div>
+
+              {isEarned && (
+                <CertificateVerificationBadge
+                  compact
+                  serialNumber={serialNumber}
+                  credentialTitle={cert.credentialTitle}
+                  recipientName={user.name || 'Academic Scholar'}
+                  issueDate={issueDate}
+                  accreditor={cert.accreditor}
+                  accreditationTier={accreditationTier}
+                  onVerifyOnline={onVerifySerial}
+                />
+              )}
 
               {/* Card Gallery Footer Strip */}
               <div className="flex flex-wrap items-center justify-between gap-3 px-1 text-xs">

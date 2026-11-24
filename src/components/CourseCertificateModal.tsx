@@ -3,6 +3,7 @@ import { Award, Download, Printer, X, CheckCircle2, Layers, ZoomIn, ZoomOut, Ima
 import jsPDF from 'jspdf';
 import { CourseCertificateSpec } from '../types';
 import { CourseCertificateCard } from './CourseCertificateCard';
+import { CertificateVerificationBadge } from './CertificateVerificationBadge';
 import { loadLogoDataUrl, getFittedLogoSize } from '../utils/pdfBranding';
 import { TAI_ONE_LOGO_URL } from '../data/certificatesData';
 
@@ -667,7 +668,7 @@ export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
         )}
 
         {/* Certificate Canvas Preview */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-stone-100 dark:bg-stone-950">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-stone-100 dark:bg-stone-950 space-y-4">
           <div className={isHighResView ? 'min-w-[820px]' : ''}>
             <CourseCertificateCard
               certificate={certificate}
@@ -680,6 +681,25 @@ export const CourseCertificateModal: React.FC<CourseCertificateModalProps> = ({
               isEarned={isEarned}
             />
           </div>
+
+          {isEarned && (
+            <CertificateVerificationBadge
+              serialNumber={serialNumber}
+              credentialTitle={certificate.credentialTitle}
+              recipientName={recipientName}
+              issueDate={issueDate}
+              accreditor={certificate.accreditor}
+              accreditationTier={certificate.accreditationTier}
+              onVerifyOnline={
+                onVerifyOnline
+                  ? (serial) => {
+                      onClose();
+                      onVerifyOnline(serial);
+                    }
+                  : undefined
+              }
+            />
+          )}
         </div>
 
         {/* Footer */}

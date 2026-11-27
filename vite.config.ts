@@ -8,7 +8,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 export default defineConfig(() => {
   return {
     // This project is published as a GitHub Pages project site, not a domain-root site.
-    base: '/Tsoaela-Training-Playground-Training/',
+    base: '/',
     plugins: [
       react(),
       tailwindcss(),
